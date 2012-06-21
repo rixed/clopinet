@@ -405,9 +405,11 @@ struct
 end
 
 (* Useful to round a timestamp to some amount of seconds *)
-let round_timestamp n (sec, _usec) =
+let round_sec n sec =
     let n = Int64.of_int n in
     Int64.mul n (Int64.div sec n)
+
+let round_timestamp n (sec, _usec) = round_sec n sec
 
 (*
    Functors to easily assemble more complex types
@@ -709,22 +711,45 @@ end
    See Aggregator.distr for an aggregation function.
  *)
 
-module Distribution (N : NUMBER) =
+module Distribution =
 struct
-    include Tuple5 (Integer) (N) (N) (N) (N)
+    include Tuple5 (Integer) (Float) (Float) (Float) (Float)
 
-    (* Compute the avg and standard deviation using the well known recurence formulas (where
+    (* Compute the avg and standard deviation using the well known recurrence formulas (where
      * the standard deviation sigma = sqrt(s/(n-1)) *)
     let distr x = function
-        | None -> 1, x, x, x, N.zero
+        | None -> 1, x, x, x, 0.
         | Some (n, mi, ma, avg, s) ->
             let n' = n + 1 in
-            let xd = N.sub x avg in
-            let avg' = N.add avg (N.idiv xd n') in
+            let xd = x -. avg in
+            let avg' = avg +. (xd /. float_of_int n') in
             n',
-            (if N.lt x mi then x else mi),
-            (if N.lt ma x then x else ma),
+            min x mi,
+            max x ma,
             avg',
-            (N.add s (N.mul xd (N.sub x avg')))
+            s +. (xd *. (x -. avg'))
+
+    let combine ((n, mi, ma, avg, s) as x) = function
+        | None -> x
+        | Some (n', mi', ma', avg', s') ->
+            let fn = float_of_int n and fn' = float_of_int n' in
+            (* imagine we have each sample sets split in two, with n/2 samples
+             * at avg-sigma and n/2 at avg+sigma. It's then easy to combine the two sets. *)
+            let sigma = sqrt (s /. fn)
+            and sigma'= sqrt (s' /. fn')
+            and comb_avg = ((avg *. fn) +. (avg' *. fn')) /. (fn +. fn')
+            and sq x = x *. x in
+            let comb_q =
+                let half_fn = fn/.2. and half_fn' = fn'/.2. in
+                let s1 = avg -. sigma  and s2 = avg +. sigma
+                and s1'= avg'-. sigma' and s2'= avg'+. sigma' in
+                half_fn *. (sq(s1 -. comb_avg) +. sq(s2 -. comb_avg)) +.
+                half_fn'*. (sq(s1'-. comb_avg) +. sq(s2'-. comb_avg)) in
+            n+n',
+            min mi mi',
+            max ma ma',
+            comb_avg,
+            comb_q
+
 end
 
