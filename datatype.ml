@@ -55,7 +55,7 @@ let write_var_int64 oc n =
     let rec aux n =
         if n >= 0L && n < 128L then output_byte oc (Int64.to_int n)
         else (
-            output_byte oc ((Int64.to_int (Int64.logand n 127L)) lor 128) ;
+            output_byte oc ((Int64.to_int n) lor 128) ;
             aux (Int64.shift_right_logical n 7)
         ) in
     aux n
