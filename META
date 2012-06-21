@@ -1,0 +1,5 @@
+description = "Multi-Level Round-Robbin Database"
+version = "1"
+requires = "bricabrac pfds"
+archive(byte) = "mlrrd.cma"
+archive(native) = "mlrrd.cmxa"
