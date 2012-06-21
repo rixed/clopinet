@@ -7,8 +7,8 @@ let subnets =
     List.map (fun (s, w) -> Unix.inet_addr_of_string s, w)
         [ "0.0.0.0", 2 ; "64.0.0.0", 2 ; "128.0.0.0", 2 ; "192.0.0.0", 2 ]
 
-(* We need a function to tell us when to flush accumulated datas. This can be any
-   function, here is just a trivial exemple based on data size: *)
+(* We need a function to tell us when to flush accumulated data. This can be any
+   function, here is just a trivial example based on data size: *)
 let once_every n =
     let count = ref 0 in
     fun _k _v ->
@@ -18,7 +18,7 @@ let once_every n =
             true
         ) else false
 
-(* another exemple: flush as soon as the passed value changes (according to the eq function,
+(* another example: flush as soon as the passed value changes (according to the eq function,
    which if free to compare only a given field of x... *)
 let when_change eq =
     let prev = ref None in
@@ -94,14 +94,40 @@ struct
             print_newline ())
 end
 
+(* Lod3: and finally to hour *)
+
+module Dns3 =
+struct
+    include Altern1 (Tuple5 (Cidr) (InetAddr) (Integer8) (Integer64) (Distribution))
+    let name = "DNS-over-1hour"
+    let table_name dbdir = dbdir ^ "/" ^ name
+    let table dbdir =
+        Table.create (table_name dbdir)
+            Dns1.hash_on_srv read write
+            Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
+    let dump dbdir =
+        Table.iter (table_name dbdir) read (fun x ->
+            write_txt stdout x ;
+            print_newline ())
+end
+
 let load dbdir fname =
+
+    let table3 = Dns3.table dbdir in
+    let accum3, flush3 =
+        Aggregator.accum (once_every 10_000)
+                         Distribution.combine
+                         [ fun (clt, srv, err, ts) distr ->
+                              Table.append table3 (clt, srv, err, ts, distr) ] in
 
     let table2 = Dns2.table dbdir in
     let accum2, flush2 =
         Aggregator.accum (once_every 10_000)
                          Distribution.combine
                          [ fun (clt, srv, err, ts) distr ->
-                              Table.append table2 (clt, srv, err, ts, distr) ] in
+                              Table.append table2 (clt, srv, err, ts, distr) ;
+                              let ts = round_sec 3600 ts in
+                              accum3 (clt, srv, err, ts) distr ] in
 
     let table1 = Dns1.table dbdir in
     let accum1, flush1 =
@@ -133,6 +159,7 @@ let load dbdir fname =
 
     flush1 () ;
     flush2 () ;
+    flush3 () ;
     Table.close table0 ;
     Table.close table1
 
@@ -145,6 +172,7 @@ let main =
         "-dump", Int (function 0 -> Dns0.dump !dbdir
                              | 1 -> Dns1.dump !dbdir
                              | 2 -> Dns2.dump !dbdir
+                             | 3 -> Dns2.dump !dbdir
                              | x -> raise (Bad ("Bad LOD: "^string_of_int x))), "dump content of Lod n" ]
         (fun x -> raise (Bad x))
         "Operate the DNS response times DB")
