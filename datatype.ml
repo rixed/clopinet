@@ -87,6 +87,16 @@ let read_txt_until ic delim =
         ) in
     aux []
 
+let peek_sign ic =
+    let c = TxtInput.peek ic in
+    if c = '-' then (
+        TxtInput.swallow ic ;
+        true
+    ) else if c = '+' then (
+        TxtInput.swallow ic ;
+        false
+    ) else false
+
 (* Some predefined types *)
 
 module Bool : DATATYPE with type t = bool =
@@ -172,13 +182,14 @@ struct
         aux 0 [] i
     let read = read_var_int
     let read_txt ic =
+        let neg = peek_sign ic in
         let rec aux v =
             let d = TxtInput.peek ic in
             if d < '0' || d > '9' then v else (
                 TxtInput.swallow ic ;
                 aux (v*10 + (int_of_char d - Char.code '0'))
             ) in
-        aux 0
+        (if neg then (~-) else id) (aux 0)
     let zero = 0
     let add = (+)
     let sub = (-)
@@ -230,21 +241,17 @@ struct
     let equal = (=)
     let hash = Int32.to_int
     let write oc t = write_var_int64 oc (Int64.of_int32 t)
-    let write_txt oc i =
-        if i = 0l then output_char oc '0' else
-        let rec aux l p i =
-            if i = 0l then write_char_list oc p else
-            aux (1+l) (Char.unsafe_chr (Int32.to_int (Int32.rem i 10l) + Char.code '0') :: p) (Int32.div i 10l) in
-        aux 0 [] i
+    let write_txt oc i = Printf.fprintf oc "%ld" i
     let read ic = Int64.to_int32 (read_var_int64 ic)
     let read_txt ic =
+        let neg = peek_sign ic in
         let rec aux v =
             let d = TxtInput.peek ic in
             if d < '0' || d > '9' then v else (
                 TxtInput.swallow ic ;
                 aux (Int32.add (Int32.mul v 10l) (Int32.of_int (int_of_char d - Char.code '0')))
             ) in
-        aux 0l
+        (if neg then Int32.neg else id) (aux 0l)
     let zero = 0l
     let add = Int32.add
     let sub = Int32.sub
@@ -264,13 +271,14 @@ struct
     let write_txt oc i = Printf.fprintf oc "%Ld" i
     let read  = read_var_int64
     let read_txt ic =
+        let neg = peek_sign ic in
         let rec aux v =
             let d = TxtInput.peek ic in
             if d < '0' || d > '9' then v else (
                 TxtInput.swallow ic ;
                 aux (Int64.add (Int64.mul v 10L) (Int64.of_int (int_of_char d - Char.code '0')))
             ) in
-        aux 0L
+        (if neg then Int64.neg else id) (aux 0L)
     let zero = 0L
     let add = Int64.add
     let sub = Int64.sub
