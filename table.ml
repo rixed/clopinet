@@ -1,6 +1,9 @@
 open Bricabrac
 open LargeFile
 
+let max_file_size = 10_000_000
+let max_hash_size = 2048
+
 (* READING
    Can be done by multiple programs simultaneously,
    no persistent data involved.
@@ -13,6 +16,7 @@ let read_meta tdir hnum snum aggr_reader =
     with Sys_error _ -> None
 
 let iter_file tdir hnum snum reader f =
+    let hnum = hnum mod max_hash_size in
     let fname = Dbfile.path tdir hnum snum in
     with_file_in fname (fun ic ->
         try forever (fun () ->
@@ -20,6 +24,7 @@ let iter_file tdir hnum snum reader f =
         with End_of_file -> ())
 
 let iter_snums tdir hnum aggr_reader f =
+    let hnum = hnum mod max_hash_size in
     try (
         Sys.readdir (Dbfile.dir tdir hnum) |>
         Array.iter (fun name ->
@@ -61,9 +66,6 @@ type ('a, 'b) t =
                   aggregator : ('a, 'b) Aggregator.t ;
                  aggr_reader : in_channel -> 'b ;
                  aggr_writer : out_channel -> 'b -> unit }
-
-let max_file_size = 10_000_000
-let max_hash_size = 2048
 
 let save_meta t hnum h_cache =
     match h_cache.aggr with

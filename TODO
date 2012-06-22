@@ -1,9 +1,3 @@
-* Dns0.dump should take arguments : start, stop...
-
-Instead of implementing yet another function for dumping
-
-* A smart iterator using the index and the meta data to skip files
-
 * Read zipped files
 
 * Parallelize reading.

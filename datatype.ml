@@ -78,13 +78,15 @@ let read_var_int ic =
 
 let read_txt_until ic delim =
     let rec aux p =
-        let b = TxtInput.peek ic in
-        if String.contains delim b then (
-            string_of_list (List.rev p)
-        ) else (
-            TxtInput.swallow ic ;
-            aux (b :: p)
-        ) in
+        try (
+            let b = TxtInput.peek ic in
+            if String.contains delim b then (
+                string_of_list (List.rev p)
+            ) else (
+                TxtInput.swallow ic ;
+                aux (b :: p)
+            )
+        ) with End_of_file -> string_of_list (List.rev p) in
     aux []
 
 let peek_sign ic =
@@ -184,7 +186,7 @@ struct
     let read_txt ic =
         let neg = peek_sign ic in
         let rec aux v =
-            let d = TxtInput.peek ic in
+            let d = try TxtInput.peek ic with End_of_file -> '\n' in
             if d < '0' || d > '9' then v else (
                 TxtInput.swallow ic ;
                 aux (v*10 + (int_of_char d - Char.code '0'))
@@ -246,7 +248,7 @@ struct
     let read_txt ic =
         let neg = peek_sign ic in
         let rec aux v =
-            let d = TxtInput.peek ic in
+            let d = try TxtInput.peek ic with End_of_file -> '\n' in
             if d < '0' || d > '9' then v else (
                 TxtInput.swallow ic ;
                 aux (Int32.add (Int32.mul v 10l) (Int32.of_int (int_of_char d - Char.code '0')))
@@ -273,7 +275,7 @@ struct
     let read_txt ic =
         let neg = peek_sign ic in
         let rec aux v =
-            let d = TxtInput.peek ic in
+            let d = try TxtInput.peek ic with End_of_file -> '\n' in (* any non digit char would do *)
             if d < '0' || d > '9' then v else (
                 TxtInput.swallow ic ;
                 aux (Int64.add (Int64.mul v 10L) (Int64.of_int (int_of_char d - Char.code '0')))
@@ -326,26 +328,29 @@ struct
         let n = InetAddr.read ic in
         n, Integer16.read ic
     let read_txt ic =
+        (* TODO: would be nice if /32 could be omited *)
         let n = read_txt_until ic "/" |>
                 Unix.inet_addr_of_string in
-        ignore (TxtInput.read ic) ;
+        let delim = TxtInput.read ic in assert (delim = '/') ;
         n, Integer16.read_txt ic
 end
+
+(* Usefull function to check if an IP belongs to a CIDR *)
+let in_cidr (addr : Unix.inet_addr) ((net : Unix.inet_addr), mask) =
+    let n = Obj.magic net and a = Obj.magic addr in
+    assert (mask <= String.length n * 8 && mask >= 0) ;
+    let rec addr_match i =
+        let ib = i*8 in
+        ib >= mask || (
+            let m = if mask >= ib+8 then 0xff else 0xff lsl (8 - (mask - ib)) in
+            Char.code a.[i] land m = Char.code n.[i] &&
+            addr_match (i+1)
+        ) in
+    String.length n = String.length a && addr_match 0
 
 (* Usefull function to degrade an InetAddr into a subnet.
   Returns IP*mask *)
 let cidr_of_inetaddr subnets ip =
-    let in_cidr (addr : Unix.inet_addr) ((net : Unix.inet_addr), mask) =
-        let n = Obj.magic net and a = Obj.magic addr in
-        assert (mask <= String.length n * 8 && mask >= 0) ;
-        let rec addr_match i =
-            let ib = i*8 in
-            ib >= mask || (
-                let m = if mask >= ib+8 then 0xff else 0xff lsl (8 - (mask - ib)) in
-                Char.code a.[i] land m = Char.code n.[i] &&
-                addr_match (i+1)
-            ) in
-        String.length n = String.length a && addr_match 0 in
     let masklen_of (t : Unix.inet_addr) =
         let s = Obj.magic t in String.length s * 8 in
     let net, mask =

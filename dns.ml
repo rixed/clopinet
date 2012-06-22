@@ -48,10 +48,45 @@ struct
         Table.create (table_name dbdir)
             hash_on_srv read write
             meta_aggr meta_read meta_write
-    let dump dbdir =
-        Table.iter (table_name dbdir) read (fun x ->
-            write_txt stdout x ;
-            print_newline ())
+
+    (* Function to query the Lod0, ie select a set of individual queries *)
+    let dump ?start ?stop ?client ?server ?error ?qname ?rt_min dbdir f =
+        let tdir = table_name dbdir in
+        let ends_with e s =
+            let eo = String.length e - 1 and so = String.length s - 1 in
+            if eo > so then false else
+            let rec aux eo so =
+                if eo < 0 then true else e.[eo] = s.[so] && aux (eo-1) (so-1) in
+            aux eo so in
+        let check vopt f = match vopt with
+            | None -> true
+            | Some v -> f v in
+        let iter_hnum hnum =
+            Table.iter_snums tdir hnum meta_read (fun snum bounds ->
+                let (<<) = Timestamp.lt in
+                let scan_it = match bounds with
+                    | None -> true
+                    | Some (ts1, ts2) ->
+                        check start (fun start -> not (ts2 << start)) &&
+                        check stop  (fun stop  -> not (stop << ts1)) in
+                if scan_it then (
+                    (* TODO: filter with client, name, etc, and again start/stop! *)
+                    Table.iter_file tdir hnum snum read (fun ((clt, srv, err, ts, rt, name) as x) ->
+                        if check start  (fun start -> not (ts << start)) &&
+                           check stop   (fun stop  -> not (stop << ts)) &&
+                           check rt_min (fun rt_m  -> rt > rt_m) &&
+                           check client (fun cidr  -> in_cidr clt cidr) &&
+                           check server (fun ip    -> InetAddr.equal ip srv) &&
+                           check error  (fun error -> error = err) &&
+                           check qname  (fun qname -> ends_with qname name) then
+                           f x))) in
+        match server with
+        | None ->
+            Table.iter_hnums tdir iter_hnum
+        | Some ip ->
+            (* We have an index for this! *)
+            iter_hnum (InetAddr.hash ip)
+
 end
 
 (* Lod1: degraded client, rounded query_date (to 1min), stripped query_name, distribution of resptimes *)
@@ -71,10 +106,8 @@ struct
         Table.create (table_name dbdir)
             hash_on_srv read write
             meta_aggr meta_read meta_write
-    let dump dbdir =
-        Table.iter (table_name dbdir) read (fun x ->
-            write_txt stdout x ;
-            print_newline ())
+    let dump dbdir f =
+        Table.iter (table_name dbdir) read f
 end
 
 (* Lod2: round timestamp to 10 mins *)
@@ -88,10 +121,8 @@ struct
         Table.create (table_name dbdir)
             Dns1.hash_on_srv read write
             Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
-    let dump dbdir =
-        Table.iter (table_name dbdir) read (fun x ->
-            write_txt stdout x ;
-            print_newline ())
+    let dump dbdir f =
+        Table.iter (table_name dbdir) read f
 end
 
 (* Lod3: and finally to hour *)
@@ -105,10 +136,8 @@ struct
         Table.create (table_name dbdir)
             Dns1.hash_on_srv read write
             Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
-    let dump dbdir =
-        Table.iter (table_name dbdir) read (fun x ->
-            write_txt stdout x ;
-            print_newline ())
+    let dump dbdir f =
+        Table.iter (table_name dbdir) read f
 end
 
 (* Load new data into the database *)
@@ -165,17 +194,31 @@ let load dbdir fname =
     Table.close table0 ;
     Table.close table1
 
+
+
 let main =
-    let dbdir = ref "./" in
+    let dbdir = ref "./" and start = ref None and stop = ref None 
+    and rt_min = ref None and qname = ref None and error = ref None
+    and client = ref None and server = ref None in
     Arg.(parse [
         "-dir", Set_string dbdir, "database directory (or './')" ;
         "-load", String (fun s -> load !dbdir s), "load a CSV file" ;
         "-verbose", Set verbose, "verbose" ;
-        "-dump", Int (function 0 -> Dns0.dump !dbdir
-                             | 1 -> Dns1.dump !dbdir
-                             | 2 -> Dns2.dump !dbdir
-                             | 3 -> Dns2.dump !dbdir
-                             | x -> raise (Bad ("Bad LOD: "^string_of_int x))), "dump content of Lod n" ]
+        "-dump", Int (function 0 -> Dns0.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min
+                                               ?client:!client ?server:!server
+                                               ?qname:!qname ?error:!error !dbdir
+                                               (fun x -> write_txt stdout x ; print_newline ()))
+                             | 1 -> Dns1.(dump !dbdir (fun x -> write_txt stdout x ; print_newline ()))
+                             | 2 -> Dns2.(dump !dbdir (fun x -> write_txt stdout x ; print_newline ()))
+                             | 3 -> Dns2.(dump !dbdir (fun x -> write_txt stdout x ; print_newline ()))
+                             | x -> raise (Bad ("Bad LOD: "^string_of_int x))), "dump content of Lod n" ;
+        "-start", String (fun s -> start := Some (TxtInput.from_string s |> Timestamp.read_txt)), "limit queries to timestamps after this" ;
+        "-stop",  String (fun s -> stop  := Some (TxtInput.from_string s |> Timestamp.read_txt)), "limit queries to timestamps before this" ;
+        "-rt-min", String (fun s -> rt_min := Some (TxtInput.from_string s |> Integer32.read_txt)), "limit queries to resptimes greater than this" ;
+        "-qname", String (fun s -> qname := Some s), "limit queries to those ending with this" ;
+        "-error", Int (fun i -> error := Some i), "select only queries with this error code" ;
+        "-client", String (fun s -> client := Some (TxtInput.from_string s |> Cidr.read_txt)), "limit to these clients" ;
+        "-server", String (fun s -> server := Some (TxtInput.from_string s |> InetAddr.read_txt)), "limit to this server" ]
         (fun x -> raise (Bad x))
         "Operate the DNS response times DB")
 
