@@ -1,6 +1,10 @@
 
 (** {2} Reading *)
 
+val max_file_size : int
+
+val max_hash_size : int
+
 val iter_file : string -> int -> int -> (in_channel -> 'a) -> ('a -> unit) -> unit
 
 (* f is called with snum and the optional meta data *)

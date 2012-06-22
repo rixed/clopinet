@@ -46,7 +46,7 @@ let write_char_list oc l =
     output_string oc (string_of_list l)
 
 let write_var_int64 oc n =
-    (* Recode negative number so that higher bits are 0 : stores (abs(n)<<1)+sign.
+    (* Recode negative number so that higher bits are 0 : stores (abs(n) lsl 1)+sign.
      * Notice that if n > 0 then we can mult it by 2 since we have a 0 bit at highest
      * position, but then ocaml will think it's negative again, so we have to
      * consider than n<0 means n is actually huge. *)
@@ -356,6 +356,37 @@ let cidr_of_inetaddr subnets ip =
         try List.find (in_cidr ip) subnets
         with Not_found -> ip, masklen_of ip in
     net, mask
+
+open Bitstring
+let iter_ips ((netaddr : Unix.inet_addr), mask) f =
+    let net : string = Obj.magic netaddr in (* reveal the underlying string *)
+    let net = bitstring_of_string net in
+    let addr_bits_len = bitstring_length net in
+    assert (mask <= addr_bits_len && mask >= 0) ;
+    let width_bits = addr_bits_len - mask in
+    if width_bits = 0 then (
+        (* Special shortcut since bitstring do not allow length of 0 bits in (BITSTRING {...}) *)
+        f netaddr
+    ) else (
+        let max_i = Int64.shift_left 1L width_bits in
+        let rec aux i =
+            if i < max_i then (
+                let ip : Unix.inet_addr =
+                    Bitstring.concat [
+                        Bitstring.takebits mask net ;
+                        (BITSTRING { i : width_bits }) ] |>
+                    string_of_bitstring |>
+                    Obj.magic in
+                f ip ;
+                aux (Int64.succ i)
+            ) in
+        aux 0L
+    )
+
+let subnet_size ((net : Unix.inet_addr), mask) =
+    let net : string = Obj.magic net in
+    let width_bits = String.length net * 8 - mask in
+    1 lsl width_bits
 
 module Timestamp : NUMBER with type t = Int64.t * int =
 struct

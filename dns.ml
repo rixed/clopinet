@@ -63,29 +63,36 @@ struct
             | Some v -> f v in
         let iter_hnum hnum =
             Table.iter_snums tdir hnum meta_read (fun snum bounds ->
-                let (<<) = Timestamp.lt in
+                let (<<<) = Timestamp.lt in
                 let scan_it = match bounds with
                     | None -> true
                     | Some (ts1, ts2) ->
-                        check start (fun start -> not (ts2 << start)) &&
-                        check stop  (fun stop  -> not (stop << ts1)) in
+                        check start (fun start -> not (ts2 <<< start)) &&
+                        check stop  (fun stop  -> not (stop <<< ts1)) in
                 if scan_it then (
                     (* TODO: filter with client, name, etc, and again start/stop! *)
                     Table.iter_file tdir hnum snum read (fun ((clt, srv, err, ts, rt, name) as x) ->
-                        if check start  (fun start -> not (ts << start)) &&
-                           check stop   (fun stop  -> not (stop << ts)) &&
+                        if check start  (fun start -> not (ts <<< start)) &&
+                           check stop   (fun stop  -> not (stop <<< ts)) &&
                            check rt_min (fun rt_m  -> rt > rt_m) &&
                            check client (fun cidr  -> in_cidr clt cidr) &&
-                           check server (fun ip    -> InetAddr.equal ip srv) &&
+                           check server (fun cidr  -> in_cidr srv cidr) &&
                            check error  (fun error -> error = err) &&
                            check qname  (fun qname -> ends_with qname name) then
                            f x))) in
         match server with
-        | None ->
+        | Some cidr when subnet_size cidr < Table.max_hash_size ->
+            if !verbose then Printf.fprintf stderr "Using index\n" ;
+            (* We have an index for this! Build the list of hnums *)
+            let visited = Hashtbl.create 977 in
+            iter_ips cidr (fun ip ->
+                let hnum = InetAddr.hash ip mod Table.max_hash_size in
+                if not (Hashtbl.mem visited hnum) then (
+                    Hashtbl.add visited hnum true ;
+                    iter_hnum hnum
+                ))
+        | _ ->
             Table.iter_hnums tdir iter_hnum
-        | Some ip ->
-            (* We have an index for this! *)
-            iter_hnum (InetAddr.hash ip)
 
 end
 
@@ -186,7 +193,7 @@ let load dbdir fname =
             assert (eol = '\n' || eol = '\r') ;
             incr lineno) ()
         with End_of_file ->
-            if !verbose then Printf.printf "Inserted %d lines\n" !lineno) ;
+            if !verbose then Printf.fprintf stderr "Inserted %d lines\n" !lineno) ;
 
     flush1 () ;
     flush2 () ;
@@ -219,7 +226,7 @@ let main =
         "-qname", String (fun s -> qname := Some s), "limit queries to those ending with this" ;
         "-error", Int (fun i -> error := Some i), "select only queries with this error code" ;
         "-client", String (fun s -> client := Some (TxtInput.from_string s |> Cidr.read_txt)), "limit to these clients" ;
-        "-server", String (fun s -> server := Some (TxtInput.from_string s |> InetAddr.read_txt)), "limit to this server" ]
+        "-server", String (fun s -> server := Some (TxtInput.from_string s |> Cidr.read_txt)), "limit to these servers" ]
         (fun x -> raise (Bad x))
         "Operate the DNS response times DB")
 

@@ -54,17 +54,17 @@ let accum flush aggr ks =
  * Insteqd of sorting the whole stream just to discard most of the
  * result, we here only build the set of the N entries (unsorted!). *)
 
-let mins n (<<) s =
+let mins n (<<<) s =
     let m = Array.create n None and worst = ref 0 in
     let reset_worst () =
         worst := 0 ;
         for i = 1 to n-1 do
-            if unopt m.(!worst) << unopt m.(i) then worst := i
+            if unopt m.(!worst) <<< unopt m.(i) then worst := i
         done in
     iteri s (fun i x ->
         if i < n then m.(i) <- Some x else (
             if i = n then reset_worst () ;
-            if x << unopt m.(!worst) then (
+            if x <<< unopt m.(!worst) then (
                 m.(!worst) <- Some x ;
                 reset_worst ()
             )

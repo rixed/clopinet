@@ -13,7 +13,8 @@ EXAMPLES_BYTE = \
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
 
-REQUIRES = bricabrac pfds zip
+REQUIRES = bricabrac pfds bitstring bitstring.syntax zip
+SYNTAX=-syntax camlp4o
 
 .PHONY: all
 all: $(ARCHIVE) mlrrd.top examples
@@ -30,7 +31,7 @@ check: check.byte
 	@./check.byte || echo "FAILED"
 
 mlrrd.top: $(ARCHIVE)
-	$(OCAMLMKTOP)  -o $@ -package "$(REQUIRES)" -custom $(ARCHIVE)
+	$(OCAMLMKTOP)  -o $@ $(SYNTAX) -package "findlib,$(REQUIRES)" -linkpkg $(ARCHIVE)
 
 clean-spec:
 	rm -f mlrrd.top

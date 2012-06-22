@@ -1,5 +1,4 @@
-* Provides for_each_ip_of_cidr and use to make dump's server a cidr, when the
-mask is sufficiently large wrt. max_hash_size.
+* Some tests for the helper functions and the (de)serializers
 
 * Read zipped files
 
@@ -37,5 +36,6 @@ performances)
 * Think of a way to ensure that when we compute a hash to select a part of
 a table we actually hash the correct datatype (ie. Dns0.hash takes a full 
 record, extract something then hash this, while Dns0.dump hash a server IP,
-check that what Dns0.hash extract is also an IP).
+check that what Dns0.hash extract is also an IP). Additionally, simplify
+the index handling (Dns0.dump is too complex wrt. index)
 

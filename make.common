@@ -17,9 +17,9 @@ XOBJECTS = $(OBJECTS:.cmo=.cmx)
 ARCHIVE  = $(PKG_NAME).cma
 XARCHIVE = $(ARCHIVE:.cma=.cmxa)
 $(ARCHIVE): $(OBJECTS) $(CLIB)
-	$(OCAMLC)   -a -o $@ -package "$(REQUIRES)" -linkpkg $(OCAMLFLAGS) $(OBJECTS)
+	$(OCAMLC)   -a -o $@ $(SYNTAX) -package "$(REQUIRES)" -linkpkg $(OCAMLFLAGS) $(OBJECTS)
 $(XARCHIVE): $(XOBJECTS) $(CLIB)
-	$(OCAMLOPT) -a -o $@ -package "$(REQUIRES)" $(OCAMLOPTFLAGS) $(XOBJECTS)
+	$(OCAMLOPT) -a -o $@ $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) $(XOBJECTS)
 install: $(ARCHIVE) $(XARCHIVE)
 	if test -f "$(XARCHIVE)" ; then extra="$(XARCHIVE) "`basename "$(XARCHIVE)" .cmxa`.a ; fi ; \
 	ocamlfind install "$(PKG_NAME)" *.cmi "$(ARCHIVE)" META $$extra
@@ -32,19 +32,19 @@ endif
 .SUFFIXES: .mll .mly .ml .mli .cmo .cmi .cmx .opt .byte
 
 .cmo.byte:
-	$(OCAMLC)   -o $@ -package "$(REQUIRES)" $(ARCHIVE) -linkpkg $(OCAMLFLAGS) $^
+	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES)" $(ARCHIVE) -linkpkg $(OCAMLFLAGS) $^
 
 .cmx.opt:
-	OCAMLPATH=../ $(OCAMLOPT) -o $@ -package "$(REQUIRES)" $(XARCHIVE) -linkpkg $(OCAMLOPTFLAGS) $^
+	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" $(XARCHIVE) -linkpkg $(OCAMLOPTFLAGS) $^
 
 .ml.cmo:
-	$(OCAMLC) -package "$(REQUIRES)" $(OCAMLFLAGS) -c $<
+	$(OCAMLC) $(SYNTAX) -package "$(REQUIRES)" $(OCAMLFLAGS) -c $<
 
 .mli.cmi:
-	$(OCAMLC) -package "$(REQUIRES)" $(OCAMLFLAGS) -c $<
+	$(OCAMLC) $(SYNTAX) -package "$(REQUIRES)" $(OCAMLFLAGS) -c $<
 
 .ml.cmx:
-	$(OCAMLOPT) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) -c $<
+	$(OCAMLOPT) $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) -c $<
 
 .mll.ml:
 	$(OCAMLLEX) $<
@@ -61,11 +61,11 @@ clean: clean-spec
 
 # Dependencies
 .depend: $(wildcard *.ml) $(wildcard *.mli) $(wildcard *.mll) $(wildcard *.mly)
-	$(OCAMLDEP) -package "$(REQUIRES)" -I .. $^ > $@
+	$(OCAMLDEP) $(SYNTAX) -package "$(REQUIRES)" -I .. $^ > $@
 
-doc: $(wildcard *.ml)
+doc: $(SOURCES)
 	mkdir -p $@
-	$(OCAMLDOC) -d doc $^
+	$(OCAMLDOC) $(SYNTAX) -d doc $^
 
 clear: $(SOURCES)
 	sed -i -e 's/[ 	]\+$$//' $^
