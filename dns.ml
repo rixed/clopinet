@@ -111,6 +111,8 @@ struct
             print_newline ())
 end
 
+(* Load new data into the database *)
+
 let load dbdir fname =
 
     let table3 = Dns3.table dbdir in
@@ -148,7 +150,7 @@ let load dbdir fname =
 
     let lineno = ref 0 in
     with_file_in fname (fun ic ->
-        let ic = TxtInput.from ic in
+        let ic = TxtInput.from_file ic in
         try forever (fun () ->
             Dns0.read_txt ic |> append0 ;
             let eol = TxtInput.read ic in

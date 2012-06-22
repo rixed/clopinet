@@ -2,14 +2,25 @@
 
 let debug = false
 
+type strofs = { s : string ; mutable o : int }
+type char_source = File of in_channel | String of strofs
+
 type t = {
-    ic : in_channel ;
+    src : char_source ;
     mutable peeked : char option }
 
-let from ic = { ic ; peeked = None }
+let from_file ic = { src = File ic ; peeked = None }
+
+let from_string str = { src = String { s = str ; o = 0 } ; peeked = None }
 
 let read t = match t.peeked with
-    | None   -> input_char t.ic
+    | None ->
+        (match t.src with
+        | File ic -> input_char ic
+        | String str ->
+            if str.o >= String.length str.s then raise End_of_file ;
+            str.o <- str.o + 1 ;
+            str.s.[str.o - 1])
     | Some b -> t.peeked <- None ; b
 
 let read t =
@@ -22,7 +33,11 @@ let read t =
 let nread t n =
     let s = String.create n in
     s.[0] <- read t ;
-    really_input t.ic s 1 (n-1) ;
+    (match t.src with
+    | File ic -> really_input ic s 1 (n-1)
+    | String str ->
+        if n > String.length str.s - str.o then raise End_of_file ;
+        String.blit str.s str.o s 1 n) ;
     s
 
 let nread t n =
@@ -35,7 +50,7 @@ let nread t n =
 let peek t = match t.peeked with
     | Some b -> b
     | None   ->
-        let b = input_char t.ic in
+        let b = read t in
         t.peeked <- Some b ;
         b
 

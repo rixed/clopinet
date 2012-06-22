@@ -1,3 +1,7 @@
+* Dns0.dump should take arguments : start, stop...
+
+Instead of implementing yet another function for dumping
+
 * A smart iterator using the index and the meta data to skip files
 
 * Read zipped files
@@ -19,4 +23,9 @@ the meta data must be merged somehow (might not be possible with some
 aggregate function) ; or we allocate writers to some index value, the
 forked writer being responsible for the meta data and the serialization,
 but only a central writer performs the accumulations in the various Lods.
+
+* Lock tables to prevent several concurrent inserts
+
+* When loading, refuse to create a new table if a special option was
+not present (like "-create")
 
