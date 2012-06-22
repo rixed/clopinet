@@ -328,7 +328,6 @@ struct
         let n = InetAddr.read ic in
         n, Integer16.read ic
     let read_txt ic =
-        (* TODO: would be nice if /32 could be omited *)
         let n = read_txt_until ic "/" |>
                 Unix.inet_addr_of_string in
         let delim = TxtInput.read ic in assert (delim = '/') ;

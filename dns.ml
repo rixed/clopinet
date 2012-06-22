@@ -192,8 +192,9 @@ let load dbdir fname =
     flush2 () ;
     flush3 () ;
     Table.close table0 ;
-    Table.close table1
-
+    Table.close table1 ;
+    Table.close table2 ;
+    Table.close table3
 
 
 let main =

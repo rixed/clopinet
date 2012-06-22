@@ -10,7 +10,7 @@ In other words we want a version of the iterator that takes a list
 of files and forks many subprograms, calling the user callback for
 anything received from anyone.
 
-* Parallelize writing (less obvious).
+* Parallelize writing (less obvious but less usefull).
 
 For writing, either we allow anyone to append in any file, but then
 the meta data must be merged somehow (might not be possible with some
@@ -23,3 +23,6 @@ but only a central writer performs the accumulations in the various Lods.
 * When loading, refuse to create a new table if a special option was
 not present (like "-create")
 
+* It would be nice if /32 could be omitted from Cidrs.
+
+* It would be nice if the microseconds could be omitted from Timestamps.
