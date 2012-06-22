@@ -1,3 +1,6 @@
+* Provides for_each_ip_of_cidr and use to make dump's server a cidr, when the
+mask is sufficiently large wrt. max_hash_size.
+
 * Read zipped files
 
 * Parallelize reading.
@@ -26,3 +29,13 @@ not present (like "-create")
 * It would be nice if /32 could be omitted from Cidrs.
 
 * It would be nice if the microseconds could be omitted from Timestamps.
+
+* It would be even nicer if any reasonably widespread date format were 
+understood by Timestamp.read_txt. Or provide a helper function (for better
+performances)
+
+* Think of a way to ensure that when we compute a hash to select a part of
+a table we actually hash the correct datatype (ie. Dns0.hash takes a full 
+record, extract something then hash this, while Dns0.dump hash a server IP,
+check that what Dns0.hash extract is also an IP).
+
