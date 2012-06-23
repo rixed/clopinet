@@ -185,23 +185,27 @@ let load dbdir fname =
         accum1 (clt, srv, err, ts) (Int32.to_float rt) in
 
     let lineno = ref 0 in
-    with_file_in fname (fun ic ->
-        let ic = TxtInput.from_file ic in
-        try forever (fun () ->
-            Dns0.read_txt ic |> append0 ;
-            let eol = TxtInput.read ic in
-            assert (eol = '\n' || eol = '\r') ;
-            incr lineno) ()
-        with End_of_file ->
-            if !verbose then Printf.fprintf stderr "Inserted %d lines\n" !lineno) ;
-
-    flush1 () ;
-    flush2 () ;
-    flush3 () ;
-    Table.close table0 ;
-    Table.close table1 ;
-    Table.close table2 ;
-    Table.close table3
+    try_finalize (fun () ->
+        with_file_in fname (fun ic ->
+            let ic = TxtInput.from_file ic in
+            try forever (fun () ->
+                Dns0.read_txt ic |> append0 ;
+                let eol = TxtInput.read ic in
+                assert (eol = '\n' || eol = '\r') ;
+                incr lineno) ()
+            with End_of_file ->
+                if !verbose then Printf.fprintf stderr "Inserted %d lines\n" !lineno
+               | e ->
+                Printf.fprintf stderr "Error at line %d\n" !lineno ;
+                raise e)) ()
+        (fun () ->
+            flush1 () ;
+            flush2 () ;
+            flush3 () ;
+            Table.close table0 ;
+            Table.close table1 ;
+            Table.close table2 ;
+            Table.close table3) ()
 
 
 let main =
