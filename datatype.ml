@@ -310,6 +310,9 @@ struct
         Unix.inet_addr_of_string
 end
 
+let ip_of_string str =
+    TxtInput.from_string str |> InetAddr.read_txt
+
 module Cidr : DATATYPE with type t = InetAddr.t * Integer16.t =
 struct
     type t = InetAddr.t * Integer16.t
@@ -333,6 +336,9 @@ struct
         let delim = TxtInput.read ic in assert (delim = '/') ;
         n, Integer16.read_txt ic
 end
+
+let cidr_of_string str =
+    TxtInput.from_string str |> Cidr.read_txt
 
 (* Usefull function to check if an IP belongs to a CIDR *)
 let in_cidr (addr : Unix.inet_addr) ((net : Unix.inet_addr), mask) =

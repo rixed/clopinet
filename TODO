@@ -1,6 +1,7 @@
-* Some tests for the helper functions and the (de)serializers
+* Provides of_string, to_string, etc for every Datatype.S automatically
+with a functor
 
-* Read zipped files
+* Read zipped files.
 
 * Parallelize reading.
 
@@ -11,6 +12,8 @@ pretty-printed latter).
 In other words we want a version of the iterator that takes a list
 of files and forks many subprograms, calling the user callback for
 anything received from anyone.
+
+* More tests for the helper functions and the (de)serializers.
 
 * Parallelize writing (less obvious but less usefull).
 
