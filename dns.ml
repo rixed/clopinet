@@ -202,6 +202,7 @@ let load dbdir fname =
             flush1 () ;
             flush2 () ;
             flush3 () ;
+            if !verbose then Printf.printf "Closing all tables...\n" ;
             Table.close table0 ;
             Table.close table1 ;
             Table.close table2 ;
