@@ -46,7 +46,7 @@ struct
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
         Table.create (table_name dbdir)
-            hash_on_srv read write
+            hash_on_srv write
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual queries *)
@@ -111,7 +111,7 @@ struct
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
         Table.create (table_name dbdir)
-            hash_on_srv read write
+            hash_on_srv write
             meta_aggr meta_read meta_write
     let dump dbdir f =
         Table.iter (table_name dbdir) read f
@@ -126,7 +126,7 @@ struct
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
         Table.create (table_name dbdir)
-            Dns1.hash_on_srv read write
+            Dns1.hash_on_srv write
             Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
     let dump dbdir f =
         Table.iter (table_name dbdir) read f
@@ -141,7 +141,7 @@ struct
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
         Table.create (table_name dbdir)
-            Dns1.hash_on_srv read write
+            Dns1.hash_on_srv write
             Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
     let dump dbdir f =
         Table.iter (table_name dbdir) read f

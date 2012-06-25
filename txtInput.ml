@@ -31,13 +31,14 @@ let read t =
     ) else read t
 
 let nread t n =
+    if n = 0 then "" else
     let s = String.create n in
     s.[0] <- read t ;
     (match t.src with
     | File ic -> really_input ic s 1 (n-1)
     | String str ->
         if n > String.length str.s - str.o then raise End_of_file ;
-        String.blit str.s str.o s 1 n) ;
+        String.blit str.s str.o s 1 (n-1)) ;
     s
 
 let nread t n =

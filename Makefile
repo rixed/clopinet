@@ -2,6 +2,7 @@ top_srcdir = .
 PKG_NAME = mlrrd
 SOURCES  = \
 	txtInput.ml \
+	binInput.ml \
 	datatype.ml \
 	aggregator.ml \
 	dbfile.ml \

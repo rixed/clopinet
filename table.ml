@@ -1,7 +1,7 @@
 open Bricabrac
 open LargeFile
 
-let max_file_size = 10_000_000
+let max_file_size = 100_000
 let max_hash_size = 2048
 
 (* READING
@@ -12,13 +12,13 @@ let max_hash_size = 2048
 (* The meta file, which accompany every dbfile, stores the aggregation result *)
 let read_meta tdir hnum snum aggr_reader =
     let fname = Dbfile.path tdir hnum snum ^ ".meta" in
-    try Some (with_file_in fname aggr_reader)
+    try Some (BinInput.with_file_in ~try_gz:false fname aggr_reader)
     with Sys_error _ -> None
 
 let iter_file tdir hnum snum reader f =
     let hnum = hnum mod max_hash_size in
     let fname = Dbfile.path tdir hnum snum in
-    with_file_in fname (fun ic ->
+    BinInput.with_file_in fname (fun ic ->
         try forever (fun () ->
             f (reader ic)) ()
         with End_of_file -> ())
@@ -28,6 +28,11 @@ let iter_snums tdir hnum aggr_reader f =
     try (
         Sys.readdir (Dbfile.dir tdir hnum) |>
         Array.iter (fun name ->
+            let name =
+                let len = String.length name in
+                if len > 3 && name.[len-3] = '.' && name.[len-2] = 'g' && name.[len-1] = 'z'
+                then String.sub name 0 (len-3)
+                else name in
             try let snum = int_of_string name in
                 f snum (read_meta tdir hnum snum aggr_reader)
             with Failure _ -> ())
@@ -61,10 +66,9 @@ type ('a, 'b) t =
                        { dir : string ;
                         hash : 'a -> int ;
                     h_caches : 'b h_cache option array ;
-                  val_reader : in_channel -> 'a ;
                   val_writer : out_channel -> 'a -> unit ;
                   aggregator : ('a, 'b) Aggregator.t ;
-                 aggr_reader : in_channel -> 'b ;
+                 aggr_reader : BinInput.t -> 'b ;
                  aggr_writer : out_channel -> 'b -> unit }
 
 let save_meta t hnum h_cache =
@@ -105,10 +109,10 @@ let create_h_cache t hnum =
       file = None ;
       aggr = read_meta t.dir hnum max_snum t.aggr_reader }
 
-let create dir hash val_reader val_writer aggregator aggr_reader aggr_writer =
+let create dir hash val_writer aggregator aggr_reader aggr_writer =
     { dir ; hash ;
       h_caches = Array.create max_hash_size None ;
-      val_reader ; val_writer ;
+      val_writer ;
       aggregator ; aggr_reader ; aggr_writer }
 
 let fsize_cap = ref 0   (* to cut down number of fsize call *)

@@ -1,0 +1,20 @@
+#!/bin/sh
+
+dbdir=$1
+
+if test -z "$dbdir" ; then
+	echo "compress what?"
+	exit 1
+fi
+
+find "$dbdir" -type f -name '[0-9]' |
+	while read p ; do
+		f=$(basename "$p")
+		d=$(dirname "$p")
+		ff=$((f+1))
+		if test -e "$d/$ff" || test -e "$d/$ff.gz" ; then
+			echo "Compressing $p"
+			gzip --no-name -9 $p
+		fi
+	done
+

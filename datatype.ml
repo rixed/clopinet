@@ -15,7 +15,7 @@ sig
     val hash      : t -> int
     val write     : out_channel -> t -> unit
     val write_txt : out_channel -> t -> unit
-    val read      : in_channel -> t
+    val read      : BinInput.t -> t
     val read_txt  : TxtInput.t -> t
 end
 
@@ -65,7 +65,7 @@ let write_var_int oc n =
 
 let rec read_var_int64 ic =
     let rec aux n dec =
-        let b = input_byte ic in
+        let b = BinInput.read ic in
         let n = Int64.logor n (Int64.shift_left (Int64.of_int (b land 127)) dec) in
         if b < 128 then n else aux n (dec+7) in
     let n = aux 0L 0 in
@@ -86,7 +86,9 @@ let read_txt_until ic delim =
                 TxtInput.swallow ic ;
                 aux (b :: p)
             )
-        ) with End_of_file -> string_of_list (List.rev p) in
+        ) with End_of_file ->
+            if p = [] then raise End_of_file
+            else string_of_list (List.rev p) in
     aux []
 
 let peek_sign ic =
@@ -109,7 +111,7 @@ struct
     let name = "bool"
     let write oc t = output_byte oc (if t then 1 else 0)
     let write_txt oc t = output_char oc (if t then 't' else 'f')
-    let read ic = input_byte ic = 1
+    let read ic = BinInput.read ic = 1
     let read_txt ic = TxtInput.read ic = 't'
 end
 
@@ -137,9 +139,7 @@ struct
     let write_txt = output_string
     let read ic =
         let len = read_var_int ic in
-        let str = String.create len in
-        really_input ic str 0 len ;
-        str
+        BinInput.nread ic len
     let read_txt ic =
         read_txt_until ic "\t\n"
 end
@@ -206,7 +206,7 @@ struct
     include Integer
     let name = "int8"
     let write = output_byte
-    let read = input_byte
+    let read = BinInput.read
     let zero = 0
     let add = (+)
     let sub = (-)
@@ -224,8 +224,8 @@ struct
         output_byte oc t ;
         output_byte oc (t lsr 8)
     let read ic =
-        let fst_b = input_byte ic in
-        let snd_b = input_byte ic in
+        let fst_b = BinInput.read ic in
+        let snd_b = BinInput.read ic in
         fst_b + (snd_b lsl 8)
     let zero = 0
     let add = (+)
@@ -707,7 +707,7 @@ struct
         T1.write oc t1
     let write_txt = T1.write_txt
     let read ic =
-        let v = input_byte ic in
+        let v = BinInput.read ic in
         if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
         assert (v = 0) ;
         T1.read ic
@@ -733,7 +733,7 @@ struct
     let write_txt oc = function
         | V1of2 a -> output_string oc "v1:" ; T1.write_txt oc a
         | V2of2 a -> output_string oc "v2:" ; T2.write_txt oc a
-    let read ic = match input_byte ic with
+    let read ic = match BinInput.read ic with
         | 0 -> V1of2 (T1.read ic)
         | 1 -> V2of2 (T2.read ic)
         | v -> failwith ("Bad version "^string_of_int v)
