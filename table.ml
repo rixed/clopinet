@@ -64,6 +64,7 @@ type 'b h_cache =
 
 type ('a, 'b) t =
                        { dir : string ;
+                      create : bool ;
                         hash : 'a -> int ;
                     h_caches : 'b h_cache option array ;
                   val_writer : out_channel -> 'a -> unit ;
@@ -103,14 +104,14 @@ let rotate t hnum h_cache =
 
 let create_h_cache t hnum =
     let dir = Dbfile.dir t.dir hnum in
-    mkdir_all dir ;
+    if t.create then mkdir_all dir ;
     let max_snum = get_max_snum dir in
     { max_snum ;
       file = None ;
       aggr = read_meta t.dir hnum max_snum t.aggr_reader }
 
-let create dir hash val_writer aggregator aggr_reader aggr_writer =
-    { dir ; hash ;
+let create ?(create=false) dir hash val_writer aggregator aggr_reader aggr_writer =
+    { dir ; create ; hash ;
       h_caches = Array.create max_hash_size None ;
       val_writer ;
       aggregator ; aggr_reader ; aggr_writer }

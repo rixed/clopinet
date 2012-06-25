@@ -2,6 +2,7 @@ open Bricabrac
 open Datatype
 
 let verbose = ref false
+let create = ref false
 
 let subnets =
     List.map (fun (s, w) -> Unix.inet_addr_of_string s, w)
@@ -45,7 +46,7 @@ struct
     let meta_write = BoundsTS.write
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
-        Table.create (table_name dbdir)
+        Table.create ~create:!create (table_name dbdir)
             hash_on_srv write
             meta_aggr meta_read meta_write
 
@@ -110,7 +111,7 @@ struct
     let meta_write = Bounds64.write
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
-        Table.create (table_name dbdir)
+        Table.create ~create:!create (table_name dbdir)
             hash_on_srv write
             meta_aggr meta_read meta_write
     let dump dbdir f =
@@ -125,7 +126,7 @@ struct
     let name = "DNS-over-10min"
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
-        Table.create (table_name dbdir)
+        Table.create ~create:!create (table_name dbdir)
             Dns1.hash_on_srv write
             Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
     let dump dbdir f =
@@ -140,7 +141,7 @@ struct
     let name = "DNS-over-1hour"
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
-        Table.create (table_name dbdir)
+        Table.create ~create:!create (table_name dbdir)
             Dns1.hash_on_srv write
             Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
     let dump dbdir f =
@@ -215,6 +216,7 @@ let main =
     and client = ref None and server = ref None in
     Arg.(parse [
         "-dir", Set_string dbdir, "database directory (or './')" ;
+        "-create", Set create, "create db if it does not exist yet" ;
         "-load", String (fun s -> load !dbdir s), "load a CSV file" ;
         "-verbose", Set verbose, "verbose" ;
         "-dump", Int (function 0 -> Dns0.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min

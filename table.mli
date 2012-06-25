@@ -20,7 +20,7 @@ type ('a, 'b) t
 
 (* TODO: introduce a reader and a writer to simplify this: *)
 
-val create : string -> ('a -> int) -> (out_channel -> 'a -> unit) ->
+val create : ?create:bool -> string -> ('a -> int) -> (out_channel -> 'a -> unit) ->
              ('a, 'b) Aggregator.t -> (BinInput.t -> 'b) -> (out_channel -> 'b -> unit) ->
              ('a, 'b) t
 
