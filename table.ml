@@ -78,7 +78,7 @@ let save_meta t hnum h_cache =
     | Some aggr ->
         let fname = Dbfile.path t.dir hnum h_cache.max_snum ^ ".meta" in
         with_file_out
-            ~mode:[Open_wronly;Open_creat;Open_excl;Open_binary]
+            ~mode:[Open_wronly;Open_creat;Open_binary]
             ~perm:Dbfile.perm fname (fun oc ->
             let oc = Output.of_channel oc in
             t.aggr_writer oc aggr) ;
