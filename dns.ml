@@ -2,7 +2,6 @@ open Bricabrac
 open Datatype
 
 let verbose = ref false
-let create = ref false
 
 let subnets =
     List.map (fun (s, w) -> Unix.inet_addr_of_string s, w)
@@ -46,7 +45,7 @@ struct
     let meta_write = BoundsTS.write
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
-        Table.create ~create:!create (table_name dbdir)
+        Table.create (table_name dbdir)
             hash_on_srv write
             meta_aggr meta_read meta_write
 
@@ -111,7 +110,7 @@ struct
     let meta_write = Bounds64.write
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
-        Table.create ~create:!create (table_name dbdir)
+        Table.create (table_name dbdir)
             hash_on_srv write
             meta_aggr meta_read meta_write
     let dump dbdir f =
@@ -126,7 +125,7 @@ struct
     let name = "DNS-over-10min"
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
-        Table.create ~create:!create (table_name dbdir)
+        Table.create (table_name dbdir)
             Dns1.hash_on_srv write
             Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
     let dump dbdir f =
@@ -141,7 +140,7 @@ struct
     let name = "DNS-over-1hour"
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
-        Table.create ~create:!create (table_name dbdir)
+        Table.create (table_name dbdir)
             Dns1.hash_on_srv write
             Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
     let dump dbdir f =
@@ -150,7 +149,11 @@ end
 
 (* Load new data into the database *)
 
-let load dbdir fname =
+let load dbdir create fname =
+
+    if not create && not (try Sys.is_directory dbdir with Sys_error _ -> false) then (
+        failwith (Printf.sprintf "Directory %s does not exist" dbdir)
+    ) ;
 
     let table3 = Dns3.table dbdir in
     let accum3, flush3 =
@@ -213,11 +216,11 @@ let load dbdir fname =
 let main =
     let dbdir = ref "./" and start = ref None and stop = ref None 
     and rt_min = ref None and qname = ref None and error = ref None
-    and client = ref None and server = ref None in
+    and client = ref None and server = ref None and create = ref false in
     Arg.(parse [
         "-dir", Set_string dbdir, "database directory (or './')" ;
         "-create", Set create, "create db if it does not exist yet" ;
-        "-load", String (fun s -> load !dbdir s), "load a CSV file" ;
+        "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
         "-verbose", Set verbose, "verbose" ;
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
         "-dump", Int (function 0 -> Dns0.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min
