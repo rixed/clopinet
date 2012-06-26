@@ -6,17 +6,38 @@ open Bricabrac
    reader, an equality and a hash function.
  *)
 
-module type DATATYPE =
+module type DATATYPE_BASE =
 sig
     type t
 
     val name      : string
     val equal     : t -> t -> bool
     val hash      : t -> int
-    val write     : out_channel -> t -> unit
-    val write_txt : out_channel -> t -> unit
+    val write     : Output.t -> t -> unit
+    val write_txt : Output.t -> t -> unit
     val read      : BinInput.t -> t
     val read_txt  : TxtInput.t -> t
+end
+
+module type DATATYPE =
+sig
+    include DATATYPE_BASE
+
+    (* automatically added by Datatype_of functor: *)
+    val of_string : string -> t
+    val to_string : t -> string
+end
+
+module Datatype_of (B : DATATYPE_BASE) :
+    DATATYPE with type t = B.t =
+struct
+    include B
+    let of_string str =
+        TxtInput.of_string str |> read_txt
+    let to_string t =
+        let buf = Buffer.create 32 in
+        write_txt (Output.of_buffer buf) t ;
+        Buffer.contents buf
 end
 
 (* Many of them are numbers of some sort *)
@@ -43,7 +64,7 @@ let string_of_list l =
     aux 0 l
 
 let write_char_list oc l =
-    output_string oc (string_of_list l)
+    Output.string oc (string_of_list l)
 
 let write_var_int64 oc n =
     (* Recode negative number so that higher bits are 0 : stores (abs(n) lsl 1)+sign.
@@ -53,9 +74,9 @@ let write_var_int64 oc n =
     let n = if n >= 0L then Int64.shift_left n 1
             else Int64.add 1L (Int64.shift_left (Int64.neg n) 1) in
     let rec aux n =
-        if n >= 0L && n < 128L then output_byte oc (Int64.to_int n)
+        if n >= 0L && n < 128L then Output.byte oc (Int64.to_int n)
         else (
-            output_byte oc ((Int64.to_int n) lor 128) ;
+            Output.byte oc ((Int64.to_int n) lor 128) ;
             aux (Int64.shift_right_logical n 7)
         ) in
     aux n
@@ -104,19 +125,19 @@ let peek_sign ic =
 (* Some predefined types *)
 
 module Bool : DATATYPE with type t = bool =
-struct
+Datatype_of (struct
     type t = bool
     let equal = (=)
     let hash = function true -> 1 | false -> 0
     let name = "bool"
-    let write oc t = output_byte oc (if t then 1 else 0)
-    let write_txt oc t = output_char oc (if t then 't' else 'f')
+    let write oc t = Output.byte oc (if t then 1 else 0)
+    let write_txt oc t = Output.char oc (if t then 't' else 'f')
     let read ic = BinInput.read ic = 1
     let read_txt ic = TxtInput.read ic = 't'
-end
+end)
 
 module Void : DATATYPE with type t = unit =
-struct
+Datatype_of (struct
     type t = unit
     let equal () () = true
     let hash () = 0
@@ -125,41 +146,43 @@ struct
     let write_txt _ _ = ()
     let read _ = ()
     let read_txt _ = ()
-end
+end)
 
 module Text : DATATYPE with type t = string =
-struct
+Datatype_of (struct
     type t = string
     let name = "string"
     let equal = (=)
     let hash = Hashtbl.hash
     let write oc t =
         write_var_int oc (String.length t) ;
-        output_string oc t
-    let write_txt = output_string
+        Output.string oc t
+    let write_txt = Output.string
     let read ic =
         let len = read_var_int ic in
         BinInput.nread ic len
     let read_txt ic =
         read_txt_until ic "\t\n"
-end
+end)
 
 module Float : NUMBER with type t = float =
 struct
-    type t = float
-    let equal = (=)
-    let hash = Hashtbl.hash
-    let name = "float"
-    let write oc f =
-        Int64.bits_of_float f |> write_var_int64 oc
-    let write_txt oc f =
-        let s = string_of_float f in
-        output_string oc s
-    let read ic =
-        read_var_int64 ic |> Int64.float_of_bits
-    let read_txt ic =
-        (* hello, I'm slow! *)
-        Text.read_txt ic |> float_of_string
+    include Datatype_of (struct
+        type t = float
+        let equal = (=)
+        let hash = Hashtbl.hash
+        let name = "float"
+        let write oc f =
+            Int64.bits_of_float f |> write_var_int64 oc
+        let write_txt oc f =
+            let s = string_of_float f in
+            Output.string oc s
+        let read ic =
+            read_var_int64 ic |> Int64.float_of_bits
+        let read_txt ic =
+            (* hello, I'm slow! *)
+            Text.read_txt ic |> float_of_string
+    end)
     let zero = 0.
     let add = (+.)
     let sub = (-.)
@@ -171,27 +194,29 @@ end
 
 module Integer : NUMBER with type t = int =
 struct
-    type t = int
-    let name = "int"
-    let equal = (=)
-    let hash = id
-    let write = write_var_int
-    let write_txt oc i =
-        if i = 0 then output_char oc '0' else
-        let rec aux l p i =
-            if i = 0 then write_char_list oc p else
-            aux (1+l) (Char.unsafe_chr ((i mod 10) + Char.code '0') :: p) (i/10) in
-        aux 0 [] i
-    let read = read_var_int
-    let read_txt ic =
-        let neg = peek_sign ic in
-        let rec aux v =
-            let d = try TxtInput.peek ic with End_of_file -> '\n' in
-            if d < '0' || d > '9' then v else (
-                TxtInput.swallow ic ;
-                aux (v*10 + (int_of_char d - Char.code '0'))
-            ) in
-        (if neg then (~-) else id) (aux 0)
+    include Datatype_of (struct
+        type t = int
+        let name = "int"
+        let equal = (=)
+        let hash = id
+        let write = write_var_int
+        let write_txt oc i =
+            if i = 0 then Output.char oc '0' else
+            let rec aux l p i =
+                if i = 0 then write_char_list oc p else
+                aux (1+l) (Char.unsafe_chr ((i mod 10) + Char.code '0') :: p) (i/10) in
+            aux 0 [] i
+        let read = read_var_int
+        let read_txt ic =
+            let neg = peek_sign ic in
+            let rec aux v =
+                let d = try TxtInput.peek ic with End_of_file -> '\n' in
+                if d < '0' || d > '9' then v else (
+                    TxtInput.swallow ic ;
+                    aux (v*10 + (int_of_char d - Char.code '0'))
+                ) in
+            (if neg then (~-) else id) (aux 0)
+    end)
     let zero = 0
     let add = (+)
     let sub = (-)
@@ -205,7 +230,7 @@ module Integer8 : NUMBER with type t = int =
 struct
     include Integer
     let name = "int8"
-    let write = output_byte
+    let write = Output.byte
     let read = BinInput.read
     let zero = 0
     let add = (+)
@@ -221,8 +246,8 @@ struct
     include Integer
     let name = "int16"
     let write oc t =
-        output_byte oc t ;
-        output_byte oc (t lsr 8)
+        Output.byte oc t ;
+        Output.byte oc (t lsr 8)
     let read ic =
         let fst_b = BinInput.read ic in
         let snd_b = BinInput.read ic in
@@ -238,22 +263,24 @@ end
 
 module Integer32 : NUMBER with type t = Int32.t =
 struct
-    type t = Int32.t
-    let name = "int32"
-    let equal = (=)
-    let hash = Int32.to_int
-    let write oc t = write_var_int64 oc (Int64.of_int32 t)
-    let write_txt oc i = Printf.fprintf oc "%ld" i
-    let read ic = Int64.to_int32 (read_var_int64 ic)
-    let read_txt ic =
-        let neg = peek_sign ic in
-        let rec aux v =
-            let d = try TxtInput.peek ic with End_of_file -> '\n' in
-            if d < '0' || d > '9' then v else (
-                TxtInput.swallow ic ;
-                aux (Int32.add (Int32.mul v 10l) (Int32.of_int (int_of_char d - Char.code '0')))
-            ) in
-        (if neg then Int32.neg else id) (aux 0l)
+    include Datatype_of (struct
+        type t = Int32.t
+        let name = "int32"
+        let equal = (=)
+        let hash = Int32.to_int
+        let write oc t = write_var_int64 oc (Int64.of_int32 t)
+        let write_txt oc i = Printf.sprintf "%ld" i |> Output.string oc
+        let read ic = Int64.to_int32 (read_var_int64 ic)
+        let read_txt ic =
+            let neg = peek_sign ic in
+            let rec aux v =
+                let d = try TxtInput.peek ic with End_of_file -> '\n' in
+                if d < '0' || d > '9' then v else (
+                    TxtInput.swallow ic ;
+                    aux (Int32.add (Int32.mul v 10l) (Int32.of_int (int_of_char d - Char.code '0')))
+                ) in
+            (if neg then Int32.neg else id) (aux 0l)
+    end)
     let zero = 0l
     let add = Int32.add
     let sub = Int32.sub
@@ -265,22 +292,24 @@ end
 
 module Integer64 : NUMBER with type t = Int64.t =
 struct
-    type t = Int64.t
-    let name = "int64"
-    let equal = (=)
-    let hash = Int64.to_int
-    let write = write_var_int64
-    let write_txt oc i = Printf.fprintf oc "%Ld" i
-    let read  = read_var_int64
-    let read_txt ic =
-        let neg = peek_sign ic in
-        let rec aux v =
-            let d = try TxtInput.peek ic with End_of_file -> '\n' in (* any non digit char would do *)
-            if d < '0' || d > '9' then v else (
-                TxtInput.swallow ic ;
-                aux (Int64.add (Int64.mul v 10L) (Int64.of_int (int_of_char d - Char.code '0')))
-            ) in
-        (if neg then Int64.neg else id) (aux 0L)
+    include Datatype_of (struct
+        type t = Int64.t
+        let name = "int64"
+        let equal = (=)
+        let hash = Int64.to_int
+        let write = write_var_int64
+        let write_txt oc i = Printf.sprintf "%Ld" i |> Output.string oc
+        let read  = read_var_int64
+        let read_txt ic =
+            let neg = peek_sign ic in
+            let rec aux v =
+                let d = try TxtInput.peek ic with End_of_file -> '\n' in (* any non digit char would do *)
+                if d < '0' || d > '9' then v else (
+                    TxtInput.swallow ic ;
+                    aux (Int64.add (Int64.mul v 10L) (Int64.of_int (int_of_char d - Char.code '0')))
+                ) in
+            (if neg then Int64.neg else id) (aux 0L)
+    end)
     let zero = 0L
     let add = Int64.add
     let sub = Int64.sub
@@ -291,7 +320,7 @@ struct
 end
 
 module InetAddr : DATATYPE with type t = Unix.inet_addr =
-struct
+Datatype_of (struct
     type t = Unix.inet_addr
     let name = "inetAddr"
     let equal = (=)
@@ -301,20 +330,17 @@ struct
         Text.write oc str
     let write_txt oc t =
         Unix.string_of_inet_addr t |>
-        output_string oc
+        Output.string oc
     let read ic =
         let str = Text.read ic in
         Obj.magic str
     let read_txt ic =
         Text.read_txt ic |>
         Unix.inet_addr_of_string
-end
-
-let ip_of_string str =
-    TxtInput.from_string str |> InetAddr.read_txt
+end)
 
 module Cidr : DATATYPE with type t = InetAddr.t * Integer16.t =
-struct
+Datatype_of (struct
     type t = InetAddr.t * Integer16.t
     let name = "cidr"
     let equal (n1,m1) (n2,m2) =
@@ -325,7 +351,7 @@ struct
         InetAddr.write oc n ; Integer16.write oc m
     let write_txt oc (n,m) =
         InetAddr.write_txt oc n ;
-        output_char oc '/' ;
+        Output.char oc '/' ;
         Integer16.write_txt oc m
     let read ic =
         let n = InetAddr.read ic in
@@ -335,10 +361,7 @@ struct
                 Unix.inet_addr_of_string in
         let delim = TxtInput.read ic in assert (delim = '/') ;
         n, Integer16.read_txt ic
-end
-
-let cidr_of_string str =
-    TxtInput.from_string str |> Cidr.read_txt
+end)
 
 (* Usefull function to check if an IP belongs to a CIDR *)
 let in_cidr (addr : Unix.inet_addr) ((net : Unix.inet_addr), mask) =
@@ -396,30 +419,32 @@ let subnet_size ((net : Unix.inet_addr), mask) =
 
 module Timestamp : NUMBER with type t = Int64.t * int =
 struct
-    type t = Int64.t * int (* secs, usecs *)
-    let name = "timestamp"
-    let equal = (=)
-    let hash (a, b) = Int64.to_int a + b
-    let write oc (s,u) =
-        write_var_int64 oc s ;
-        write_var_int oc u
-    let write_txt oc (s,u) =
-        Integer64.write_txt oc s ;
-        output_string oc "s " ;
-        Integer.write_txt oc u ;
-        output_string oc "us"
-    let read ic =
-        let s = read_var_int64 ic in
-        let u = read_var_int ic in
-        s, u
-    let read_txt ic =
-        let s = Integer64.read_txt ic in
-        let c = TxtInput.read ic in assert (c = 's') ;
-        let c = TxtInput.read ic in assert (c = ' ') ;
-        let u = Integer.read_txt ic in
-        let c = TxtInput.read ic in assert (c = 'u') ;
-        let c = TxtInput.read ic in assert (c = 's') ;
-        s, u
+    include Datatype_of (struct
+        type t = Int64.t * int (* secs, usecs *)
+        let name = "timestamp"
+        let equal = (=)
+        let hash (a, b) = Int64.to_int a + b
+        let write oc (s,u) =
+            write_var_int64 oc s ;
+            write_var_int oc u
+        let write_txt oc (s,u) =
+            Integer64.write_txt oc s ;
+            Output.string oc "s " ;
+            Integer.write_txt oc u ;
+            Output.string oc "us"
+        let read ic =
+            let s = read_var_int64 ic in
+            let u = read_var_int ic in
+            s, u
+        let read_txt ic =
+            let s = Integer64.read_txt ic in
+            let c = TxtInput.read ic in assert (c = 's') ;
+            let c = TxtInput.read ic in assert (c = ' ') ;
+            let u = Integer.read_txt ic in
+            let c = TxtInput.read ic in assert (c = 'u') ;
+            let c = TxtInput.read ic in assert (c = 's') ;
+            s, u
+    end)
 
     let zero = 0L, 0
     let add (s1,u1) (s2,u2) = Int64.add s1 s2, u1 + u2
@@ -458,7 +483,7 @@ let round_timestamp n (sec, _usec) = round_sec n sec
 
 module ListOf (T : DATATYPE) :
     DATATYPE with type t = T.t list =
-struct
+Datatype_of (struct
     type t = T.t list
 
     let rec equal a b = match a, b with
@@ -475,15 +500,15 @@ struct
         List.iter (T.write oc) t
 
     let write_txt oc t =
-        output_char oc '[' ;
+        Output.char oc '[' ;
         let rec aux = function
         | []   -> () (* it's stupid to search for this at each iteration, but the compiler warns if [] is unmatched *)
         | [x]  -> T.write_txt oc x
         | x::l -> T.write_txt oc x ;
-                  output_char oc ';' ;
+                  Output.char oc ';' ;
                   aux l in
         aux t ;
-        output_char oc ']'
+        Output.char oc ']'
 
     let read ic =
         let len = read_var_int ic in
@@ -504,11 +529,11 @@ struct
         let lst = TxtInput.read ic in
         assert (lst = ']') ;
         res
-end
+end)
 
 module Tuple2 (T1 : DATATYPE) (T2 : DATATYPE) :
     DATATYPE with type t = T1.t * T2.t =
-struct
+Datatype_of (struct
     type t = T1.t * T2.t
 
     let equal (a1,a2) (b1,b2) =
@@ -524,7 +549,7 @@ struct
 
     let write_txt oc (t1, t2) =
         T1.write_txt oc t1 ;
-        output_char oc '\t' ;
+        Output.char oc '\t' ;
         T2.write_txt oc t2
 
     let read ic =
@@ -539,11 +564,11 @@ struct
         assert (sep = '\t') ;
         let v2 = T2.read_txt ic in
         v1, v2
-end
+end)
 
 module Tuple3 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) :
     DATATYPE with type t = T1.t * T2.t * T3.t =
-struct
+Datatype_of (struct
     type t = T1.t * T2.t * T3.t
     let equal (a1,a2,a3) (b1,b2,b3) =
         T1.equal a1 b1 &&
@@ -555,8 +580,8 @@ struct
         T1.write oc t1 ; T2.write oc t2 ;
         T3.write oc t3
     let write_txt oc (t1,t2,t3) =
-        T1.write_txt oc t1 ; output_char oc '\t' ;
-        T2.write_txt oc t2 ; output_char oc '\t' ;
+        T1.write_txt oc t1 ; Output.char oc '\t' ;
+        T2.write_txt oc t2 ; Output.char oc '\t' ;
         T3.write_txt oc t3
     let read ic =
         let t1 = T1.read ic in
@@ -570,11 +595,11 @@ struct
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         let t3 = T3.read_txt ic in
         t1,t2,t3
-end
+end)
 
 module Tuple4 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) :
     DATATYPE with type t = T1.t * T2.t * T3.t * T4.t =
-struct
+Datatype_of (struct
     type t = T1.t * T2.t * T3.t * T4.t
     let equal (a1,a2,a3,a4) (b1,b2,b3,b4) =
         T1.equal a1 b1 &&
@@ -587,9 +612,9 @@ struct
         T1.write oc t1 ; T2.write oc t2 ;
         T3.write oc t3 ; T4.write oc t4
     let write_txt oc (t1,t2,t3,t4) =
-        T1.write_txt oc t1 ; output_char oc '\t' ;
-        T2.write_txt oc t2 ; output_char oc '\t' ;
-        T3.write_txt oc t3 ; output_char oc '\t' ;
+        T1.write_txt oc t1 ; Output.char oc '\t' ;
+        T2.write_txt oc t2 ; Output.char oc '\t' ;
+        T3.write_txt oc t3 ; Output.char oc '\t' ;
         T4.write_txt oc t4
     let read ic =
         let t1 = T1.read ic in
@@ -605,11 +630,11 @@ struct
         let t3 = T3.read_txt ic in
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         t1,t2,t3,T4.read_txt ic
-end
+end)
 
 module Tuple5 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) :
     DATATYPE with type t = T1.t * T2.t * T3.t * T4.t * T5.t =
-struct
+Datatype_of (struct
     type t = T1.t * T2.t * T3.t * T4.t * T5.t
     let equal (a1,a2,a3,a4,a5) (b1,b2,b3,b4,b5) =
         T1.equal a1 b1 &&
@@ -624,10 +649,10 @@ struct
         T3.write oc t3 ; T4.write oc t4 ;
         T5.write oc t5
     let write_txt oc (t1,t2,t3,t4,t5) =
-        T1.write_txt oc t1 ; output_char oc '\t' ;
-        T2.write_txt oc t2 ; output_char oc '\t' ;
-        T3.write_txt oc t3 ; output_char oc '\t' ;
-        T4.write_txt oc t4 ; output_char oc '\t' ;
+        T1.write_txt oc t1 ; Output.char oc '\t' ;
+        T2.write_txt oc t2 ; Output.char oc '\t' ;
+        T3.write_txt oc t3 ; Output.char oc '\t' ;
+        T4.write_txt oc t4 ; Output.char oc '\t' ;
         T5.write_txt oc t5
     let read ic =
         let t1 = T1.read ic in
@@ -647,11 +672,11 @@ struct
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         let t5 = T5.read_txt ic in
         t1,t2,t3,t4,t5
-end
+end)
 
 module Tuple6 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) (T6:DATATYPE) :
     DATATYPE with type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t =
-struct
+Datatype_of (struct
     type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t
     let equal (a1,a2,a3,a4,a5,a6) (b1,b2,b3,b4,b5,b6) =
         T1.equal a1 b1 &&
@@ -667,11 +692,11 @@ struct
         T3.write oc t3 ; T4.write oc t4 ;
         T5.write oc t5 ; T6.write oc t6
     let write_txt oc (t1,t2,t3,t4,t5,t6) =
-        T1.write_txt oc t1 ; output_char oc '\t' ;
-        T2.write_txt oc t2 ; output_char oc '\t' ;
-        T3.write_txt oc t3 ; output_char oc '\t' ;
-        T4.write_txt oc t4 ; output_char oc '\t' ;
-        T5.write_txt oc t5 ; output_char oc '\t' ;
+        T1.write_txt oc t1 ; Output.char oc '\t' ;
+        T2.write_txt oc t2 ; Output.char oc '\t' ;
+        T3.write_txt oc t3 ; Output.char oc '\t' ;
+        T4.write_txt oc t4 ; Output.char oc '\t' ;
+        T5.write_txt oc t5 ; Output.char oc '\t' ;
         T6.write_txt oc t6
     let read ic =
         let t1 = T1.read ic in
@@ -693,17 +718,17 @@ struct
         let t5 = T5.read_txt ic in
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         t1,t2,t3,t4,t5,T6.read_txt ic
-end
+end)
 
 module Altern1 (T1:DATATYPE) :
     DATATYPE with type t = T1.t =
-struct
+Datatype_of (struct
     type t = T1.t
     let equal = T1.equal
     let hash = T1.hash
     let name = "V1of1 of "^T1.name
     let write oc t1 =
-        output_byte oc 0 ; (* So that we will be able to decode it later when we add version *)
+        Output.byte oc 0 ; (* So that we will be able to decode it later when we add version *)
         T1.write oc t1
     let write_txt = T1.write_txt
     let read ic =
@@ -712,12 +737,12 @@ struct
         assert (v = 0) ;
         T1.read ic
     let read_txt = T1.read_txt
-end
+end)
 
 type ('a, 'b) versions_2 = V1of2 of 'a | V2of2 of 'b
 module Altern2 (T1:DATATYPE) (T2:DATATYPE) :
     DATATYPE with type t = (T1.t, T2.t) versions_2 =
-struct
+Datatype_of (struct
     type t = (T1.t, T2.t) versions_2
     let equal a b = match a, b with
         | V1of2 a, V1of2 b -> T1.equal a b
@@ -728,11 +753,11 @@ struct
         | V2of2 a -> T2.hash a
     let name = "V1of2 of "^T1.name^" | V2of2 of "^T2.name
     let write oc = function
-        | V1of2 a -> output_byte oc 0 ; T1.write oc a
-        | V2of2 a -> output_byte oc 1 ; T2.write oc a
+        | V1of2 a -> Output.byte oc 0 ; T1.write oc a
+        | V2of2 a -> Output.byte oc 1 ; T2.write oc a
     let write_txt oc = function
-        | V1of2 a -> output_string oc "v1:" ; T1.write_txt oc a
-        | V2of2 a -> output_string oc "v2:" ; T2.write_txt oc a
+        | V1of2 a -> Output.string oc "v1:" ; T1.write_txt oc a
+        | V2of2 a -> Output.string oc "v2:" ; T2.write_txt oc a
     let read ic = match BinInput.read ic with
         | 0 -> V1of2 (T1.read ic)
         | 1 -> V2of2 (T2.read ic)
@@ -744,7 +769,7 @@ struct
         | '1' -> V1of2 (T1.read_txt ic)
         | '2' -> V2of2 (T2.read_txt ic)
         | c -> failwith ("Bad version "^Char.escaped c)
-end
+end)
 
 (*
    This one is usefull to store the "distribution" of a NUMBER, ie its

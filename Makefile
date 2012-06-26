@@ -3,6 +3,7 @@ PKG_NAME = mlrrd
 SOURCES  = \
 	txtInput.ml \
 	binInput.ml \
+	output.ml \
 	datatype.ml \
 	aggregator.ml \
 	dbfile.ml \

@@ -6,10 +6,10 @@ val dir : string -> int -> string
 (** Returns the complete path of an individual file *)
 val path : string -> int -> int -> string
 
-(** Returns a out_channel for the given file, reusing the suggested one if
+(** Returns an Output.t for the given file, reusing the suggested one if
   possible. The last bool controls the exclusive flag. Note that the table paths
   are compared as pointer not strings! *)
-val get : ?prev:int -> string -> int -> int -> bool -> (int * out_channel)
+val get : ?prev:int -> string -> int -> int -> bool -> (int * Output.t)
 
 (** Close + release the file descriptor for the given file. *)
 val close : ?prev:int -> string -> int -> int -> unit

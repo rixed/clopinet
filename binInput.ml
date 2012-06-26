@@ -1,6 +1,6 @@
-open Bricabrac
-
 (* Binary input from ordinary file or zip file *)
+
+open Bricabrac
 
 let debug = false
 
@@ -10,8 +10,8 @@ type t = File of in_channel
        | String of strofs
        | Zip of Gzip.in_channel
 
-let from_file ic = File ic
-let from_string str = String { s = str ; o = 0 }
+let of_channel ic = File ic
+let of_string str = String { s = str ; o = 0 }
 let open_in ?(try_gz=true) fname =
     (* We must check first for fname then for fname.gz.
      * Otherwise, we face this race condition:
@@ -44,12 +44,12 @@ let nread t n =
         String.blit str.s str.o s 1 n) ;
     s
 
-let close_in = function
+let close = function
     | File ic -> close_in ic
     | Zip ic -> Gzip.close_in ic
     | String _ -> ()
 
-let with_file_in ?try_gz fname f =
+let with_file ?try_gz fname f =
     let t = open_in ?try_gz fname in
-    try_finalize f t close_in t
+    try_finalize f t close t
 

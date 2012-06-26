@@ -19,7 +19,8 @@ let get ?prev tdir hnum snum ensure_new =
         let oc =
             let mode = [ Open_append ; Open_creat ] in
             let mode = if ensure_new then Open_excl::mode else mode in
-            open_out_gen mode perm (path tdir hnum snum) in
+            let oc = open_out_gen mode perm (path tdir hnum snum) in
+            Output.of_channel oc in
         fds.(i) <- Some (tdir, hnum, snum, oc) ;
         i, oc in
     let get_new () = match !free_fds with
@@ -31,7 +32,7 @@ let get ?prev tdir hnum snum ensure_new =
             let i = Random.int (Array.length fds) in
             (match fds.(i) with
             | Some (_, _, _, oc) ->
-                close_out oc ;
+                Output.close oc ;
                 fds.(i) <- None ;
                 fopen i
             | None -> assert false) in
@@ -42,7 +43,7 @@ let get ?prev tdir hnum snum ensure_new =
             if dir == tdir && hnum = sernum && seqnum = snum then (
                 i, oc
             ) else (
-                close_out oc ;
+                Output.close oc ;
                 fds.(i) <- None ;
                 fopen i
             )
@@ -56,7 +57,7 @@ let close ?prev tdir hnum snum =
         (match fds.(i) with
         | Some (dir, sernum, seqnum, oc) ->
             if dir == tdir && sernum = hnum && seqnum = snum then (
-                close_out oc ;
+                Output.close oc ;
                 fds.(i) <- None ;
                 free_fds := i :: !free_fds
             )

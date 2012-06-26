@@ -11,7 +11,7 @@ type t = {
 
 let from_file ic = { src = File ic ; peeked = None }
 
-let from_string str = { src = String { s = str ; o = 0 } ; peeked = None }
+let of_string str = { src = String { s = str ; o = 0 } ; peeked = None }
 
 let read t = match t.peeked with
     | None ->

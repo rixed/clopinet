@@ -222,18 +222,18 @@ let main =
         "-dump", Int (function 0 -> Dns0.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min
                                                ?client:!client ?server:!server
                                                ?qname:!qname ?error:!error !dbdir
-                                               (fun x -> write_txt stdout x ; print_newline ()))
-                             | 1 -> Dns1.(dump !dbdir (fun x -> write_txt stdout x ; print_newline ()))
-                             | 2 -> Dns2.(dump !dbdir (fun x -> write_txt stdout x ; print_newline ()))
-                             | 3 -> Dns2.(dump !dbdir (fun x -> write_txt stdout x ; print_newline ()))
+                                               (fun x -> write_txt Output.stdout x ; print_newline ()))
+                             | 1 -> Dns1.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
+                             | 2 -> Dns2.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
+                             | 3 -> Dns2.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
                              | x -> raise (Bad ("Bad LOD: "^string_of_int x))), "dump content of Lod n" ;
-        "-start", String (fun s -> start := Some (TxtInput.from_string s |> Timestamp.read_txt)), "limit queries to timestamps after this" ;
-        "-stop",  String (fun s -> stop  := Some (TxtInput.from_string s |> Timestamp.read_txt)), "limit queries to timestamps before this" ;
-        "-rt-min", String (fun s -> rt_min := Some (TxtInput.from_string s |> Integer32.read_txt)), "limit queries to resptimes greater than this" ;
+        "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
+        "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
+        "-rt-min", String (fun s -> rt_min := Some (Integer32.of_string s)), "limit queries to resptimes greater than this" ;
         "-qname", String (fun s -> qname := Some s), "limit queries to those ending with this" ;
         "-error", Int (fun i -> error := Some i), "select only queries with this error code" ;
-        "-client", String (fun s -> client := Some (TxtInput.from_string s |> Cidr.read_txt)), "limit to these clients" ;
-        "-server", String (fun s -> server := Some (TxtInput.from_string s |> Cidr.read_txt)), "limit to these servers" ]
+        "-client", String (fun s -> client := Some (Cidr.of_string s)), "limit to these clients" ;
+        "-server", String (fun s -> server := Some (Cidr.of_string s)), "limit to these servers" ]
         (fun x -> raise (Bad x))
         "Operate the DNS response times DB")
 

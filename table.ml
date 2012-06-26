@@ -12,13 +12,13 @@ let max_hash_size = 2048
 (* The meta file, which accompany every dbfile, stores the aggregation result *)
 let read_meta tdir hnum snum aggr_reader =
     let fname = Dbfile.path tdir hnum snum ^ ".meta" in
-    try Some (BinInput.with_file_in ~try_gz:false fname aggr_reader)
+    try Some (BinInput.with_file ~try_gz:false fname aggr_reader)
     with Sys_error _ -> None
 
 let iter_file tdir hnum snum reader f =
     let hnum = hnum mod max_hash_size in
     let fname = Dbfile.path tdir hnum snum in
-    BinInput.with_file_in fname (fun ic ->
+    BinInput.with_file fname (fun ic ->
         try forever (fun () ->
             f (reader ic)) ()
         with End_of_file -> ())
@@ -67,10 +67,10 @@ type ('a, 'b) t =
                       create : bool ;
                         hash : 'a -> int ;
                     h_caches : 'b h_cache option array ;
-                  val_writer : out_channel -> 'a -> unit ;
+                  val_writer : Output.t -> 'a -> unit ;
                   aggregator : ('a, 'b) Aggregator.t ;
                  aggr_reader : BinInput.t -> 'b ;
-                 aggr_writer : out_channel -> 'b -> unit }
+                 aggr_writer : Output.t -> 'b -> unit }
 
 let save_meta t hnum h_cache =
     match h_cache.aggr with
@@ -79,6 +79,7 @@ let save_meta t hnum h_cache =
         with_file_out
             ~mode:[Open_wronly;Open_creat;Open_excl;Open_binary]
             ~perm:Dbfile.perm fname (fun oc ->
+            let oc = Output.of_channel oc in
             t.aggr_writer oc aggr) ;
         h_cache.aggr <- None
     | None -> ()

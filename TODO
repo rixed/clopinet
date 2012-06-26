@@ -1,6 +1,3 @@
-* Provides of_string, to_string, etc for every Datatype.S automatically
-with a functor
-
 * Parallelize reading.
 
 When seq scanning various files, fork several reader programs and
