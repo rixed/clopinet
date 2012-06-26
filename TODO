@@ -20,9 +20,7 @@ but only a central writer performs the accumulations in the various Lods.
 
 * Lock tables to prevent several concurrent inserts
 
-* It would be nice if the microseconds could be omitted from Timestamps.
-
-* It would be even nicer if any reasonably widespread date format were 
+* It would be nice if any reasonably widespread date format were 
 understood by Timestamp.read_txt. Or provide a helper function (for better
 performances)
 

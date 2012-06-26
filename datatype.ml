@@ -439,11 +439,21 @@ struct
             s, u
         let read_txt ic =
             let s = Integer64.read_txt ic in
-            let c = TxtInput.read ic in assert (c = 's') ;
-            let c = TxtInput.read ic in assert (c = ' ') ;
-            let u = Integer.read_txt ic in
-            let c = TxtInput.read ic in assert (c = 'u') ;
-            let c = TxtInput.read ic in assert (c = 's') ;
+            let u = try (
+                while
+                    let c = TxtInput.peek ic in c = 's' || c = ' '
+                do
+                    TxtInput.swallow ic
+                done ;
+                let u = Integer.read_txt ic in
+                try while
+                        let c = TxtInput.peek ic in c = 'u' || c = 's'
+                    do
+                        TxtInput.swallow ic
+                    done ;
+                    u
+               with End_of_file -> u
+            ) with End_of_file -> 0 in
             s, u
     end)
 
