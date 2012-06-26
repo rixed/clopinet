@@ -1,3 +1,5 @@
+* We should survive if a snum file disaprear (maybe already the case?)
+
 * Parallelize reading.
 
 When seq scanning various files, fork several reader programs and
@@ -29,4 +31,7 @@ a table we actually hash the correct datatype (ie. Dns0.hash takes a full
 record, extract something then hash this, while Dns0.dump hash a server IP,
 check that what Dns0.hash extract is also an IP). Additionally, simplify
 the index handling (Dns0.dump is too complex wrt. index)
+
+* Dump should be able to send output to a pipe (ssh compressed tunnel) for
+distributed querying
 
