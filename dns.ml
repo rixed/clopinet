@@ -219,6 +219,7 @@ let main =
         "-create", Set create, "create db if it does not exist yet" ;
         "-load", String (fun s -> load !dbdir s), "load a CSV file" ;
         "-verbose", Set verbose, "verbose" ;
+        "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
         "-dump", Int (function 0 -> Dns0.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min
                                                ?client:!client ?server:!server
                                                ?qname:!qname ?error:!error !dbdir

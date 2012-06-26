@@ -3,6 +3,7 @@ open LargeFile
 
 let max_file_size = 100_000
 let max_hash_size = 2048
+let ncores = ref 1
 
 (* READING
    Can be done by multiple programs simultaneously,
@@ -26,8 +27,8 @@ let iter_file tdir hnum snum reader f =
 let iter_snums tdir hnum aggr_reader f =
     let hnum = hnum mod max_hash_size in
     try (
-        Sys.readdir (Dbfile.dir tdir hnum) |>
-        Array.iter (fun name ->
+        Parmap.A (Sys.readdir (Dbfile.dir tdir hnum)) |>
+        Parmap.pariter ~ncores:!ncores (fun name ->
             let name =
                 let len = String.length name in
                 if len > 3 && name.[len-3] = '.' && name.[len-2] = 'g' && name.[len-1] = 'z'

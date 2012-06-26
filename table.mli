@@ -5,6 +5,8 @@ val max_file_size : int
 
 val max_hash_size : int
 
+val ncores : int ref
+
 val iter_file : string -> int -> int -> (BinInput.t -> 'a) -> ('a -> unit) -> unit
 
 (* f is called with snum and the optional meta data *)
