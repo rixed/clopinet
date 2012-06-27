@@ -14,12 +14,16 @@ let dir tdir hnum =
 let path tdir hnum snum =
     Printf.sprintf "%s/%d" (dir tdir hnum) snum
 
-let get ?prev tdir hnum snum ensure_new =
+let get ?prev tdir hnum snum =
     let fopen i =
         let oc =
-            let mode = [ Open_append ; Open_creat ] in
-            let mode = if ensure_new then Open_excl::mode else mode in
+            let mode = [ Open_append ; Open_creat ; Open_binary ] in
             let oc = open_out_gen mode perm (path tdir hnum snum) in
+            (* Lock from the current pos up to the end of file.
+             * Verified experimentaly to work on files opened in append mode,
+             * even if they are empty. *)
+            Unix.(lockf (descr_of_out_channel oc) F_LOCK 0) ;
+            (* This lock will be dismissed whenever we close the file *)
             Output.of_channel oc in
         fds.(i) <- Some (tdir, hnum, snum, oc) ;
         i, oc in

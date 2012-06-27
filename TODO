@@ -24,10 +24,9 @@ aggregate function) ; or we allocate writers to some index value, the
 forked writer being responsible for the meta data and the serialization,
 but only a central writer performs the accumulations in the various Lods.
 
-* Lock tables to prevent several concurrent inserts
-
-* In the same spirit, write a file with the textual representation of
-the record type in a table directory (and check it when opening the table).
+* In the same spirit than locking, write a file with the textual 
+representation of the record type in a table directory (and check it when 
+opening the table).
 
 * It would be nice if any reasonably widespread date format were 
 understood by Timestamp.read_txt. Or provide a helper function (for better
