@@ -189,6 +189,22 @@ let load dbdir create fname =
         accum1 (clt, srv, err, ts) (Int32.to_float rt) in
 
     let lineno = ref 0 in
+
+    let flush_all () =
+        if !verbose then Printf.printf "Flushing...\n" ;
+        flush1 () ;
+        flush2 () ;
+        flush3 () ;
+        Table.close table0 ;
+        Table.close table1 ;
+        Table.close table2 ;
+        Table.close table3 in
+
+    Sys.(List.iter
+        (fun s -> set_signal s (Signal_handle (fun _ -> flush_all ())))
+        [ sigabrt; sigfpe; sigill; sigint;
+          sigpipe; sigquit; sigsegv; sigterm ]) ;
+
     try_finalize (fun () ->
         with_file_in fname (fun ic ->
             let ic = TxtInput.from_file ic in
@@ -202,15 +218,7 @@ let load dbdir create fname =
                | e ->
                 Printf.fprintf stderr "Error at line %d\n" !lineno ;
                 raise e)) ()
-        (fun () ->
-            flush1 () ;
-            flush2 () ;
-            flush3 () ;
-            if !verbose then Printf.printf "Closing all tables...\n" ;
-            Table.close table0 ;
-            Table.close table1 ;
-            Table.close table2 ;
-            Table.close table3) ()
+        flush_all ()
 
 
 let main =

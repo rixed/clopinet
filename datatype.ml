@@ -160,6 +160,7 @@ Datatype_of (struct
     let write_txt = Output.string
     let read ic =
         let len = read_var_int ic in
+        assert (len >= 0) ;
         BinInput.nread ic len
     let read_txt ic =
         read_txt_until ic "\t\n"
@@ -523,6 +524,7 @@ Datatype_of (struct
 
     let read ic =
         let len = read_var_int ic in
+        assert (len >= 0) ;
         let res = ref [] in
         for i = 1 to len do
             res := (T.read ic) :: !res

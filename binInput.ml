@@ -34,6 +34,7 @@ let read = function
         Char.code (str.s.[str.o - 1])
 
 let nread t n =
+    assert (n >= 0) ;
     if n = 0 then "" else
     let s = String.create n in
     (match t with

@@ -31,6 +31,7 @@ let read t =
     ) else read t
 
 let nread t n =
+    assert (n >= 0) ;
     if n = 0 then "" else
     let s = String.create n in
     s.[0] <- read t ;
