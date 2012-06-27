@@ -1,3 +1,19 @@
+* A repair tool (scanning files and reporting those that cannot be read,
+  for later inspection/deletion, or offering to truncate the file (or merely
+display file and offset where the error occured))
+
+* Factorize DNS with WEB
+
+* Should print help when no cmdline arg is given
+
+* A wrapper around Arg and Cgi to have either help/form or wrap the result
+  of dump/load/... into a csv/svg
+
+* SVG version of dump command that performs one among several kind of plots
+
+* CGI version of dns.opt/web.opt (both Sys.Arg or Cgi.parse, depending of
+envvars!)
+
 * More tests for the helper functions and the (de)serializers.
 
 * Parallelize writing (less obvious but less useful).
@@ -9,6 +25,9 @@ forked writer being responsible for the meta data and the serialization,
 but only a central writer performs the accumulations in the various Lods.
 
 * Lock tables to prevent several concurrent inserts
+
+* In the same spirit, write a file with the textual representation of
+the record type in a table directory (and check it when opening the table).
 
 * It would be nice if any reasonably widespread date format were 
 understood by Timestamp.read_txt. Or provide a helper function (for better

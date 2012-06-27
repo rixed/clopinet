@@ -1,0 +1,17 @@
+#!/bin/zsh
+
+set -e
+
+dbdir=$1
+
+if test -z "$dbdir" ; then
+	echo "need path to db"
+	exit 1
+fi
+
+mkdir -p "$dbdir"
+
+tee >(grep '^WEB' | cut -f 2- | ./web.opt -dir "$dbdir/web" -create -verbose -load /dev/stdin >& "$dbdir/web.log") \
+    >(grep '^DNS' | cut -f 2- | ./dns.opt -dir "$dbdir/dns" -create -verbose -load /dev/stdin >& "$dbdir/dns.log") \
+    > /dev/null
+

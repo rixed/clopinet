@@ -10,7 +10,7 @@ SOURCES  = \
 	table.ml \
 
 EXAMPLES_BYTE = \
-	dns.byte \
+	dns.byte web.byte \
 
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)

@@ -557,8 +557,7 @@ Datatype_of (struct
     let name = T1.name ^ "*" ^ T2.name
 
     let write oc (t1, t2) =
-        T1.write oc t1 ;
-        T2.write oc t2
+        T1.write oc t1 ; T2.write oc t2
 
     let write_txt oc (t1, t2) =
         T1.write_txt oc t1 ;
@@ -584,8 +583,7 @@ module Tuple3 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) :
 Datatype_of (struct
     type t = T1.t * T2.t * T3.t
     let equal (a1,a2,a3) (b1,b2,b3) =
-        T1.equal a1 b1 &&
-        T2.equal a2 b2 &&
+        T1.equal a1 b1 && T2.equal a2 b2 &&
         T3.equal a3 b3
     let hash = Hashtbl.hash
     let name = T1.name^"*"^T2.name^"*"^T3.name
@@ -597,8 +595,7 @@ Datatype_of (struct
         T2.write_txt oc t2 ; Output.char oc '\t' ;
         T3.write_txt oc t3
     let read ic =
-        let t1 = T1.read ic in
-        let t2 = T2.read ic in
+        let t1 = T1.read ic in let t2 = T2.read ic in
         let t3 = T3.read ic in
         t1, t2, t3
     let read_txt ic =
@@ -615,10 +612,8 @@ module Tuple4 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) :
 Datatype_of (struct
     type t = T1.t * T2.t * T3.t * T4.t
     let equal (a1,a2,a3,a4) (b1,b2,b3,b4) =
-        T1.equal a1 b1 &&
-        T2.equal a2 b2 &&
-        T3.equal a3 b3 &&
-        T4.equal a4 b4
+        T1.equal a1 b1 && T2.equal a2 b2 &&
+        T3.equal a3 b3 && T4.equal a4 b4
     let hash = Hashtbl.hash
     let name = T1.name^"*"^T2.name^"*"^T3.name^"*"^T4.name
     let write oc (t1,t2,t3,t4) =
@@ -630,10 +625,8 @@ Datatype_of (struct
         T3.write_txt oc t3 ; Output.char oc '\t' ;
         T4.write_txt oc t4
     let read ic =
-        let t1 = T1.read ic in
-        let t2 = T2.read ic in
-        let t3 = T3.read ic in
-        let t4 = T4.read ic in
+        let t1 = T1.read ic in let t2 = T2.read ic in
+        let t3 = T3.read ic in let t4 = T4.read ic in
         t1, t2, t3, t4
     let read_txt ic =
         let t1 = T1.read_txt ic in
@@ -650,10 +643,8 @@ module Tuple5 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATY
 Datatype_of (struct
     type t = T1.t * T2.t * T3.t * T4.t * T5.t
     let equal (a1,a2,a3,a4,a5) (b1,b2,b3,b4,b5) =
-        T1.equal a1 b1 &&
-        T2.equal a2 b2 &&
-        T3.equal a3 b3 &&
-        T4.equal a4 b4 &&
+        T1.equal a1 b1 && T2.equal a2 b2 &&
+        T3.equal a3 b3 && T4.equal a4 b4 &&
         T5.equal a5 b5
     let hash = Hashtbl.hash
     let name = T1.name^"*"^T2.name^"*"^T3.name^"*"^T4.name^"*"^T5.name
@@ -668,10 +659,8 @@ Datatype_of (struct
         T4.write_txt oc t4 ; Output.char oc '\t' ;
         T5.write_txt oc t5
     let read ic =
-        let t1 = T1.read ic in
-        let t2 = T2.read ic in
-        let t3 = T3.read ic in
-        let t4 = T4.read ic in
+        let t1 = T1.read ic in let t2 = T2.read ic in
+        let t3 = T3.read ic in let t4 = T4.read ic in
         let t5 = T5.read ic in
         t1, t2, t3, t4, t5
     let read_txt ic =
@@ -692,12 +681,9 @@ module Tuple6 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATY
 Datatype_of (struct
     type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t
     let equal (a1,a2,a3,a4,a5,a6) (b1,b2,b3,b4,b5,b6) =
-        T1.equal a1 b1 &&
-        T2.equal a2 b2 &&
-        T3.equal a3 b3 &&
-        T4.equal a4 b4 &&
-        T5.equal a5 b5 &&
-        T6.equal a6 b6
+        T1.equal a1 b1 && T2.equal a2 b2 &&
+        T3.equal a3 b3 && T4.equal a4 b4 &&
+        T5.equal a5 b5 && T6.equal a6 b6
     let hash = Hashtbl.hash
     let name = T1.name^"*"^T2.name^"*"^T3.name^"*"^T4.name^"*"^T5.name^"*"^T6.name
     let write oc (t1,t2,t3,t4,t5,t6) =
@@ -712,12 +698,9 @@ Datatype_of (struct
         T5.write_txt oc t5 ; Output.char oc '\t' ;
         T6.write_txt oc t6
     let read ic =
-        let t1 = T1.read ic in
-        let t2 = T2.read ic in
-        let t3 = T3.read ic in
-        let t4 = T4.read ic in
-        let t5 = T5.read ic in
-        let t6 = T6.read ic in
+        let t1 = T1.read ic in let t2 = T2.read ic in
+        let t3 = T3.read ic in let t4 = T4.read ic in
+        let t5 = T5.read ic in let t6 = T6.read ic in
         t1, t2, t3, t4, t5, t6
     let read_txt ic =
         let t1 = T1.read_txt ic in
@@ -731,6 +714,103 @@ Datatype_of (struct
         let t5 = T5.read_txt ic in
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         t1,t2,t3,t4,t5,T6.read_txt ic
+end)
+
+module Tuple7 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) (T6:DATATYPE) (T7:DATATYPE) :
+    DATATYPE with type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t * T7.t =
+Datatype_of (struct
+    type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t * T7.t
+    let equal (a1,a2,a3,a4,a5,a6,a7) (b1,b2,b3,b4,b5,b6,b7) =
+        T1.equal a1 b1 && T2.equal a2 b2 &&
+        T3.equal a3 b3 && T4.equal a4 b4 &&
+        T5.equal a5 b5 && T6.equal a6 b6 &&
+        T7.equal a7 b7
+    let hash = Hashtbl.hash
+    let name = T1.name^"*"^T2.name^"*"^T3.name^"*"^T4.name^"*"^T5.name^"*"^T6.name^"*"^T7.name
+    let write oc (t1,t2,t3,t4,t5,t6,t7) =
+        T1.write oc t1 ; T2.write oc t2 ;
+        T3.write oc t3 ; T4.write oc t4 ;
+        T5.write oc t5 ; T6.write oc t6 ;
+        T7.write oc t7
+    let write_txt oc (t1,t2,t3,t4,t5,t6,t7) =
+        T1.write_txt oc t1 ; Output.char oc '\t' ;
+        T2.write_txt oc t2 ; Output.char oc '\t' ;
+        T3.write_txt oc t3 ; Output.char oc '\t' ;
+        T4.write_txt oc t4 ; Output.char oc '\t' ;
+        T5.write_txt oc t5 ; Output.char oc '\t' ;
+        T6.write_txt oc t6 ; Output.char oc '\t' ;
+        T7.write_txt oc t7
+    let read ic =
+        let t1 = T1.read ic in let t2 = T2.read ic in
+        let t3 = T3.read ic in let t4 = T4.read ic in
+        let t5 = T5.read ic in let t6 = T6.read ic in
+        let t7 = T7.read ic in
+        t1, t2, t3, t4, t5, t6, t7
+    let read_txt ic =
+        let t1 = T1.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t2 = T2.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t3 = T3.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t4 = T4.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t5 = T5.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t6 = T6.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t7 = T7.read_txt ic in
+        t1,t2,t3,t4,t5,t6,t7
+end)
+
+module Tuple8 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) (T6:DATATYPE) (T7:DATATYPE) (T8:DATATYPE) :
+    DATATYPE with type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t * T7.t * T8.t =
+Datatype_of (struct
+    type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t * T7.t * T8.t
+    let equal (a1,a2,a3,a4,a5,a6,a7,a8) (b1,b2,b3,b4,b5,b6,b7,b8) =
+        T1.equal a1 b1 && T2.equal a2 b2 &&
+        T3.equal a3 b3 && T4.equal a4 b4 &&
+        T5.equal a5 b5 && T6.equal a6 b6 &&
+        T7.equal a7 b7 && T8.equal a8 b8
+    let hash = Hashtbl.hash
+    let name = T1.name^"*"^T2.name^"*"^T3.name^"*"^T4.name^"*"^T5.name^"*"^T6.name^"*"^T7.name^"*"^T8.name
+    let write oc (t1,t2,t3,t4,t5,t6,t7,t8) =
+        T1.write oc t1 ; T2.write oc t2 ;
+        T3.write oc t3 ; T4.write oc t4 ;
+        T5.write oc t5 ; T6.write oc t6 ;
+        T7.write oc t7 ; T8.write oc t8
+    let write_txt oc (t1,t2,t3,t4,t5,t6,t7,t8) =
+        T1.write_txt oc t1 ; Output.char oc '\t' ;
+        T2.write_txt oc t2 ; Output.char oc '\t' ;
+        T3.write_txt oc t3 ; Output.char oc '\t' ;
+        T4.write_txt oc t4 ; Output.char oc '\t' ;
+        T5.write_txt oc t5 ; Output.char oc '\t' ;
+        T6.write_txt oc t6 ; Output.char oc '\t' ;
+        T7.write_txt oc t7 ; Output.char oc '\t' ;
+        T8.write_txt oc t8
+    let read ic =
+        let t1 = T1.read ic in let t2 = T2.read ic in
+        let t3 = T3.read ic in let t4 = T4.read ic in
+        let t5 = T5.read ic in let t6 = T6.read ic in
+        let t7 = T7.read ic in let t8 = T8.read ic in
+        t1, t2, t3, t4, t5, t6, t7, t8
+    let read_txt ic =
+        let t1 = T1.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t2 = T2.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t3 = T3.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t4 = T4.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t5 = T5.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t6 = T6.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t7 = T7.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t8 = T8.read_txt ic in
+        t1,t2,t3,t4,t5,t6,t7,t8
 end)
 
 module Altern1 (T1:DATATYPE) :
