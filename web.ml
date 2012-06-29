@@ -52,7 +52,7 @@ struct
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual queries *)
-    let dump ?start ?stop ?client ?server ?meth ?status ?host ?url ?rt_min dbdir f =
+    let dump ?start ?stop ?client ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir f =
         let tdir = table_name dbdir in
         let starts_with e s =
             if String.length e > String.length s then false else
@@ -77,13 +77,13 @@ struct
                         check start (fun start -> not (ts2 <<< start)) &&
                         check stop  (fun stop  -> not (stop <<< ts1)) in
                 if scan_it then (
-                    (* TODO: filter with client, name, etc, and again start/stop! *)
                     Table.iter_file tdir hnum snum read (fun ((clt, srv, met, err, ts, rt, h, u) as x) ->
                         if check start  (fun start -> not (ts <<< start)) &&
                            check stop   (fun stop  -> not (stop <<< ts)) &&
                            check rt_min (fun rt_m  -> rt > rt_m) &&
                            check client (fun cidr  -> in_cidr clt cidr) &&
                            check server (fun cidr  -> in_cidr srv cidr) &&
+                           check peer   (fun cidr  -> in_cidr srv cidr || in_cidr clt cidr) &&
                            check meth   (fun meth  -> meth = met) &&
                            check status (fun st    -> st = err) &&
                            check host   (fun host  -> ends_with host h) &&
@@ -233,7 +233,7 @@ let main =
     let dbdir = ref "./" and start = ref None and stop = ref None 
     and rt_min = ref None and url = ref None and status = ref None
     and client = ref None and server = ref None and host = ref None
-    and meth = ref None and create = ref false in
+    and peer = ref None and meth = ref None and create = ref false in
     Arg.(parse [
         "-dir", Set_string dbdir, "database directory (or './')" ;
         "-create", Set create, "create db if it does not exist yet" ;
@@ -241,7 +241,7 @@ let main =
         "-verbose", Set verbose, "verbose" ;
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
         "-dump", Int (function 0 -> Web0.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min
-                                               ?client:!client ?server:!server
+                                               ?client:!client ?server:!server ?peer:!peer
                                                ?meth:!meth ?host:!host
                                                ?url:!url ?status:!status !dbdir
                                                (fun x -> write_txt Output.stdout x ; print_newline ()))
@@ -257,7 +257,8 @@ let main =
         "-status", Int (fun i -> status := Some i), "select only queries with this status code" ;
         "-method", Int (fun i -> meth := Some i), "select only queries with this method code" ;
         "-client", String (fun s -> client := Some (Cidr.of_string s)), "limit to these clients" ;
-        "-server", String (fun s -> server := Some (Cidr.of_string s)), "limit to these servers" ]
+        "-server", String (fun s -> server := Some (Cidr.of_string s)), "limit to these servers" ;
+        "-peer", String (fun s -> peer := Some (Cidr.of_string s)), "limit to these clients or servers" ]
         (fun x -> raise (Bad x))
         "Operate the HTTP response times DB")
 

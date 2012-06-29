@@ -50,7 +50,7 @@ struct
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual queries *)
-    let dump ?start ?stop ?client ?server ?error ?qname ?rt_min dbdir f =
+    let dump ?start ?stop ?client ?server ?peer ?error ?qname ?rt_min dbdir f =
         let tdir = table_name dbdir in
         let ends_with e s =
             let eo = String.length e - 1 and so = String.length s - 1 in
@@ -70,13 +70,13 @@ struct
                         check start (fun start -> not (ts2 <<< start)) &&
                         check stop  (fun stop  -> not (stop <<< ts1)) in
                 if scan_it then (
-                    (* TODO: filter with client, name, etc, and again start/stop! *)
                     Table.iter_file tdir hnum snum read (fun ((clt, srv, err, ts, rt, name) as x) ->
                         if check start  (fun start -> not (ts <<< start)) &&
                            check stop   (fun stop  -> not (stop <<< ts)) &&
                            check rt_min (fun rt_m  -> rt > rt_m) &&
                            check client (fun cidr  -> in_cidr clt cidr) &&
                            check server (fun cidr  -> in_cidr srv cidr) &&
+                           check peer   (fun cidr  -> in_cidr srv cidr || in_cidr clt cidr) &&
                            check error  (fun error -> error = err) &&
                            check qname  (fun qname -> ends_with qname name) then
                            f x))) in
@@ -224,7 +224,8 @@ let load dbdir create fname =
 let main =
     let dbdir = ref "./" and start = ref None and stop = ref None 
     and rt_min = ref None and qname = ref None and error = ref None
-    and client = ref None and server = ref None and create = ref false in
+    and client = ref None and server = ref None and peer =ref None
+    and create = ref false in
     Arg.(parse [
         "-dir", Set_string dbdir, "database directory (or './')" ;
         "-create", Set create, "create db if it does not exist yet" ;
@@ -232,7 +233,7 @@ let main =
         "-verbose", Set verbose, "verbose" ;
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
         "-dump", Int (function 0 -> Dns0.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min
-                                               ?client:!client ?server:!server
+                                               ?client:!client ?server:!server ?peer:!peer
                                                ?qname:!qname ?error:!error !dbdir
                                                (fun x -> write_txt Output.stdout x ; print_newline ()))
                              | 1 -> Dns1.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
@@ -245,7 +246,8 @@ let main =
         "-qname", String (fun s -> qname := Some s), "limit queries to those ending with this" ;
         "-error", Int (fun i -> error := Some i), "select only queries with this error code" ;
         "-client", String (fun s -> client := Some (Cidr.of_string s)), "limit to these clients" ;
-        "-server", String (fun s -> server := Some (Cidr.of_string s)), "limit to these servers" ]
+        "-server", String (fun s -> server := Some (Cidr.of_string s)), "limit to these servers" ;
+        "-peer", String (fun s -> peer := Some (Cidr.of_string s)), "limit to these clients or servers" ]
         (fun x -> raise (Bad x))
         "Operate the DNS response times DB")
 

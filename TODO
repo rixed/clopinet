@@ -4,8 +4,6 @@ TODO stack
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
 
-* A selector for addr src or dst
-
 * Add the mac addr in the records !
 
 * A table for basic traffic (1 line per proto stack with counters of packets,
