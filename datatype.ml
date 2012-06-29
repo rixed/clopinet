@@ -419,7 +419,7 @@ let subnet_size ((net : Unix.inet_addr), mask) =
     let width_bits = String.length net * 8 - mask in
     1 lsl width_bits
 
-module Timestamp : NUMBER with type t = Int64.t * int =
+module Timestamp =
 struct
     include Datatype_of (struct
         type t = Int64.t * int (* secs, usecs *)
@@ -457,6 +457,9 @@ struct
             ) with End_of_file -> 0 in
             s, u
     end)
+
+    let seconds (s,_u) = s
+    let microseconds (_s,u) = u
 
     let zero = 0L, 0
     let add (s1,u1) (s2,u2) = Int64.add s1 s2, u1 + u2
@@ -576,6 +579,9 @@ Datatype_of (struct
         assert (sep = '\t') ;
         let v2 = T2.read_txt ic in
         v1, v2
+
+    let first  (x,_) = x
+    let second (_,x) = x
 end)
 
 module Tuple3 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) :
@@ -605,6 +611,10 @@ Datatype_of (struct
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         let t3 = T3.read_txt ic in
         t1,t2,t3
+
+    let first  (x,_,_) = x
+    let second (_,x,_) = x
+    let third  (_,_,x) = x
 end)
 
 module Tuple4 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) :
@@ -636,6 +646,11 @@ Datatype_of (struct
         let t3 = T3.read_txt ic in
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         t1,t2,t3,T4.read_txt ic
+
+    let first  (x,_,_,_) = x
+    let second (_,x,_,_) = x
+    let third  (_,_,x,_) = x
+    let fourth (_,_,_,x) = x
 end)
 
 module Tuple5 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) :
@@ -674,6 +689,12 @@ Datatype_of (struct
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         let t5 = T5.read_txt ic in
         t1,t2,t3,t4,t5
+
+    let first  (x,_,_,_,_) = x
+    let second (_,x,_,_,_) = x
+    let third  (_,_,x,_,_) = x
+    let fourth (_,_,_,x,_) = x
+    let fifth  (_,_,_,_,x) = x
 end)
 
 module Tuple6 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) (T6:DATATYPE) :
@@ -714,6 +735,13 @@ Datatype_of (struct
         let t5 = T5.read_txt ic in
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         t1,t2,t3,t4,t5,T6.read_txt ic
+
+    let first  (x,_,_,_,_,_) = x
+    let second (_,x,_,_,_,_) = x
+    let third  (_,_,x,_,_,_) = x
+    let fourth (_,_,_,x,_,_) = x
+    let fifth  (_,_,_,_,x,_) = x
+    let sixth  (_,_,_,_,_,x) = x
 end)
 
 module Tuple7 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) (T6:DATATYPE) (T7:DATATYPE) :
@@ -761,6 +789,13 @@ Datatype_of (struct
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         let t7 = T7.read_txt ic in
         t1,t2,t3,t4,t5,t6,t7
+
+    let first  (x,_,_,_,_,_) = x
+    let second (_,x,_,_,_,_) = x
+    let third  (_,_,x,_,_,_) = x
+    let fourth (_,_,_,x,_,_) = x
+    let fifth  (_,_,_,_,x,_) = x
+    let sixth  (_,_,_,_,_,x) = x
 end)
 
 module Tuple8 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) (T6:DATATYPE) (T7:DATATYPE) (T8:DATATYPE) :
@@ -811,6 +846,14 @@ Datatype_of (struct
         let sep = TxtInput.read ic in assert (sep = '\t') ;
         let t8 = T8.read_txt ic in
         t1,t2,t3,t4,t5,t6,t7,t8
+
+    let first   (x,_,_,_,_,_,_) = x
+    let second  (_,x,_,_,_,_,_) = x
+    let third   (_,_,x,_,_,_,_) = x
+    let fourth  (_,_,_,x,_,_,_) = x
+    let fifth   (_,_,_,_,x,_,_) = x
+    let sixth   (_,_,_,_,_,x,_) = x
+    let seventh (_,_,_,_,_,_,x) = x
 end)
 
 module Altern1 (T1:DATATYPE) :

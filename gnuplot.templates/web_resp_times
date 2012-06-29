@@ -1,0 +1,5 @@
+set logscale y
+set grid ytics mytics nomxtics noxtics
+set ylabel "response times (s)"
+set title "HTTP response times"
+plot '/dev/stdin' using 0:($7/1000000):2 with points ps 0.3 linecolor variable

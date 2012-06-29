@@ -1,3 +1,21 @@
+TODO stack
+----------
+
+* junkie.scm: for http, add an intermediary state between query and answer
+matching any packet belonging to this cnx in order to reset the timeout clock.
+
+* A selector for addr src or dst
+
+* Add the mac addr in the records !
+
+* A table for basic traffic (1 line per proto stack with counters of packets,
+payload, eth proto, ip proto, ports, ts, ip src, dst)
+
+* Another table for TCP (with much more aggregation, start and end time,
+payload...
+
+* Add payload and its transfert time to web metric
+
 * A repair tool (scanning files and reporting those that cannot be read,
   for later inspection/deletion, or offering to truncate the file (or merely
 display file and offset where the error occured))
@@ -9,7 +27,8 @@ display file and offset where the error occured))
 * A wrapper around Arg and Cgi to have either help/form or wrap the result
   of dump/load/... into a csv/svg
 
-* SVG version of dump command that performs one among several kind of plots
+* SVG (and x11) version of dump command that performs one among several kind 
+  of plots with given columns
 
 * CGI version of dns.opt/web.opt (both Sys.Arg or Cgi.parse, depending of
 envvars!)
@@ -40,4 +59,12 @@ the index handling (Dns0.dump is too complex wrt. index)
 
 * Dump should be able to send output to a pipe (ssh compressed tunnel) for
 distributed querying
+
+
+Reference for gnuplot:
+----------------------
+
+- http://gnuplot-surprising.blogspot.fr/
+- http://www.gnuplotting.org/
+- http://gnuplot-tricks.blogspot.fr/
 

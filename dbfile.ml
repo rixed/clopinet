@@ -20,8 +20,8 @@ let get ?prev tdir hnum snum =
             let mode = [ Open_append ; Open_creat ; Open_binary ] in
             let oc = open_out_gen mode perm (path tdir hnum snum) in
             (* Lock from the current pos up to the end of file.
-             * Verified experimentaly to work on files opened in append mode,
-             * even if they are empty. *)
+             * specs says: "lock all bytes starting at the location specified by l_whence
+             * and l_start through to the end of file, no matter how large the file grows". *)
             Unix.(lockf (descr_of_out_channel oc) F_LOCK 0) ;
             (* This lock will be dismissed whenever we close the file *)
             Output.of_channel oc in
