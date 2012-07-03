@@ -4,7 +4,11 @@ TODO stack
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
 
-* Add the mac addr in the records !
+* Add the possibility to listen on any event in netmatch (like HTTP end of 
+body)
+
+* Add payload and its transfert time to web metric
+
 
 * A table for basic traffic (1 line per proto stack with counters of packets,
 payload, eth proto, ip proto, ports, ts, ip src, dst)
@@ -12,13 +16,14 @@ payload, eth proto, ip proto, ports, ts, ip src, dst)
 * Another table for TCP (with much more aggregation, start and end time,
 payload...
 
-* Add payload and its transfert time to web metric
 
 * A repair tool (scanning files and reporting those that cannot be read,
   for later inspection/deletion, or offering to truncate the file (or merely
 display file and offset where the error occured))
 
+
 * Factorize DNS with WEB
+
 
 * Should print help when no cmdline arg is given
 
@@ -31,7 +36,9 @@ display file and offset where the error occured))
 * CGI version of dns.opt/web.opt (both Sys.Arg or Cgi.parse, depending of
 envvars!)
 
+
 * More tests for the helper functions and the (de)serializers.
+
 
 * Parallelize writing (less obvious but less useful).
 
@@ -41,19 +48,23 @@ aggregate function) ; or we allocate writers to some index value, the
 forked writer being responsible for the meta data and the serialization,
 but only a central writer performs the accumulations in the various Lods.
 
+
 * In the same spirit than locking, write a file with the textual 
 representation of the record type in a table directory (and check it when 
 opening the table).
 
+
 * It would be nice if any reasonably widespread date format were 
 understood by Timestamp.read_txt. Or provide a helper function (for better
 performances)
+
 
 * Think of a way to ensure that when we compute a hash to select a part of
 a table we actually hash the correct datatype (ie. Dns0.hash takes a full 
 record, extract something then hash this, while Dns0.dump hash a server IP,
 check that what Dns0.hash extract is also an IP). Additionally, simplify
 the index handling (Dns0.dump is too complex wrt. index)
+
 
 * Dump should be able to send output to a pipe (ssh compressed tunnel) for
 distributed querying

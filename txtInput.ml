@@ -66,3 +66,12 @@ let peek t =
 let swallow t =
     if t.peeked <> None then t.peeked <- None
 
+let hexdigit t =
+    let c = read t in
+    if c >= '0' && c <= '9' then (
+        Char.code c - Char.code '0'
+    ) else (
+        assert (c >= 'a' && c <= 'f') ;
+        10 + Char.code c - Char.code 'a'
+    )
+

@@ -419,6 +419,47 @@ let subnet_size ((net : Unix.inet_addr), mask) =
     let width_bits = String.length net * 8 - mask in
     1 lsl width_bits
 
+module EthAddr : DATATYPE with type t = char * char * char * char * char * char =
+Datatype_of (struct
+    type t = char * char * char * char * char * char
+    let name = "ethAddr"
+    let equal = (=)
+    let hash = Hashtbl.hash
+    let write oc (a,b,c,d,e,f) =
+        let open Output in
+        char oc a ; char oc b ;
+        char oc c ; char oc d ;
+        char oc e ; char oc f
+    let write_txt oc (a,b,c,d,e,f) =
+        let byte n =
+            let n = Char.code n in
+            Output.hexdigit oc ((n lsr 4) land 15) ;
+            Output.hexdigit oc (n land 15) in
+        let byte_sep n = byte n ; Output.char oc ':' in
+        byte_sep a ; byte_sep b ;
+        byte_sep c ; byte_sep d ;
+        byte_sep e ; byte f
+    let read ic =
+        BinInput.(let a = char ic in let b = char ic in
+                  let c = char ic in let d = char ic in
+                  let e = char ic in let f = char ic in
+                  a,b,c,d,e,f)
+    let read_txt ic =
+        let byte () =
+            let hi = TxtInput.hexdigit ic in
+            let lo = TxtInput.hexdigit ic in
+            let n = (hi lsl 4) lor lo in
+            Char.unsafe_chr n in
+        let byte_sep () =
+            let b = byte () in
+            let s = TxtInput.read ic in assert (s = ':') ;
+            b in
+        let a = byte_sep () in let b = byte_sep () in
+        let c = byte_sep () in let d = byte_sep () in
+        let e = byte_sep () in let f = byte () in
+        a,b,c,d,e,f
+end)
+
 module Timestamp =
 struct
     include Datatype_of (struct
@@ -790,12 +831,13 @@ Datatype_of (struct
         let t7 = T7.read_txt ic in
         t1,t2,t3,t4,t5,t6,t7
 
-    let first  (x,_,_,_,_,_) = x
-    let second (_,x,_,_,_,_) = x
-    let third  (_,_,x,_,_,_) = x
-    let fourth (_,_,_,x,_,_) = x
-    let fifth  (_,_,_,_,x,_) = x
-    let sixth  (_,_,_,_,_,x) = x
+    let first   (x,_,_,_,_,_,_) = x
+    let second  (_,x,_,_,_,_,_) = x
+    let third   (_,_,x,_,_,_,_) = x
+    let fourth  (_,_,_,x,_,_,_) = x
+    let fifth   (_,_,_,_,x,_,_) = x
+    let sixth   (_,_,_,_,_,x,_) = x
+    let seventh (_,_,_,_,_,_,x) = x
 end)
 
 module Tuple8 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) (T6:DATATYPE) (T7:DATATYPE) (T8:DATATYPE) :
@@ -847,13 +889,150 @@ Datatype_of (struct
         let t8 = T8.read_txt ic in
         t1,t2,t3,t4,t5,t6,t7,t8
 
-    let first   (x,_,_,_,_,_,_) = x
-    let second  (_,x,_,_,_,_,_) = x
-    let third   (_,_,x,_,_,_,_) = x
-    let fourth  (_,_,_,x,_,_,_) = x
-    let fifth   (_,_,_,_,x,_,_) = x
-    let sixth   (_,_,_,_,_,x,_) = x
-    let seventh (_,_,_,_,_,_,x) = x
+    let first   (x,_,_,_,_,_,_,_) = x
+    let second  (_,x,_,_,_,_,_,_) = x
+    let third   (_,_,x,_,_,_,_,_) = x
+    let fourth  (_,_,_,x,_,_,_,_) = x
+    let fifth   (_,_,_,_,x,_,_,_) = x
+    let sixth   (_,_,_,_,_,x,_,_) = x
+    let seventh (_,_,_,_,_,_,x,_) = x
+    let height  (_,_,_,_,_,_,_,x) = x
+end)
+
+module Tuple9 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) (T6:DATATYPE) (T7:DATATYPE) (T8:DATATYPE) (T9:DATATYPE) :
+    DATATYPE with type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t * T7.t * T8.t * T9.t =
+Datatype_of (struct
+    type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t * T7.t * T8.t * T9.t
+    let equal (a1,a2,a3,a4,a5,a6,a7,a8,a9) (b1,b2,b3,b4,b5,b6,b7,b8,b9) =
+        T1.equal a1 b1 && T2.equal a2 b2 &&
+        T3.equal a3 b3 && T4.equal a4 b4 &&
+        T5.equal a5 b5 && T6.equal a6 b6 &&
+        T7.equal a7 b7 && T8.equal a8 b8 &&
+        T9.equal a9 b9
+    let hash = Hashtbl.hash
+    let name = T1.name^"*"^T2.name^"*"^T3.name^"*"^T4.name^"*"^T5.name^"*"^T6.name^"*"^T7.name^"*"^T8.name^"*"^T9.name
+    let write oc (t1,t2,t3,t4,t5,t6,t7,t8,t9) =
+        T1.write oc t1 ; T2.write oc t2 ;
+        T3.write oc t3 ; T4.write oc t4 ;
+        T5.write oc t5 ; T6.write oc t6 ;
+        T7.write oc t7 ; T8.write oc t8 ;
+        T9.write oc t9
+    let write_txt oc (t1,t2,t3,t4,t5,t6,t7,t8,t9) =
+        T1.write_txt oc t1 ; Output.char oc '\t' ;
+        T2.write_txt oc t2 ; Output.char oc '\t' ;
+        T3.write_txt oc t3 ; Output.char oc '\t' ;
+        T4.write_txt oc t4 ; Output.char oc '\t' ;
+        T5.write_txt oc t5 ; Output.char oc '\t' ;
+        T6.write_txt oc t6 ; Output.char oc '\t' ;
+        T7.write_txt oc t7 ; Output.char oc '\t' ;
+        T8.write_txt oc t8 ; Output.char oc '\t' ;
+        T9.write_txt oc t9
+    let read ic =
+        let t1 = T1.read ic in let t2 = T2.read ic in
+        let t3 = T3.read ic in let t4 = T4.read ic in
+        let t5 = T5.read ic in let t6 = T6.read ic in
+        let t7 = T7.read ic in let t8 = T8.read ic in
+        let t9 = T9.read ic in
+        t1, t2, t3, t4, t5, t6, t7, t8, t9
+    let read_txt ic =
+        let t1 = T1.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t2 = T2.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t3 = T3.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t4 = T4.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t5 = T5.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t6 = T6.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t7 = T7.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t8 = T8.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t9 = T9.read_txt ic in
+        t1,t2,t3,t4,t5,t6,t7,t8,t9
+
+    let first   (x,_,_,_,_,_,_,_,_) = x
+    let second  (_,x,_,_,_,_,_,_,_) = x
+    let third   (_,_,x,_,_,_,_,_,_) = x
+    let fourth  (_,_,_,x,_,_,_,_,_) = x
+    let fifth   (_,_,_,_,x,_,_,_,_) = x
+    let sixth   (_,_,_,_,_,x,_,_,_) = x
+    let seventh (_,_,_,_,_,_,x,_,_) = x
+    let height  (_,_,_,_,_,_,_,x,_) = x
+    let ninth   (_,_,_,_,_,_,_,_,x) = x
+end)
+
+module Tuple10 (T1:DATATYPE) (T2:DATATYPE) (T3:DATATYPE) (T4:DATATYPE) (T5:DATATYPE) (T6:DATATYPE) (T7:DATATYPE) (T8:DATATYPE) (T9:DATATYPE) (T10:DATATYPE) :
+    DATATYPE with type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t * T7.t * T8.t * T9.t * T10.t =
+Datatype_of (struct
+    type t = T1.t * T2.t * T3.t * T4.t * T5.t * T6.t * T7.t * T8.t * T9.t * T10.t
+    let equal (a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) (b1,b2,b3,b4,b5,b6,b7,b8,b9,b10) =
+        T1.equal a1 b1 && T2.equal a2 b2 &&
+        T3.equal a3 b3 && T4.equal a4 b4 &&
+        T5.equal a5 b5 && T6.equal a6 b6 &&
+        T7.equal a7 b7 && T8.equal a8 b8 &&
+        T9.equal a9 b9 && T10.equal a10 b10
+    let hash = Hashtbl.hash
+    let name = T1.name^"*"^T2.name^"*"^T3.name^"*"^T4.name^"*"^T5.name^"*"^T6.name^"*"^T7.name^"*"^T8.name^"*"^T9.name^"*"^T10.name
+    let write oc (t1,t2,t3,t4,t5,t6,t7,t8,t9,t10) =
+        T1.write oc t1 ; T2.write oc t2 ;
+        T3.write oc t3 ; T4.write oc t4 ;
+        T5.write oc t5 ; T6.write oc t6 ;
+        T7.write oc t7 ; T8.write oc t8 ;
+        T9.write oc t9 ; T10.write oc t10
+    let write_txt oc (t1,t2,t3,t4,t5,t6,t7,t8,t9,t10) =
+        T1.write_txt oc t1 ; Output.char oc '\t' ;
+        T2.write_txt oc t2 ; Output.char oc '\t' ;
+        T3.write_txt oc t3 ; Output.char oc '\t' ;
+        T4.write_txt oc t4 ; Output.char oc '\t' ;
+        T5.write_txt oc t5 ; Output.char oc '\t' ;
+        T6.write_txt oc t6 ; Output.char oc '\t' ;
+        T7.write_txt oc t7 ; Output.char oc '\t' ;
+        T8.write_txt oc t8 ; Output.char oc '\t' ;
+        T9.write_txt oc t9 ; Output.char oc '\t' ;
+        T10.write_txt oc t10
+    let read ic =
+        let t1 = T1.read ic in let t2 = T2.read ic in
+        let t3 = T3.read ic in let t4 = T4.read ic in
+        let t5 = T5.read ic in let t6 = T6.read ic in
+        let t7 = T7.read ic in let t8 = T8.read ic in
+        let t9 = T9.read ic in let t10 = T10.read ic in
+        t1, t2, t3, t4, t5, t6, t7, t8, t9, t10
+    let read_txt ic =
+        let t1 = T1.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t2 = T2.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t3 = T3.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t4 = T4.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t5 = T5.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t6 = T6.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t7 = T7.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t8 = T8.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t9 = T9.read_txt ic in
+        let sep = TxtInput.read ic in assert (sep = '\t') ;
+        let t10 = T10.read_txt ic in
+        t1,t2,t3,t4,t5,t6,t7,t8,t9,t10
+
+    let first   (x,_,_,_,_,_,_,_,_,_) = x
+    let second  (_,x,_,_,_,_,_,_,_,_) = x
+    let third   (_,_,x,_,_,_,_,_,_,_) = x
+    let fourth  (_,_,_,x,_,_,_,_,_,_) = x
+    let fifth   (_,_,_,_,x,_,_,_,_,_) = x
+    let sixth   (_,_,_,_,_,x,_,_,_,_) = x
+    let seventh (_,_,_,_,_,_,x,_,_,_) = x
+    let height  (_,_,_,_,_,_,_,x,_,_) = x
+    let ninth   (_,_,_,_,_,_,_,_,x,_) = x
+    let tenth   (_,_,_,_,_,_,_,_,_,x) = x
 end)
 
 module Altern1 (T1:DATATYPE) :

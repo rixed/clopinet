@@ -1,5 +1,6 @@
+# vim:filetype=gnuplot
 set logscale y
 set grid ytics mytics nomxtics noxtics
 set ylabel "response times (s)"
 set title "DNS response times"
-plot '/dev/stdin' using 0:($6/1000000):2 with points ps 0.1 linecolor variable
+plot '< ./dns.opt -dir test_db/dns -dump 0' using 0:($8/1000000):4 with dots linecolor variable

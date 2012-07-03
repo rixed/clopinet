@@ -45,6 +45,8 @@ let nread t n =
         String.blit str.s str.o s 1 n) ;
     s
 
+let char t = Char.unsafe_chr (read t)
+
 let close = function
     | File ic -> close_in ic
     | Zip ic -> Gzip.close_in ic
