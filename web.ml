@@ -32,18 +32,18 @@ let when_change eq =
 
 (* Lod0: the full request record: client, server, method (int), status-code, ts, rt, host, url *)
 
-module Bounds64 = Tuple2 (Integer64) (Integer64)
-module BoundsTS = Tuple2 (Timestamp) (Timestamp)
+module Bounds64 = Tuple2.Make (Integer64) (Integer64)
+module BoundsTS = Tuple2.Make (Timestamp) (Timestamp)
 
 module Web0 =
 struct
-    include Altern1 (Tuple10 (EthAddr) (InetAddr) (EthAddr) (InetAddr) (Integer8) (Integer16) (Timestamp) (Integer32) (Text) (Text))
+    include Altern1 (Tuple13.Make (Integer16) (EthAddr) (InetAddr) (Integer16) (EthAddr) (InetAddr) (Integer16) (Integer8) (Integer16) (Timestamp) (Integer32) (Text) (Text))
     let name = "queries"
     (* We hash on the server IP *)
-    let hash_on_srv (_clte, _clt, _srve, srv, _method, _err, _ts, _rt, _host, _url) =
+    let hash_on_srv (_vlan, _clte, _clt, _cltp, _srve, srv, _srvp, _method, _err, _ts, _rt, _host, _url) =
         InetAddr.hash srv
     (* Metafile stores timestamp range *)
-    let meta_aggr (_clte, _clt, _srve, _srv, _method, _err, ts, _rt, _host, _url) =
+    let meta_aggr (_vlan, _clte, _clt, _cltp, _srve, _srv, _srvp, _method, _err, ts, _rt, _host, _url) =
         Aggregator.bounds ~lt:Timestamp.lt ts
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
@@ -79,7 +79,7 @@ struct
                         check start (fun start -> not (ts2 <<< start)) &&
                         check stop  (fun stop  -> not (stop <<< ts1)) in
                 if scan_it then (
-                    Table.iter_file tdir hnum snum read (fun ((_clte, clt, _srve, srv, met, err, ts, rt, h, u) as x) ->
+                    Table.iter_file tdir hnum snum read (fun ((_vlan, _clte, clt, _cltp, _srve, srv, _srvp, met, err, ts, rt, h, u) as x) ->
                         if check start  (fun start -> not (ts <<< start)) &&
                            check stop   (fun stop  -> not (stop <<< ts)) &&
                            check rt_min (fun rt_m  -> rt > rt_m) &&
@@ -111,13 +111,13 @@ end
 
 module Web1 =
 struct
-    include Altern1 (Tuple8 (Cidr) (EthAddr) (InetAddr) (Integer8) (Integer16) (Integer64) (Distribution) (Text))
+    include Altern1 (Tuple10.Make (Integer16) (Cidr) (EthAddr) (InetAddr) (Integer16) (Integer8) (Integer16) (Integer64) (Distribution) (Text))
     let name = "over-1min"
     (* We hash on the server IP, so that looking for a given IP is faster *)
-    let hash_on_srv (_clt, _srve, srv, _method, _err, _ts, _rt, _host) =
+    let hash_on_srv (_vlan, _clt, _srve, srv, _srvp, _method, _err, _ts, _rt, _host) =
         InetAddr.hash srv
     (* Metafile stores timestamp range so that looking of a time period is faster *)
-    let meta_aggr (_clt, _srve, _srv, _method, _err, ts, _rt, _host) =
+    let meta_aggr (_vlan, _clt, _srve, _srv, _srvp, _method, _err, ts, _rt, _host) =
         Aggregator.bounds ~lt:Integer64.lt ts
     let meta_read = Bounds64.read
     let meta_write = Bounds64.write
@@ -134,7 +134,7 @@ end
 
 module Web2 =
 struct
-    include Altern1 (Tuple8 (Cidr) (EthAddr) (InetAddr) (Integer8) (Integer16) (Integer64) (Distribution) (Text))
+    include Altern1 (Tuple10.Make (Integer16) (Cidr) (EthAddr) (InetAddr) (Integer16) (Integer8) (Integer16) (Integer64) (Distribution) (Text))
     let name = "over-10min"
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
@@ -149,7 +149,7 @@ end
 
 module Web3 =
 struct
-    include Altern1 (Tuple8 (Cidr) (EthAddr) (InetAddr) (Integer8) (Integer16) (Integer64) (Distribution) (Text))
+    include Altern1 (Tuple10.Make (Integer16) (Cidr) (EthAddr) (InetAddr) (Integer16) (Integer8) (Integer16) (Integer64) (Distribution) (Text))
     let name = "over-1hour"
     let table_name dbdir = dbdir ^ "/" ^ name
     let table dbdir =
@@ -172,34 +172,34 @@ let load dbdir create fname =
     let accum3, flush3 =
         Aggregator.accum (once_every 10_000)
                          Distribution.combine
-                         [ fun (clt, srve, srv, met, err, ts, host) distr ->
-                              Table.append table3 (clt, srve, srv, met, err, ts, distr, host) ] in
+                         [ fun (vlan, clt, srve, srv, srvp, met, err, ts, host) distr ->
+                              Table.append table3 (vlan, clt, srve, srv, srvp, met, err, ts, distr, host) ] in
 
     let table2 = Web2.table dbdir in
     let accum2, flush2 =
         Aggregator.accum (once_every 10_000)
                          Distribution.combine
-                         [ fun (clt, srve, srv, met, err, ts, host) distr ->
-                              Table.append table2 (clt, srve, srv, met, err, ts, distr, host) ;
+                         [ fun (vlan, clt, srve, srv, srvp, met, err, ts, host) distr ->
+                              Table.append table2 (vlan, clt, srve, srv, srvp, met, err, ts, distr, host) ;
                               let ts = round_sec 3600 ts in
-                              accum3 (clt, srve, srv, met, err, ts, host) distr ] in
+                              accum3 (vlan, clt, srve, srv, srvp, met, err, ts, host) distr ] in
 
     let table1 = Web1.table dbdir in
     let accum1, flush1 =
         Aggregator.accum (once_every 10_000)
                          Distribution.distr
-                         [ fun (clt, srve, srv, met, err, ts, host) distr ->
-                              Table.append table1 (clt, srve, srv, met, err, ts, distr, host) ;
+                         [ fun (vlan, clt, srve, srv, srvp, met, err, ts, host) distr ->
+                              Table.append table1 (vlan, clt, srve, srv, srvp, met, err, ts, distr, host) ;
                               let ts = round_sec 600 ts in
-                              accum2 (clt, srve, srv, met, err, ts, host) distr ] in
+                              accum2 (vlan, clt, srve, srv, srvp, met, err, ts, host) distr ] in
 
     let table0 = Web0.table dbdir in
 
-    let append0 ((_clte, clt, srve, srv, met, err, ts, rt, host, _url) as v) =
+    let append0 ((vlan, _clte, clt, _cltp, srve, srv, srvp, met, err, ts, rt, host, _url) as v) =
         Table.append table0 v ;
         let clt = cidr_of_inetaddr subnets clt
         and ts = round_timestamp 60 ts in
-        accum1 (clt, srve, srv, met, err, ts, host) (Int32.to_float rt) in
+        accum1 (vlan, clt, srve, srv, srvp, met, err, ts, host) (Int32.to_float rt) in
 
     let flush_all () =
         if !verbose then Printf.printf "Flushing...\n" ;
