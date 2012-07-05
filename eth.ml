@@ -16,15 +16,14 @@ let once_every n =
             true
         ) else false
 
-(* Lod0: Eth stats for periods of 30s, with fields: vlan, src mac, dst mac, proto, TS, duration, #packets, payload, MTU *)
+(* Lod0: Eth stats for periods of 30s, with fields: vlan, src mac, dst mac, proto, TS1, TS2, #packets, payload, MTU *)
 
 module Bounds64 = Tuple2.Make (Integer64) (Integer64)
 module BoundsTS = Tuple2.Make (Timestamp) (Timestamp)
 
-module Eth0 =
+module Eth =
 struct
-    include Altern1 (Tuple9.Make (Integer16) (EthAddr) (EthAddr) (Integer16) (Timestamp) (Integer32) (Integer64) (Integer64) (Integer16))
-    let name = "over-30s"
+    include Altern1 (Tuple9.Make (Integer16) (EthAddr) (EthAddr) (Integer16) (Timestamp) (Timestamp) (Integer64) (Integer64) (Integer16))
     (* We hash on the source MAC *)
     let hash_on_src (_vlan, src, _dst, _proto, _ts, _d, _count, _pld, _mtu) = EthAddr.hash src
     (* Metafile stores timestamp range *)
@@ -32,15 +31,15 @@ struct
         Aggregator.bounds ~lt:Timestamp.lt ts
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
-    let table_name dbdir = dbdir ^ "/" ^ name
-    let table dbdir =
-        Table.create (table_name dbdir)
+    let table_name dbdir name = dbdir ^ "/" ^ name
+    let table dbdir name =
+        Table.create (table_name dbdir name)
             hash_on_src write
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual queries *)
-    let dump ?start ?stop ?vlan ?source ?dest ?proto dbdir f =
-        let tdir = table_name dbdir in
+    let dump ?start ?stop ?vlan ?source ?dest ?proto dbdir name f =
+        let tdir = table_name dbdir name in
         let check vopt f = match vopt with
             | None -> true
             | Some v -> f v in
@@ -73,41 +72,7 @@ struct
 end
 
 (* Lod1: Accumulated over 10mins *)
-
-module Eth1 =
-struct
-    include Altern1 (Tuple8.Make (Integer16) (EthAddr) (EthAddr) (Integer16) (Integer64) (Integer64) (Integer64) (Integer16))
-    let name = "over-10min"
-    let hash_on_src (_vlan, src, _dst, _proto, _ts, _count, _pld, _mtu) =
-        EthAddr.hash src
-    let meta_aggr (_vlan, _src, _dst, _proto, ts, _count, _pld, _mtu) =
-        Aggregator.bounds ~lt:Integer64.lt ts
-    let meta_read = Bounds64.read
-    let meta_write = Bounds64.write
-    let table_name dbdir = dbdir ^ "/" ^ name
-    let table dbdir =
-        Table.create (table_name dbdir)
-            hash_on_src write
-            meta_aggr meta_read meta_write
-    let dump dbdir f =
-        Table.iter (table_name dbdir) read f
-end
-
 (* Lod2: round timestamp to hour *)
-
-module Eth2 =
-struct
-    include Altern1 (Tuple8.Make (Integer16) (EthAddr) (EthAddr) (Integer16) (Integer64) (Integer64) (Integer64) (Integer16))
-    let name = "over-1hour"
-    let table_name dbdir = dbdir ^ "/" ^ name
-    let table dbdir =
-        Table.create (table_name dbdir)
-            Eth1.hash_on_src write
-            Eth1.meta_aggr Eth1.meta_read Eth1.meta_write
-    let dump dbdir f =
-        Table.iter (table_name dbdir) read f
-end
-
 (* Load new data into the database *)
 
 let load dbdir create fname =
@@ -116,31 +81,35 @@ let load dbdir create fname =
         failwith (Printf.sprintf "Directory %s does not exist" dbdir)
     ) ;
 
-    let accum_pkts ((ts, count, pld, mtu) as v) = function
+    let accum_pkts ((count, pld, mtu) as v) = function
         | None -> v
-        | Some (ts', count', pld', mtu') ->
-            min ts ts', Int64.add count count', Int64.add pld pld', max mtu mtu' in
+        | Some (count', pld', mtu') ->
+            Int64.add count count',
+            Int64.add pld pld',
+            max mtu mtu' in
 
-    let table2 = Eth2.table dbdir in
+    let table2 = Eth.table dbdir "1hour" in
     let accum2, flush2 =
         Aggregator.accum (once_every 1_000) accum_pkts
-            [ fun (vlan, src, dst, proto) (ts, count, pld, mtu) ->
-                Table.append table2 (vlan, src, dst, proto, ts, count, pld, mtu) ] in
+            [ fun (vlan, src, dst, proto, start, stop) (count, pld, mtu) ->
+                Table.append table2 (vlan, src, dst, proto, start, stop, count, pld, mtu) ] in
 
-    let table1 = Eth1.table dbdir in
+    let table1 = Eth.table dbdir "10mins" in
     let accum1, flush1 =
         Aggregator.accum (once_every 1_000) accum_pkts
-            [ fun (vlan, src, dst, proto) (ts, count, pld, mtu) ->
-                Table.append table1 (vlan, src, dst, proto, ts, count, pld, mtu) ;
-                let ts = round_sec 3600 ts in
-                accum2 (vlan, src, dst, proto) (ts, count, pld, mtu) ] in
+            [ fun (vlan, src, dst, proto, start, stop) (count, pld, mtu) ->
+                Table.append table1 (vlan, src, dst, proto, start, stop, count, pld, mtu) ;
+                let start = round_timestamp 3600 start
+                and stop = round_timestamp ~ceil:true 3600 stop in
+                accum2 (vlan, src, dst, proto, start, stop) (count, pld, mtu) ] in
 
-    let table0 = Eth0.table dbdir in
+    let table0 = Eth.table dbdir "30secs" in
 
-    let append0 ((vlan, src, dst, proto, ts, _d, count, pld, mtu) as v) =
+    let append0 ((vlan, src, dst, proto, start, stop, count, pld, mtu) as v) =
         Table.append table0 v ;
-        let ts = round_timestamp 600 ts in
-        accum1 (vlan, src, dst, proto) (ts, count, pld, mtu) in
+        let start = round_timestamp 600 start
+        and stop = round_timestamp ~ceil:true 600 stop in
+        accum1 (vlan, src, dst, proto, start, stop) (count, pld, mtu) in
 
     let flush_all () =
         if !verbose then Printf.printf "Flushing...\n" ;
@@ -160,7 +129,7 @@ let load dbdir create fname =
         with_file_in fname (fun ic ->
             let ic = TxtInput.from_file ic in
             try forever (fun () ->
-                Eth0.read_txt ic |> append0 ;
+                Eth.read_txt ic |> append0 ;
                 let eol = TxtInput.read ic in
                 assert (eol = '\n' || eol = '\r') ;
                 incr lineno) ()
@@ -182,12 +151,9 @@ let main =
         "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
         "-verbose", Set verbose, "verbose" ;
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
-        "-dump", Int (function 0 -> Eth0.(dump ?start:!start ?stop:!stop ?proto:!proto
-                                               ?vlan:!vlan ?source:!source ?dest:!dest !dbdir
-                                               (fun x -> write_txt Output.stdout x ; print_newline ()))
-                             | 1 -> Eth1.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
-                             | 2 -> Eth2.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
-                             | x -> raise (Bad ("Bad LOD: "^string_of_int x))), "dump content of Lod n" ;
+        "-dump", String (function tbname -> Eth.(dump ?start:!start ?stop:!stop ?proto:!proto
+                                                      ?vlan:!vlan ?source:!source ?dest:!dest !dbdir tbname
+                                                      (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-vlan", String (fun s -> vlan := Some (Integer16.of_string s)), "limit queries to this VLAN" ;

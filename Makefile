@@ -54,7 +54,6 @@ tuple1.ml tuple2.ml tuple3.ml tuple4.ml tuple5.ml tuple6.ml tuple7.ml tuple8.ml 
 	 ./maketuple.opt $$n > $@
 
 distribution.cmo: tuple5.cmo
-web.cmo: tuple2.cmo tuple10.cmo tuple13.cmo
 
 clean-spec:
 	rm -f mlrrd.top

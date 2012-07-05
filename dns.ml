@@ -33,26 +33,26 @@ let when_change eq =
 module Bounds64 = Tuple2.Make (Integer64) (Integer64)
 module BoundsTS = Tuple2.Make (Timestamp) (Timestamp)
 
-module Dns0 =
+module Dns =
 struct
-    include Altern1 (Tuple9.Make (Integer16) (EthAddr) (InetAddr) (EthAddr) (InetAddr) (Integer8) (Timestamp) (Integer32) (Text))
-    let name = "queries"
+    include Altern1 (Tuple9.Make (Integer16) (EthAddr) (Cidr) (EthAddr) (InetAddr) (Integer8) (Timestamp) (Distribution) (Text))
     (* We hash on the server IP *)
-    let hash_on_srv (_vlan, _clte, _clt, _srve, srv, _err, _ts, _rt, _name) = InetAddr.hash srv
+    let hash_on_srv (_vlan, _clte, _clt, _srve, srv, _err, _ts, _rt, _name) =
+        InetAddr.hash srv
     (* Metafile stores timestamp range *)
     let meta_aggr (_vlan, _clte, _clt, _srve, _srv, _err, ts, _rt, _name) =
         Aggregator.bounds ~lt:Timestamp.lt ts
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
-    let table_name dbdir = dbdir ^ "/" ^ name
-    let table dbdir =
-        Table.create (table_name dbdir)
+    let table_name dbdir name = dbdir ^ "/" ^ name
+    let table dbdir name =
+        Table.create (table_name dbdir name)
             hash_on_srv write
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual queries *)
-    let dump ?start ?stop ?client ?server ?peer ?error ?qname ?rt_min dbdir f =
-        let tdir = table_name dbdir in
+    let dump ?start ?stop ?client ?server ?peer ?error ?qname ?rt_min dbdir name f =
+        let tdir = table_name dbdir name in
         let ends_with e s =
             let eo = String.length e - 1 and so = String.length s - 1 in
             if eo > so then false else
@@ -74,10 +74,10 @@ struct
                     Table.iter_file tdir hnum snum read (fun ((_vlan, _clte, clt, _srve, srv, err, ts, rt, name) as x) ->
                         if check start  (fun start -> not (ts <<< start)) &&
                            check stop   (fun stop  -> not (stop <<< ts)) &&
-                           check rt_min (fun rt_m  -> rt > rt_m) &&
-                           check client (fun cidr  -> in_cidr clt cidr) &&
+                           check rt_min (fun rt_m  -> let _c,_mi,ma,_avg,_std = rt in ma > rt_m) &&
+                           check client (fun cidr  -> inter_cidr clt cidr) &&
                            check server (fun cidr  -> in_cidr srv cidr) &&
-                           check peer   (fun cidr  -> in_cidr srv cidr || in_cidr clt cidr) &&
+                           check peer   (fun cidr  -> in_cidr srv cidr || inter_cidr clt cidr) &&
                            check error  (fun error -> error = err) &&
                            check qname  (fun qname -> ends_with qname name) then
                            f x))) in
@@ -97,56 +97,9 @@ struct
 
 end
 
-(* Lod1: degraded client, rounded query_date (to 1min), stripped query_name, distribution of resptimes *)
-
-module Dns1 =
-struct
-    include Altern1 (Tuple7.Make (Integer16) (Cidr) (EthAddr) (InetAddr) (Integer8) (Integer64) (Distribution))
-    let name = "over-1min"
-    (* We hash on the server IP, so that looking for a given IP is faster *)
-    let hash_on_srv (_vlan, _clt, _srve, srv, _err, _ts, _rt) = InetAddr.hash srv
-    (* Metafile stores timestamp range so that looking of a time period is faster *)
-    let meta_aggr (_vlan, _clt, _srve, _srv, _err, ts, _rt) = Aggregator.bounds ~lt:Integer64.lt ts
-    let meta_read = Bounds64.read
-    let meta_write = Bounds64.write
-    let table_name dbdir = dbdir ^ "/" ^ name
-    let table dbdir =
-        Table.create (table_name dbdir)
-            hash_on_srv write
-            meta_aggr meta_read meta_write
-    let dump dbdir f =
-        Table.iter (table_name dbdir) read f
-end
-
+(* Lod1: degraded client, rounded query_date (to 1min), distribution of resptimes *)
 (* Lod2: round timestamp to 10 mins *)
-
-module Dns2 =
-struct
-    include Altern1 (Tuple7.Make (Integer16) (Cidr) (EthAddr) (InetAddr) (Integer8) (Integer64) (Distribution))
-    let name = "over-10min"
-    let table_name dbdir = dbdir ^ "/" ^ name
-    let table dbdir =
-        Table.create (table_name dbdir)
-            Dns1.hash_on_srv write
-            Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
-    let dump dbdir f =
-        Table.iter (table_name dbdir) read f
-end
-
 (* Lod3: and finally to hour *)
-
-module Dns3 =
-struct
-    include Altern1 (Tuple7.Make (Integer16) (Cidr) (EthAddr) (InetAddr) (Integer8) (Integer64) (Distribution))
-    let name = "over-1hour"
-    let table_name dbdir = dbdir ^ "/" ^ name
-    let table dbdir =
-        Table.create (table_name dbdir)
-            Dns1.hash_on_srv write
-            Dns1.meta_aggr Dns1.meta_read Dns1.meta_write
-    let dump dbdir f =
-        Table.iter (table_name dbdir) read f
-end
 
 (* Load new data into the database *)
 
@@ -156,38 +109,41 @@ let load dbdir create fname =
         failwith (Printf.sprintf "Directory %s does not exist" dbdir)
     ) ;
 
-    let table3 = Dns3.table dbdir in
+    let table3 = Dns.table dbdir "1hour" in
     let accum3, flush3 =
         Aggregator.accum (once_every 10_000)
                          Distribution.combine
-                         [ fun (vlan, clt, srve, srv, err, ts) distr ->
-                              Table.append table3 (vlan, clt, srve, srv, err, ts, distr) ] in
+                         [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
+                              Table.append table3 (vlan, clte, clt, srve, srv, err, ts, distr, name) ] in
 
-    let table2 = Dns2.table dbdir in
+    let table2 = Dns.table dbdir "10mins" in
     let accum2, flush2 =
         Aggregator.accum (once_every 10_000)
                          Distribution.combine
-                         [ fun (vlan, clt, srve, srv, err, ts) distr ->
-                              Table.append table2 (vlan, clt, srve, srv, err, ts, distr) ;
-                              let ts = round_sec 3600 ts in
-                              accum3 (vlan, clt, srve, srv, err, ts) distr ] in
+                         [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
+                              Table.append table2 (vlan, clte, clt, srve, srv, err, ts, distr, name) ;
+                              let ts = round_timestamp 3600 ts in
+                              accum3 (vlan, clte, clt, srve, srv, err, ts, "") distr ] in
 
-    let table1 = Dns1.table dbdir in
+    let table1 = Dns.table dbdir "1min" in
     let accum1, flush1 =
         Aggregator.accum (once_every 10_000)
-                         Distribution.distr
-                         [ fun (vlan, clt, srve, srv, err, ts) distr ->
-                              Table.append table1 (vlan, clt, srve, srv, err, ts, distr) ;
-                              let ts = round_sec 600 ts in
-                              accum2 (vlan, clt, srve, srv, err, ts) distr ] in
+                         Distribution.combine
+                         [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
+                              Table.append table1 (vlan, clte, clt, srve, srv, err, ts, distr, name) ;
+                              let ts = round_timestamp 600 ts in
+                              (* TODO: keep only the last host name + TLD in the name *)
+                              accum2 (vlan, clte, clt, srve, srv, err, ts, name) distr ] in
 
-    let table0 = Dns0.table dbdir in
+    let table0 = Dns.table dbdir "queries" in
 
-    let append0 ((vlan, _clte, clt, srve, srv, err, ts, rt, _name) as v) =
+    let append0 ((vlan, clte, clt, srve, srv, err, ts, distr, name) as v) =
         Table.append table0 v ;
+        let clt, mask = clt in
+        assert (mask = 32 || mask = 128) ; (* the mask is supposed to be total *)
         let clt = cidr_of_inetaddr subnets clt
         and ts = round_timestamp 60 ts in
-        accum1 (vlan, clt, srve, srv, err, ts) (Int32.to_float rt) in
+        accum1 (vlan, clte, clt, srve, srv, err, ts, name) distr in
 
     let lineno = ref 0 in
 
@@ -210,7 +166,7 @@ let load dbdir create fname =
         with_file_in fname (fun ic ->
             let ic = TxtInput.from_file ic in
             try forever (fun () ->
-                Dns0.read_txt ic |> append0 ;
+                Dns.read_txt ic |> append0 ;
                 let eol = TxtInput.read ic in
                 assert (eol = '\n' || eol = '\r') ;
                 incr lineno) ()
@@ -233,17 +189,13 @@ let main =
         "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
         "-verbose", Set verbose, "verbose" ;
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
-        "-dump", Int (function 0 -> Dns0.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min
-                                               ?client:!client ?server:!server ?peer:!peer
-                                               ?qname:!qname ?error:!error !dbdir
-                                               (fun x -> write_txt Output.stdout x ; print_newline ()))
-                             | 1 -> Dns1.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
-                             | 2 -> Dns2.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
-                             | 3 -> Dns3.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
-                             | x -> raise (Bad ("Bad LOD: "^string_of_int x))), "dump content of Lod n" ;
+        "-dump", String (function tbname -> Dns.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min
+                                                      ?client:!client ?server:!server ?peer:!peer
+                                                      ?qname:!qname ?error:!error !dbdir tbname
+                                                      (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump content of this table" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
-        "-rt-min", String (fun s -> rt_min := Some (Integer32.of_string s)), "limit queries to resptimes greater than this" ;
+        "-rt-min", String (fun s -> rt_min := Some (Float.of_string s)), "limit queries to resptimes greater than this" ;
         "-qname", String (fun s -> qname := Some s), "limit queries to those ending with this" ;
         "-error", Int (fun i -> error := Some i), "select only queries with this error code" ;
         "-client", String (fun s -> client := Some (Cidr.of_string s)), "limit to these clients" ;

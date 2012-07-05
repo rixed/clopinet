@@ -22,11 +22,13 @@ Or just run: junkie -c this_file
      (qry-name str)
      (qry-host str)]
     [(http-answer
-       (on-entry (pass "printf(\"WEB\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\n\",
+       (on-entry (pass "printf(\"WEB\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t1\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0\\t%s\\t%s\\n\",
                         (int)" eth-vlan ",
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "), " client-port ",
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "), " server-port ",
-                        " qry-method ", " err-code ", timeval_2_str(" qry-start "), " (timestamp-sub qry-stop qry-start) ", " qry-host ", " qry-name ");\n")))
+                        " qry-method ", " err-code ", timeval_2_str(" qry-start "),
+                        " (timestamp-sub qry-stop qry-start) ", " (timestamp-sub qry-stop qry-start) ", " (timestamp-sub qry-stop qry-start) ",
+                        " qry-host ", " qry-name ");\n")))
      (web-qry
        (index-size 1024))]
     ; edges
@@ -68,11 +70,13 @@ Or just run: junkie -c this_file
      (qry-stop timestamp)
      (qry-name str)]
     [(dns-answer
-       (on-entry (pass "printf(\"DNS\\t%d\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t%s\\n\",
+       (on-entry (pass "printf(\"DNS\\t%d\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t1\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0\\t%s\\n\",
                         (int)" eth-vlan ",
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
-                        " err-code ", timeval_2_str(" qry-start "), " (timestamp-sub qry-stop qry-start) ", " qry-name ");\n")))
+                        " err-code ", timeval_2_str(" qry-start "),
+                        " (timestamp-sub qry-stop qry-start) ", " (timestamp-sub qry-stop qry-start) ", " (timestamp-sub qry-stop qry-start) ",
+                        " qry-name ");\n")))
      (dns-query
        (index-size 1024))]
     ; edges
@@ -110,10 +114,10 @@ Or just run: junkie -c this_file
      (eth-pld uint)
      (eth-mtu uint)]
     [(traffic-eth-end
-       (on-entry (pass "printf(\"ETH\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+       (on-entry (pass "printf(\"ETH\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
                         (int)" eth-vlan ",
                         eth_addr_2_str(" client-mac "), eth_addr_2_str(" server-mac "), " eth-proto ",
-                        timeval_2_str(" qry-start "), " (timestamp-sub qry-stop qry-start) ",
+                        timeval_2_str(" qry-start "), timestamp_2_str(" qry-stop "),
                         " count ", " eth-pld ", " eth-mtu ");\n")))
      (traffic-eth
        (index-size 1024)
@@ -151,7 +155,7 @@ Or just run: junkie -c this_file
         (older 30000000)) ; do not prevent root->traffic-eth edge to match as well (thus reporting this packet payload)
      ]))) 
 
-(nettrack-start nt-http)
+;(nettrack-start nt-http)
 (nettrack-start nt-dns)
-(nettrack-start nt-eth)
+;(nettrack-start nt-eth)
 

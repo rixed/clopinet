@@ -378,6 +378,10 @@ let in_cidr (addr : Unix.inet_addr) ((net : Unix.inet_addr), mask) =
         ) in
     String.length n = String.length a && addr_match 0
 
+(* Tells whether the intersection of 2 CIDR is not empty *)
+let inter_cidr (((net1 : Unix.inet_addr), _mask1) as cidr1) (((net2 : Unix.inet_addr), _mask2) as cidr2) =
+    in_cidr net1 cidr2 || in_cidr net2 cidr1
+
 (* Usefull function to degrade an InetAddr into a subnet.
   Returns IP*mask *)
 let cidr_of_inetaddr subnets ip =
@@ -531,7 +535,8 @@ let round_sec n sec =
     let n = Int64.of_int n in
     Int64.mul n (Int64.div sec n)
 
-let round_timestamp n (sec, _usec) = round_sec n sec
+let round_timestamp ?(ceil=false) n (sec, _usec) =
+    Int64.add (round_sec n sec) (if ceil then Int64.of_int n else 0L), 0
 
 (*
    Functors to easily assemble more complex types
