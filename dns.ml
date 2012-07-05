@@ -239,7 +239,7 @@ let main =
                                                (fun x -> write_txt Output.stdout x ; print_newline ()))
                              | 1 -> Dns1.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
                              | 2 -> Dns2.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
-                             | 3 -> Dns2.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
+                             | 3 -> Dns3.(dump !dbdir (fun x -> write_txt Output.stdout x ; print_newline ()))
                              | x -> raise (Bad ("Bad LOD: "^string_of_int x))), "dump content of Lod n" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
