@@ -13,5 +13,6 @@ mkdir -p "$dbdir"
 
 tee >(grep '^WEB' | cut -f 2- | ./web.opt -dir "$dbdir/web" -create -verbose -load /dev/stdin >& "$dbdir/web.log") \
     >(grep '^DNS' | cut -f 2- | ./dns.opt -dir "$dbdir/dns" -create -verbose -load /dev/stdin >& "$dbdir/dns.log") \
+    >(grep '^ETH' | cut -f 2- | ./eth.opt -dir "$dbdir/eth" -create -verbose -load /dev/stdin >& "$dbdir/eth.log") \
     > /dev/null
 

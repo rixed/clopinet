@@ -11,7 +11,8 @@ body)
 
 
 * A table for basic traffic (1 line per proto stack with counters of packets,
-payload, eth proto, ip proto, ports, ts, ip src, dst)
+payload, eth proto, ip proto, ports, ts, ip src, dst) (fields: eth src, dst, 
+pld, ip src, dst, pld, tcp/udp/icmp src, dst, pld)
 
 * Another table for TCP (with much more aggregation, start and end time,
 payload...
