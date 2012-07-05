@@ -360,9 +360,11 @@ Datatype_of (struct
     let read_txt ic =
         let n = read_txt_until ic "/\t\n" |>
                 Unix.inet_addr_of_string in
-        let delim = try TxtInput.read ic with End_of_file -> '\n' in
-        if delim = '/' then n, Integer16.read_txt ic
-        else n, 32
+        let delim = try TxtInput.peek ic with End_of_file -> '\n' in
+        if delim = '/' then (
+            TxtInput.swallow ic ;
+            n, Integer16.read_txt ic
+        ) else n, 32
 end)
 
 (* Usefull function to check if an IP belongs to a CIDR *)
