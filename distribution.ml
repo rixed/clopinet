@@ -2,7 +2,8 @@ open Datatype
 
 (*
    This one is usefull to store the "distribution" of a NUMBER, ie its
-   count, min, max, avg and std deviation.
+   count, min, max, avg and variance
+   (std deviation = sqrt(variance/(count-1))
    See Aggregator.distr for an aggregation function.
  *)
 

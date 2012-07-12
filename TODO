@@ -1,6 +1,25 @@
 TODO stack
 ----------
 
+* A table for basic flows (1 line per proto stack with counters of packets,
+payload, eth proto, ip proto, ports, ts, ip src, dst) (fields: eth src, dst, 
+pld, ip src, dst, pld, tcp/udp/icmp src, dst, pld)
+  Storing everything in a single table is more performant than having a table 
+for eth alone, then another one for UDP, etc. But we have to add yet another
+flag in nettrack: that each packet must be submitted only once, when fully 
+decoded. Add an optional 'on' flag for edges, specifying the event on which
+to check the match (by default, on last proto).
+
+
+* A plot command that fetch the data and prepare it (ie, build distinct
+datasets) before writing into a temp file and forking to gnuplot (then
+removing the temp file). It's argument would be the kind of desired plot,
+but the general idea of splitting a dataset according to a column value used
+as index and keeping only a few of the whole columns should be factored out.
+Also, we'd like to aggregate the selected values before splitting. So that's
+select | aggregate | sort/split | plot
+
+
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
 
@@ -10,20 +29,12 @@ body)
 * Add payload and its transfert time to web metric
 
 
-* A table for basic traffic (1 line per proto stack with counters of packets,
-payload, eth proto, ip proto, ports, ts, ip src, dst) (fields: eth src, dst, 
-pld, ip src, dst, pld, tcp/udp/icmp src, dst, pld)
-
-* Another table for TCP (with much more aggregation, start and end time,
-payload...
-
-
 * A repair tool (scanning files and reporting those that cannot be read,
   for later inspection/deletion, or offering to truncate the file (or merely
 display file and offset where the error occured))
 
 
-* Factorize DNS with WEB
+* Factorize DNS with WEB and ETH.
 
 
 * Should print help when no cmdline arg is given

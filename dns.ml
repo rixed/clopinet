@@ -19,7 +19,7 @@ let once_every n =
         ) else false
 
 (* another example: flush as soon as the passed value changes (according to the eq function,
-   which if free to compare only a given field of x... *)
+   which is free to compare only a given field of x... *)
 let when_change eq =
     let prev = ref None in
     fun k v -> match !prev with
@@ -51,7 +51,7 @@ struct
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual queries *)
-    let dump ?start ?stop ?client ?server ?peer ?error ?qname ?rt_min dbdir name f =
+    let dump ?start ?stop ?client ?server ?peer ?error ?qname ?rt_min ?req_min dbdir name f =
         let tdir = table_name dbdir name in
         let ends_with e s =
             let eo = String.length e - 1 and so = String.length s - 1 in
@@ -72,14 +72,15 @@ struct
                         check stop  (fun stop  -> not (stop <<< ts1)) in
                 if scan_it then (
                     Table.iter_file tdir hnum snum read (fun ((_vlan, _clte, clt, _srve, srv, err, ts, rt, name) as x) ->
-                        if check start  (fun start -> not (ts <<< start)) &&
-                           check stop   (fun stop  -> not (stop <<< ts)) &&
-                           check rt_min (fun rt_m  -> let _c,_mi,ma,_avg,_std = rt in ma > rt_m) &&
-                           check client (fun cidr  -> inter_cidr clt cidr) &&
-                           check server (fun cidr  -> in_cidr srv cidr) &&
-                           check peer   (fun cidr  -> in_cidr srv cidr || inter_cidr clt cidr) &&
-                           check error  (fun error -> error = err) &&
-                           check qname  (fun qname -> ends_with qname name) then
+                        if check start   (fun start -> not (ts <<< start)) &&
+                           check stop    (fun stop  -> not (stop <<< ts)) &&
+                           check rt_min  (fun rt_m  -> let _c,_mi,ma,_avg,_std = rt in ma > rt_m) &&
+                           check req_min (fun req_m -> let c,_mi,_ma,_avg,_std = rt in c > req_m) &&
+                           check client  (fun cidr  -> inter_cidr clt cidr) &&
+                           check server  (fun cidr  -> in_cidr srv cidr) &&
+                           check peer    (fun cidr  -> in_cidr srv cidr || inter_cidr clt cidr) &&
+                           check error   (fun error -> error = err) &&
+                           check qname   (fun qname -> ends_with qname name) then
                            f x))) in
         match server with
         | Some cidr when subnet_size cidr < Table.max_hash_size ->
@@ -111,14 +112,14 @@ let load dbdir create fname =
 
     let table3 = Dns.table dbdir "1hour" in
     let accum3, flush3 =
-        Aggregator.accum (once_every 10_000)
+        Aggregator.accum (once_every 50_000)
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
                               Table.append table3 (vlan, clte, clt, srve, srv, err, ts, distr, name) ] in
 
     let table2 = Dns.table dbdir "10mins" in
     let accum2, flush2 =
-        Aggregator.accum (once_every 10_000)
+        Aggregator.accum (once_every 50_000)
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
                               Table.append table2 (vlan, clte, clt, srve, srv, err, ts, distr, name) ;
@@ -127,7 +128,7 @@ let load dbdir create fname =
 
     let table1 = Dns.table dbdir "1min" in
     let accum1, flush1 =
-        Aggregator.accum (once_every 10_000)
+        Aggregator.accum (once_every 50_000)
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
                               Table.append table1 (vlan, clte, clt, srve, srv, err, ts, distr, name) ;
@@ -182,7 +183,7 @@ let main =
     let dbdir = ref "./" and start = ref None and stop = ref None 
     and rt_min = ref None and qname = ref None and error = ref None
     and client = ref None and server = ref None and peer =ref None
-    and create = ref false in
+    and create = ref false and req_min = ref None in
     Arg.(parse [
         "-dir", Set_string dbdir, "database directory (or './')" ;
         "-create", Set create, "create db if it does not exist yet" ;
@@ -191,11 +192,13 @@ let main =
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
         "-dump", String (function tbname -> Dns.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min
                                                       ?client:!client ?server:!server ?peer:!peer
-                                                      ?qname:!qname ?error:!error !dbdir tbname
+                                                      ?qname:!qname ?error:!error ?req_min:!req_min
+                                                      !dbdir tbname
                                                       (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump content of this table" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-rt-min", String (fun s -> rt_min := Some (Float.of_string s)), "limit queries to resptimes greater than this" ;
+        "-req-min", Int (fun n -> req_min := Some n), "limit results to servers that answered at least this number of queries" ;
         "-qname", String (fun s -> qname := Some s), "limit queries to those ending with this" ;
         "-error", Int (fun i -> error := Some i), "select only queries with this error code" ;
         "-client", String (fun s -> client := Some (Cidr.of_string s)), "limit to these clients" ;
