@@ -113,12 +113,15 @@ Or just run: junkie -c this_file
      (ip-dst ip)
      (ip-proto uint)
      (ip-pld uint)
+     (port-src uint)
+     (port-dst uint)
+     (l4-pld uint)
      (ts-start timestamp)
      (ts-stop timestamp)
      (count uint)
      (eth-mtu uint)]
     [(traffic-eth-end
-       (on-entry (pass "printf(\"TRF\\t%s\\t%s\\t%\"PRIuPTR\"\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0.0.0.0\\t0.0.0.0\\t0\\t0\\n\",
+       (on-entry (pass "printf(\"TRF\\t%s\\t%s\\t%\"PRIuPTR\"\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0.0.0.0\\t0.0.0.0\\t0\\t0\\t0\\t0\\t0\\n\",
                         timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
                         (int)" eth-vlan ",
                         eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
@@ -127,7 +130,7 @@ Or just run: junkie -c this_file
        (index-size 1024)
        (timeout 0))
      (traffic-ip-end
-       (on-entry (pass "printf(\"TRF\\t%s\\t%s\\t%\"PRIuPTR\"\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+       (on-entry (pass "printf(\"TRF\\t%s\\t%s\\t%\"PRIuPTR\"\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0\\t0\\t0\\n\",
                         timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
                         (int)" eth-vlan ",
                         eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
@@ -135,9 +138,24 @@ Or just run: junkie -c this_file
                         ip_addr_2_str(" ip-src "), ip_addr_2_str(" ip-dst "), " ip-proto ", " ip-pld ");\n")))
      (traffic-ip
        (index-size 1024)
+       (timeout 0))
+     (traffic-l4-end
+       (on-entry (pass "printf(\"TCP\\t%s\\t%s\\t%\"PRIuPTR\"\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+                        timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
+                        (int)" eth-vlan ",
+                        eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
+                        " eth-pld ", " eth-mtu ",
+                        ip_addr_2_str(" ip-src "), ip_addr_2_str(" ip-dst "), " ip-proto ", " ip-pld ",
+                        " port-src ", " port-dst ", " l4-pld ");\n")))
+     (traffic-tcp
+       (index-size 1024)
+       (timeout 0))
+     (traffic-udp
+       (index-size 1024)
        (timeout 0))]
     ; edges
-    [(root traffic-eth ; we place this one first so that it's checked last
+    [; ETH
+     (root traffic-eth ; we place this one first so that it's checked last
         (on full-parse)
         (match (cap eth) (do
                            (eth-src := eth.src)
@@ -170,6 +188,7 @@ Or just run: junkie -c this_file
      (traffic-eth traffic-eth-end
         (on full-parse)
         (older 30000000)) ; do not prevent root->traffic-eth edge to match as well (thus reporting this packet payload)
+     ; other IP
      (root traffic-ip ; for other ip traffic
         (on full-parse)
         (match (cap eth ip) (do
@@ -209,6 +228,102 @@ Or just run: junkie -c this_file
         (dst-index-on (ip) (hash ip.src))
         grab)
      (traffic-ip traffic-ip-end
+        (on full-parse)
+        (older 30000000))
+     ; TCP
+     (root traffic-tcp
+        (on full-parse)
+        (match (cap eth ip tcp) (do
+                              (eth-src := eth.src)
+                              (eth-dst := eth.dst)
+                              (eth-vlan := eth.vlan)
+                              (eth-proto := eth.protocol)
+                              (ts-start := cap.ts)
+                              (ts-stop := cap.ts)
+                              (eth-pld := eth.payload)
+                              (eth-mtu := eth.payload)
+                              (ip-pld := ip.payload)
+                              (ip-src := ip.src)
+                              (ip-dst := ip.dst)
+                              (ip-proto := ip.proto)
+                              (port-src := tcp.src-port)
+                              (port-dst := tcp.dst-port)
+                              (l4-pld := tcp.payload)
+                              (count := 1)
+                              #t))
+        (dst-index-on () (hash ip-src))
+        spawn
+        grab)
+     (traffic-tcp traffic-tcp
+        (on full-parse)
+        (match (cap eth ip tcp) (do
+                              (count := (count + 1))
+                              (eth-pld := (eth-pld + eth.payload))
+                              (eth-mtu := (max eth-mtu eth.payload))
+                              (ts-stop := cap.ts)
+                              (ip-pld := (ip-pld + ip.payload))
+                              (l4-pld := (l4-pld + tcp.payload))
+                              (and (eth-src == eth.src)
+                                   (eth-dst == eth.dst)
+                                   (eth-vlan == eth.vlan)
+                                   (eth-proto == eth.protocol)
+                                   (ip-src == ip.src)
+                                   (ip-dst == ip.dst)
+                                   (ip-proto == ip.proto)
+                                   (port-src == tcp.src-port)
+                                   (port-dst == tcp.dst-port))))
+        (dst-index-on () (hash ip-src))
+        (dst-index-on (ip) (hash ip.src))
+        grab)
+     (traffic-tcp traffic-l4-end
+        (on full-parse)
+        (older 30000000))
+     ; UDP
+     (root traffic-udp
+        (on full-parse)
+        (match (cap eth ip udp) (do
+                              (eth-src := eth.src)
+                              (eth-dst := eth.dst)
+                              (eth-vlan := eth.vlan)
+                              (eth-proto := eth.protocol)
+                              (ts-start := cap.ts)
+                              (ts-stop := cap.ts)
+                              (eth-pld := eth.payload)
+                              (eth-mtu := eth.payload)
+                              (ip-pld := ip.payload)
+                              (ip-src := ip.src)
+                              (ip-dst := ip.dst)
+                              (ip-proto := ip.proto)
+                              (port-src := udp.src-port)
+                              (port-dst := udp.dst-port)
+                              (l4-pld := udp.payload)
+                              (count := 1)
+                              #t))
+        (dst-index-on () (hash ip-src))
+        spawn
+        grab)
+     (traffic-udp traffic-udp
+        (on full-parse)
+        (match (cap eth ip udp) (do
+                              (count := (count + 1))
+                              (eth-pld := (eth-pld + eth.payload))
+                              (eth-mtu := (max eth-mtu eth.payload))
+                              (ts-stop := cap.ts)
+                              (ip-pld := (ip-pld + ip.payload))
+                              (l4-pld := (l4-pld + udp.payload))
+                              (and (eth-src == eth.src)
+                                   (eth-dst == eth.dst)
+                                   (eth-vlan == eth.vlan)
+                                   (eth-proto == eth.protocol)
+                                   (ip-src == ip.src)
+                                   (ip-dst == ip.dst)
+                                   (ip-proto == ip.proto)
+                                   (port-src == udp.src-port)
+                                   (port-dst == udp.dst-port))))
+        (dst-index-on () (hash ip-src))
+        (dst-index-on (ip) (hash ip.src))
+        grab)
+     (traffic-udp traffic-l4-end
         (on full-parse)
         (older 30000000))]))) 
 
