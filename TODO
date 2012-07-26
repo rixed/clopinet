@@ -10,6 +10,10 @@ columns should be factored out. Also, we'd like to aggregate the selected
 values before splitting. So that's select | aggregate | sort/split | plot
 
 
+* find a way to parallelize reading even if callback function needs global 
+state (ie. use no global state but a Parmap to post-aggregate datas?)
+
+
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
 

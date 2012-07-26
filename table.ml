@@ -24,19 +24,24 @@ let iter_file tdir hnum snum reader f =
             f (reader ic)) ()
         with End_of_file -> ())
 
-let iter_snums tdir hnum aggr_reader f =
+let iter_snums ?(fork=true) tdir hnum aggr_reader f =
     let hnum = hnum mod max_hash_size in
+    let iterfile name =
+        let name =
+            let len = String.length name in
+            if len > 3 && name.[len-3] = '.' && name.[len-2] = 'g' && name.[len-1] = 'z'
+            then String.sub name 0 (len-3)
+            else name in
+        try let snum = int_of_string name in
+            f snum (read_meta tdir hnum snum aggr_reader)
+        with Failure _ -> ()
+    and files = Sys.readdir (Dbfile.dir tdir hnum) in
     try (
-        Parmap.A (Sys.readdir (Dbfile.dir tdir hnum)) |>
-        Parmap.pariter ~ncores:!ncores (fun name ->
-            let name =
-                let len = String.length name in
-                if len > 3 && name.[len-3] = '.' && name.[len-2] = 'g' && name.[len-1] = 'z'
-                then String.sub name 0 (len-3)
-                else name in
-            try let snum = int_of_string name in
-                f snum (read_meta tdir hnum snum aggr_reader)
-            with Failure _ -> ())
+        if fork then (
+            Parmap.pariter ~ncores:!ncores iterfile (Parmap.A files)
+        ) else (
+            Array.iter iterfile files
+        )
     ) with Sys_error _ -> () (* no such directory, may happen in we haven't written anything yet *)
 
 let iter_hnums tdir f =
@@ -47,9 +52,9 @@ let iter_hnums tdir f =
             with Failure _ -> ())
     ) with Sys_error _ -> ()
 
-let iter tdir reader f =
+let iter ?(fork=true) tdir reader f =
     iter_hnums tdir (fun hnum ->
-        iter_snums tdir hnum ignore (fun snum _meta ->
+        iter_snums ~fork tdir hnum ignore (fun snum _meta ->
             iter_file tdir hnum snum reader f))
 
 (* WRITING

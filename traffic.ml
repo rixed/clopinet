@@ -1,7 +1,7 @@
 open Bricabrac
 open Datatype
 
-(* FIXME: factorize all this with DNS *)
+(* FIXME: factorize all this with DNS, or generate this? *)
 
 let verbose = ref false
 
@@ -15,6 +15,9 @@ let once_every n =
             count := 0 ;
             true
         ) else false
+
+(* this one never flush *)
+let never_flush _k _v = false
 
 (* Lod0: Traffic stats for periods of 30s, with fields:
   TS1, TS2, count, vlan, src mac, dst mac, proto, eth payload, eth mtu, src ip, dst ip, ip proto, ip payload *)
@@ -52,13 +55,13 @@ struct
 
     (* Function to query the Lod0, ie select a set of individual queries *)
     (* TODO: filters on IP addresses/proto and ports *)
-    let dump ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name f =
+    let dump ?(fork=true) ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name f =
         let tdir = table_name dbdir name in
         let check vopt f = match vopt with
             | None -> true
             | Some v -> f v in
         let iter_hnum hnum =
-            Table.iter_snums tdir hnum meta_read (fun snum bounds ->
+            Table.iter_snums ~fork tdir hnum meta_read (fun snum bounds ->
                 let (<<<) = Timestamp.lt in
                 let scan_it = match bounds with
                     | None -> true
@@ -84,6 +87,38 @@ struct
         | _ ->
             Table.iter_hnums tdir iter_hnum
 
+    let accum_pkts ((count, eth_pld, mtu, ip_pld, l4_pld) as v) = function
+        | None -> v
+        | Some (count', eth_pld', mtu', ip_pld', l4_pld') ->
+            Int64.add count count',
+            Int64.add eth_pld eth_pld',
+            max mtu mtu',
+            Int64.add ip_pld ip_pld',
+            Int64.add l4_pld l4_pld'
+
+    (* Plot amount of traffic (eth_pld) against time, with a different plot per MAC sockpair *)
+    let plot_vol_time ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name =
+        let int64_accum v = function
+            | None -> v | Some v' -> Int64.add v v'
+        and datasets = Hashtbl.create 71 in
+        let add_point k v =
+            let prev = try Hashtbl.find datasets k with Not_found -> [] in
+            Hashtbl.replace datasets k (v::prev) in
+        let accum, flush = Aggregator.accum never_flush int64_accum
+            [ fun (t, vlan, mac_src, mac_dst, mac_proto) mac_pld ->
+                (* build a dataset per mac socketpair *)
+                let label =
+                    (if vlan <> -1 then "vlan:"^string_of_int vlan^"," else "")^
+                    (EthAddr.to_string mac_src)^"->"^
+                    (EthAddr.to_string mac_dst)^","^
+                    (string_of_int mac_proto) in
+                add_point label (Int64.to_float (fst t), Int64.to_float mac_pld) ] in
+        dump ~fork:false ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name
+            (fun (ts1, _ts2, _count, vlan, mac_src, mac_dst, mac_proto, mac_pld, _mtu, _ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) ->
+                let t = ts1 (* TODO: (ts1+ts2)/2 *) in
+                accum (t, vlan, mac_src, mac_dst, mac_proto) mac_pld) ;
+        flush () ;
+        Plot.stacked_area datasets
 end
 
 (* Lod1: Accumulated over 10mins *)
@@ -96,25 +131,16 @@ let load dbdir create fname =
         failwith (Printf.sprintf "Directory %s does not exist" dbdir)
     ) ;
 
-    let accum_pkts ((count, eth_pld, mtu, ip_pld, l4_pld) as v) = function
-        | None -> v
-        | Some (count', eth_pld', mtu', ip_pld', l4_pld') ->
-            Int64.add count count',
-            Int64.add eth_pld eth_pld',
-            max mtu mtu',
-            Int64.add ip_pld ip_pld',
-            Int64.add l4_pld l4_pld' in
-
     let table2 = Traffic.table dbdir "1hour" in
     let accum2, flush2 =
-        Aggregator.accum (once_every 100_000) accum_pkts
+        Aggregator.accum (once_every 100_000) Traffic.accum_pkts
             [ fun (start, stop, vlan, mac_src, mac_dst, mac_proto, ip_src, ip_dst, ip_proto, l4_src, l4_dst) (count, eth_pld, mtu, ip_pld, l4_pld) ->
                 Table.append table2
                     (start, stop, count, vlan, mac_src, mac_dst, mac_proto, eth_pld, mtu, ip_src, ip_dst, ip_proto, ip_pld, l4_src, l4_dst, l4_pld) ] in
 
     let table1 = Traffic.table dbdir "10mins" in
     let accum1, flush1 =
-        Aggregator.accum (once_every 100_000) accum_pkts
+        Aggregator.accum (once_every 100_000) Traffic.accum_pkts
             [ fun (start, stop, vlan, mac_src, mac_dst, mac_proto, ip_src, ip_dst, ip_proto, l4_src, l4_dst) (count, eth_pld, mtu, ip_pld, l4_pld) ->
                 Table.append table1
                     (start, stop, count, vlan, mac_src, mac_dst, mac_proto, eth_pld, mtu, ip_src, ip_dst, ip_proto, ip_pld, l4_src, l4_dst, l4_pld) ;
@@ -173,6 +199,8 @@ let main =
         "-dump", String (function tbname -> Traffic.(dump ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
                                                           ?vlan:!vlan ?source:!source ?dest:!dest !dbdir tbname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
+         "-plot", String (function tbname -> Traffic.(plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
+                                                          ?vlan:!vlan ?source:!source ?dest:!dest !dbdir tbname)), "plot this table" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-vlan", String (fun s -> vlan := Some (Integer16.of_string s)), "limit queries to this VLAN" ;

@@ -10,11 +10,11 @@ val ncores : int ref
 val iter_file : string -> int -> int -> (BinInput.t -> 'a) -> ('a -> unit) -> unit
 
 (* f is called with snum and the optional meta data *)
-val iter_snums : string -> int -> (BinInput.t -> 'a) -> (int -> 'a option -> unit) -> unit
+val iter_snums : ?fork:bool -> string -> int -> (BinInput.t -> 'a) -> (int -> 'a option -> unit) -> unit
 
 val iter_hnums : string -> (int -> unit) -> unit
 
-val iter : string -> (BinInput.t -> 'a) -> ('a -> unit) -> unit
+val iter : ?fork:bool -> string -> (BinInput.t -> 'a) -> ('a -> unit) -> unit
 
 (** {2} Writing *)
 
