@@ -21,6 +21,7 @@ SOURCES  = \
 	aggregator.ml \
 	dbfile.ml \
 	table.ml \
+	plot.ml \
 
 EXAMPLES_BYTE = \
 	dns.byte web.byte traffic.byte \
@@ -46,7 +47,7 @@ check: check.byte
 	@./check.byte || echo "FAILED"
 
 mlrrd.top: $(ARCHIVE)
-	$(OCAMLMKTOP)  -o $@ $(SYNTAX) -package "findlib,$(REQUIRES)" -linkpkg $(ARCHIVE)
+	$(OCAMLMKTOP) -o $@ $(SYNTAX) -package "findlib $(REQUIRES)" -linkpkg $(ARCHIVE)
 
 # maketuple.opt does not depend on $(ARCHIVE)
 maketuple.opt: maketuple.cmx
