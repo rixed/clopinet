@@ -206,7 +206,11 @@ struct
             let rec aux l p i =
                 if i = 0 then write_char_list oc p else
                 aux (1+l) (Char.unsafe_chr ((i mod 10) + Char.code '0') :: p) (i/10) in
-            aux 0 [] i
+            if i > 0 then aux 0 [] i
+            else (
+                Output.char oc '-' ;
+                aux 0 [] (-i)
+            )
         let read = read_var_int
         let read_txt ic =
             let neg = peek_sign ic in
@@ -232,7 +236,9 @@ struct
     include Integer
     let name = "int8"
     let write = Output.byte
-    let read = BinInput.read
+    let read ic =
+        let n = BinInput.read ic in
+        if n < 128 then n else n-256
     let zero = 0
     let add = (+)
     let sub = (-)
@@ -252,7 +258,8 @@ struct
     let read ic =
         let fst_b = BinInput.read ic in
         let snd_b = BinInput.read ic in
-        fst_b + (snd_b lsl 8)
+        let n = fst_b + (snd_b lsl 8) in
+        if n < 32768 then n else n-65536
     let zero = 0
     let add = (+)
     let sub = (-)
