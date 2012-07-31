@@ -55,13 +55,13 @@ struct
 
     (* Function to query the Lod0, ie select a set of individual queries *)
     (* TODO: filters on IP addresses/proto and ports *)
-    let dump ?(fork=true) ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name f =
+    let dump ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name f =
         let tdir = table_name dbdir name in
         let check vopt f = match vopt with
             | None -> true
             | Some v -> f v in
         let iter_hnum hnum =
-            Table.iter_snums ~fork tdir hnum meta_read (fun snum bounds ->
+            Table.iter_snums tdir hnum meta_read (fun snum bounds ->
                 let (<<<) = Timestamp.lt in
                 let scan_it = match bounds with
                     | None -> true
@@ -96,29 +96,78 @@ struct
             Int64.add ip_pld ip_pld',
             Int64.add l4_pld l4_pld'
 
+    let fold ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name f fst merge =
+        let tdir = table_name dbdir name in
+        let check vopt f = match vopt with
+            | None -> true
+            | Some v -> f v in
+        let fold_hnum hnum fst =
+            Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
+                let (<<<) = Timestamp.lt in
+                let scan_it = match bounds with
+                    | None -> true
+                    | Some (ts1, ts2) ->
+                        check start (fun start -> not (ts2 <<< start)) &&
+                        check stop  (fun stop  -> not (stop <<< ts1)) in
+                let res =
+                    if scan_it then (
+                        Table.fold_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_src, mac_dst, mac_prot, _, _, _, _, ip_prot, _, _, _, _) as x) prev ->
+                            if check start     (fun start -> not (ts2 <<< start)) &&
+                               check stop      (fun stop  -> not (stop <<< ts1)) &&
+                               check source    (fun mac   -> EthAddr.equal mac mac_src) &&
+                               check dest      (fun mac   -> EthAddr.equal mac mac_dst) &&
+                               check eth_proto (fun proto -> proto = mac_prot) &&
+                               check ip_proto  (fun proto -> proto = ip_prot) &&
+                               check vlan      (fun vlan  -> vlan = vl) then
+                               f x prev
+                            else prev)
+                            prev
+                    ) else (
+                        prev
+                    ) in
+                res)
+                fst merge in
+        match dest with
+        | Some dst ->
+            if !verbose then Printf.fprintf stderr "Using index\n" ;
+            (* We have an index for this! Build the list of hnums *)
+            let hnum = EthAddr.hash dst mod Table.max_hash_size in
+            fold_hnum hnum fst
+        | _ ->
+            Table.fold_hnums tdir fold_hnum fst merge
+
+    module Maplot = Map.Make (struct
+        type t = Timestamp.t * Integer16.t * EthAddr.t * EthAddr.t * Integer16.t
+        let compare = Pervasives.compare
+    end)
+
     (* Plot amount of traffic (eth_pld) against time, with a different plot per MAC sockpair *)
     let plot_vol_time ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name =
-        let int64_accum v = function
-            | None -> v | Some v' -> Int64.add v v'
-        and datasets = Hashtbl.create 71 in
-        let add_point k v =
-            let prev = try Hashtbl.find datasets k with Not_found -> [] in
-            Hashtbl.replace datasets k (v::prev) in
-        let accum, flush = Aggregator.accum never_flush int64_accum
-            [ fun (t, vlan, mac_src, mac_dst, mac_proto) mac_pld ->
-                (* build a dataset per mac socketpair *)
-                let label =
-                    (if vlan <> -1 then "vlan:"^string_of_int vlan^"," else "")^
-                    (EthAddr.to_string mac_src)^"->"^
-                    (EthAddr.to_string mac_dst)^","^
-                    (string_of_int mac_proto) in
-                add_point label (Int64.to_float (fst t), Int64.to_float mac_pld) ] in
-        dump ~fork:false ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name
-            (fun (ts1, _ts2, _count, vlan, mac_src, mac_dst, mac_proto, mac_pld, _mtu, _ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) ->
-                let t = ts1 (* TODO: (ts1+ts2)/2 *) in
-                accum (t, vlan, mac_src, mac_dst, mac_proto) mac_pld) ;
-        flush () ;
-        Plot.stacked_area datasets
+        let label_of vlan mac_src mac_dst mac_proto =
+            (if vlan <> -1 then "vlan:"^string_of_int vlan^"," else "")^
+            (EthAddr.to_string mac_src)^"->"^
+            (EthAddr.to_string mac_dst)^","^
+            (string_of_int mac_proto) in
+        let cumul_pld m k mac_pld =
+            let prev = try Maplot.find k m with Not_found -> 0L in
+            Maplot.add k (Int64.add prev mac_pld) m in
+        let h =
+            fold ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name
+                (fun (ts1, _ts2, _count, vlan, mac_src, mac_dst, mac_proto, mac_pld, _mtu, _ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) h ->
+                    let t = ts1 (* TODO: (ts1+ts2)/2? *) in
+                    let k = t, vlan, mac_src, mac_dst, mac_proto in
+                    cumul_pld h k mac_pld)
+                Maplot.empty
+                (fun h1 h2 -> (* merge two hashes *)
+                    (*Printf.printf "Merging two maps of size %d and %d\n%!" (Maplot.cardinal h1) (Maplot.cardinal h2) ;*)
+                    Maplot.fold (fun k v m -> cumul_pld m k v) h1 h2) in
+        let plot = Hashtbl.create 71 in
+        let float_of_timestamp (s, us) = Int64.to_float s +. (float_of_int us) /. 1000000. in
+        Maplot.iter (fun (t, vlan, mac_src, mac_dst, mac_proto) pld ->
+            let label = label_of vlan mac_src mac_dst mac_proto in
+            let prev = try Hashtbl.find plot label with Not_found -> [] in
+            Hashtbl.replace plot label ((float_of_timestamp t, Int64.to_float pld)::prev)) h ;
+        Plot.stacked_area plot
 end
 
 (* Lod1: Accumulated over 10mins *)
@@ -199,7 +248,7 @@ let main =
         "-dump", String (function tbname -> Traffic.(dump ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
                                                           ?vlan:!vlan ?source:!source ?dest:!dest !dbdir tbname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
-         "-plot", String (function tbname -> Traffic.(plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
+        "-plot", String (function tbname -> Traffic.(plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
                                                           ?vlan:!vlan ?source:!source ?dest:!dest !dbdir tbname)), "plot this table" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;

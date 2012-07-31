@@ -24,7 +24,7 @@ let iter_file tdir hnum snum reader f =
             f (reader ic)) ()
         with End_of_file -> ())
 
-let iter_snums ?(fork=true) tdir hnum aggr_reader f =
+let iter_snums tdir hnum aggr_reader f =
     let hnum = hnum mod max_hash_size in
     let iterfile name =
         let name =
@@ -37,11 +37,7 @@ let iter_snums ?(fork=true) tdir hnum aggr_reader f =
         with Failure _ -> ()
     and files = Sys.readdir (Dbfile.dir tdir hnum) in
     try (
-        if fork then (
-            Parmap.pariter ~ncores:!ncores iterfile (Parmap.A files)
-        ) else (
-            Array.iter iterfile files
-        )
+        Parmap.pariter ~ncores:!ncores iterfile (Parmap.A files)
     ) with Sys_error _ -> () (* no such directory, may happen in we haven't written anything yet *)
 
 let iter_hnums tdir f =
@@ -52,10 +48,55 @@ let iter_hnums tdir f =
             with Failure _ -> ())
     ) with Sys_error _ -> ()
 
-let iter ?(fork=true) tdir reader f =
+let iter tdir reader f =
     iter_hnums tdir (fun hnum ->
-        iter_snums ~fork tdir hnum ignore (fun snum _meta ->
+        iter_snums tdir hnum ignore (fun snum _meta ->
             iter_file tdir hnum snum reader f))
+
+(* Folding. As expected, but we have a merge function to operate on partial results. *)
+
+let fold_file tdir hnum snum reader f start =
+    let hnum = hnum mod max_hash_size in
+    let fname = Dbfile.path tdir hnum snum in
+    BinInput.with_file fname (fun ic ->
+        let rec aux res =
+            match (try Some (reader ic) with End_of_file -> None) with
+            | Some x -> aux (f x res)
+            | None   -> res in
+        aux start)
+
+let fold_snums tdir hnum aggr_reader f start merge =
+    let hnum = hnum mod max_hash_size in
+    let foldfile name res =
+        let name =
+            let len = String.length name in
+            if len > 3 && name.[len-3] = '.' && name.[len-2] = 'g' && name.[len-1] = 'z'
+            then String.sub name 0 (len-3)
+            else name in
+        try let snum = int_of_string name in
+            f snum (read_meta tdir hnum snum aggr_reader) res
+        with Failure _ -> res
+    and files = Sys.readdir (Dbfile.dir tdir hnum) in
+    try (
+        Parmap.parfold ~ncores:!ncores foldfile (Parmap.A files) start merge
+    ) with Sys_error _ -> start (* no such directory, may happen in we haven't written anything yet *)
+
+let fold_hnums tdir f start merge =
+    try (
+        Sys.readdir tdir |>
+        Array.fold_left (fun res name ->
+            try f (int_of_string name) start |> merge res
+            with Failure _ -> res)
+            start
+    ) with Sys_error _ -> start
+
+let fold tdir reader f start merge =
+    fold_hnums tdir (fun hnum res ->
+        fold_snums tdir hnum ignore (fun snum _meta res' ->
+            fold_file tdir hnum snum reader f res')
+            res merge)
+        start
+        merge
 
 (* WRITING
    We cache index function for the table, current sequence number and
