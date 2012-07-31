@@ -1,0 +1,9 @@
+# vim:filetype=gnuplot
+#set logscale y
+set grid ytics mytics nomxtics noxtics
+set ylabel "Bandwidth (bytes/secs)"
+set title "Bandwidth"
+set xdata time
+set timefmt "%s"
+set format x "%H:%M:%S"
+plot for [i=0:10] '/dev/stdin' index i using 1:2 smooth unique 

@@ -137,12 +137,14 @@ struct
             Table.fold_hnums tdir fold_hnum fst merge
 
     module Maplot = Map.Make (struct
-        type t = Timestamp.t * Integer16.t * EthAddr.t * EthAddr.t * Integer16.t
+        type t = int64 * Integer16.t * EthAddr.t * EthAddr.t * Integer16.t
         let compare = Pervasives.compare
     end)
 
     (* Plot amount of traffic (eth_pld) against time, with a different plot per MAC sockpair *)
-    let plot_vol_time ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name =
+    let plot_vol_time ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto ?(step=60) dbdir name =
+        assert (step > 0) ;
+        let step = Int64.of_int step in
         let label_of vlan mac_src mac_dst mac_proto =
             (if vlan <> -1 then "vlan:"^string_of_int vlan^"," else "")^
             (EthAddr.to_string mac_src)^"->"^
@@ -153,20 +155,43 @@ struct
             Maplot.add k (Int64.add prev mac_pld) m in
         let h =
             fold ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name
-                (fun (ts1, _ts2, _count, vlan, mac_src, mac_dst, mac_proto, mac_pld, _mtu, _ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) h ->
-                    let t = ts1 (* TODO: (ts1+ts2)/2? *) in
-                    let k = t, vlan, mac_src, mac_dst, mac_proto in
-                    cumul_pld h k mac_pld)
+                (fun ((ts1s, _ts1us), (ts2s, _ts2us), _count, vlan, mac_src, mac_dst, mac_proto, mac_pld, _mtu, _ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) h ->
+                    (* step is a number of seconds. *)
+                    let ts1' = Int64.div ts1s step
+                    and ts2' = Int64.div ts2s step in
+                    if ts1' = ts2' then (
+                        cumul_pld h (Int64.mul ts1' step, vlan, mac_src, mac_dst, mac_proto) mac_pld
+                    ) else (
+                        let dt = Int64.sub ts2' ts1' in
+                        let pld_step = Int64.div mac_pld dt
+                        and pld_rem  = Int64.rem mac_pld dt in
+                        let rec aux ts rem prev =
+                            if ts >= ts2' then (
+                                prev
+                            ) else (
+                                let k = Int64.mul ts step, vlan, mac_src, mac_dst, mac_proto in
+                                if rem >= dt then
+                                    aux (Int64.succ ts)
+                                        (Int64.sub rem dt)
+                                        (cumul_pld prev k (Int64.succ pld_step))
+                                else
+                                    aux (Int64.succ ts)
+                                        (Int64.add rem pld_rem)
+                                        (cumul_pld prev k pld_step)
+                            ) in
+                        aux ts1' 0L h
+                    )
+                )
                 Maplot.empty
                 (fun h1 h2 -> (* merge two hashes *)
                     (*Printf.printf "Merging two maps of size %d and %d\n%!" (Maplot.cardinal h1) (Maplot.cardinal h2) ;*)
                     Maplot.fold (fun k v m -> cumul_pld m k v) h1 h2) in
         let plot = Hashtbl.create 71 in
-        let float_of_timestamp (s, us) = Int64.to_float s +. (float_of_int us) /. 1000000. in
         Maplot.iter (fun (t, vlan, mac_src, mac_dst, mac_proto) pld ->
             let label = label_of vlan mac_src mac_dst mac_proto in
             let prev = try Hashtbl.find plot label with Not_found -> [] in
-            Hashtbl.replace plot label ((float_of_timestamp t, Int64.to_float pld)::prev)) h ;
+            (* Notice we want bytes/secs, so we divide each sample by time step *)
+            Hashtbl.replace plot label ((Int64.to_float t, Int64.to_float pld /. Int64.to_float step)::prev)) h ;
         Plot.stacked_area plot
 end
 
@@ -238,18 +263,20 @@ let load dbdir create fname =
 let main =
     let dbdir = ref "./" and start = ref None and stop = ref None 
     and source = ref None and dest = ref None and vlan = ref None
-    and eth_proto = ref None and ip_proto = ref None and create = ref false in
+    and eth_proto = ref None and ip_proto = ref None
+    and create = ref false and step = ref 60 in
     Arg.(parse [
         "-dir", Set_string dbdir, "database directory (or './')" ;
         "-create", Set create, "create db if it does not exist yet" ;
         "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
         "-verbose", Set verbose, "verbose" ;
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
+        "-step", Set_int step, "time step for plots (default: 60)" ;
         "-dump", String (function tbname -> Traffic.(dump ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
                                                           ?vlan:!vlan ?source:!source ?dest:!dest !dbdir tbname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
         "-plot", String (function tbname -> Traffic.(plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
-                                                          ?vlan:!vlan ?source:!source ?dest:!dest !dbdir tbname)), "plot this table" ;
+                                                          ?vlan:!vlan ?source:!source ?dest:!dest ~step:!step !dbdir tbname)), "plot this table" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-vlan", String (fun s -> vlan := Some (Integer16.of_string s)), "limit queries to this VLAN" ;
