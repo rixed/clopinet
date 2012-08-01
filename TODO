@@ -1,15 +1,6 @@
 TODO stack
 ----------
 
-* plot should take the timestep, and then for each sample add to the hash
-for all timestep between t1 and t2 (once t1 and t2 are rounded acordingly) add 
-(same aggregate function) the values. So we must first : scan samples, 
-retrieve those matching the criteria, and return only the relevant datas (with 
-t1 and t2 rounded), then aggregate (in the plot function, thus not in 
-parallel) per timestamp and per host, computing the max value for each host,
-then reaggregate again to keep only the N hosts with bigger max (merge all 
-others in "others" host), and then only writing everything, sorted.
-
 * A plot command that fetch the data (selected according to the same cmd line 
 filters) and prepare it (ie, build distinct datasets) before writing into a 
 temp file and forking to gnuplot (then removing the temp file). Its argument 
