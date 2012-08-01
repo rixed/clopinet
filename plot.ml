@@ -60,6 +60,7 @@ let stacked_area datasets =
         ) in
     Hashtbl.iter (fun label pts ->
         Printf.printf "\"%s\"\n" label ;
+        List.sort (fun (x1, _) (x2, _) -> compare x1 x2) pts |>
         List.iter (fun (x, y) ->
-            Printf.printf "%f %f\n" x y) pts ;
+            Printf.printf "%f %f\n" x y) ;
         Printf.printf "\n\n") datasets
