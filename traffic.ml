@@ -53,9 +53,8 @@ struct
             hash_on_src write
             meta_aggr meta_read meta_write
 
-    (* Function to query the Lod0, ie select a set of individual queries *)
     (* TODO: filters on IP addresses/proto and ports *)
-    let dump ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name f =
+    let iter ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name f =
         let tdir = table_name dbdir name in
         let check vopt f = match vopt with
             | None -> true
@@ -135,65 +134,53 @@ struct
             fold_hnum hnum fst
         | _ ->
             Table.fold_hnums tdir fold_hnum fst merge
-
-    module Maplot = Map.Make (struct
-        type t = int64 * Integer16.t * EthAddr.t * EthAddr.t * Integer16.t
-        let compare = Pervasives.compare
-    end)
-
-    (* Plot amount of traffic (eth_pld) against time, with a different plot per MAC sockpair *)
-    let plot_vol_time ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto ?(step=60) dbdir name =
-        assert (step > 0) ;
-        let step = Int64.of_int step in
-        let label_of vlan mac_src mac_dst mac_proto =
-            (if vlan <> -1 then "vlan:"^string_of_int vlan^"," else "")^
-            (EthAddr.to_string mac_src)^"->"^
-            (EthAddr.to_string mac_dst)^","^
-            (string_of_int mac_proto) in
-        let cumul_pld m k mac_pld =
-            let prev = try Maplot.find k m with Not_found -> 0L in
-            Maplot.add k (Int64.add prev mac_pld) m in
-        let h =
-            fold ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name
-                (fun ((ts1s, _ts1us), (ts2s, _ts2us), _count, vlan, mac_src, mac_dst, mac_proto, mac_pld, _mtu, _ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) h ->
-                    (* step is a number of seconds. *)
-                    let ts1' = Int64.div ts1s step
-                    and ts2' = Int64.div ts2s step in
-                    if ts1' = ts2' then (
-                        cumul_pld h (Int64.mul ts1' step, vlan, mac_src, mac_dst, mac_proto) mac_pld
-                    ) else (
-                        let dt = Int64.sub ts2' ts1' in
-                        let pld_step = Int64.div mac_pld dt
-                        and pld_rem  = Int64.rem mac_pld dt in
-                        let rec aux ts rem prev =
-                            if ts >= ts2' then (
-                                prev
-                            ) else (
-                                let k = Int64.mul ts step, vlan, mac_src, mac_dst, mac_proto in
-                                if rem >= dt then
-                                    aux (Int64.succ ts)
-                                        (Int64.sub rem dt)
-                                        (cumul_pld prev k (Int64.succ pld_step))
-                                else
-                                    aux (Int64.succ ts)
-                                        (Int64.add rem pld_rem)
-                                        (cumul_pld prev k pld_step)
-                            ) in
-                        aux ts1' 0L h
-                    )
-                )
-                Maplot.empty
-                (fun h1 h2 -> (* merge two hashes *)
-                    (*Printf.printf "Merging two maps of size %d and %d\n%!" (Maplot.cardinal h1) (Maplot.cardinal h2) ;*)
-                    Maplot.fold (fun k v m -> cumul_pld m k v) h1 h2) in
-        let plot = Hashtbl.create 71 in
-        Maplot.iter (fun (t, vlan, mac_src, mac_dst, mac_proto) pld ->
-            let label = label_of vlan mac_src mac_dst mac_proto in
-            let prev = try Hashtbl.find plot label with Not_found -> [] in
-            (* Notice we want bytes/secs, so we divide each sample by time step *)
-            Hashtbl.replace plot label ((Int64.to_float t, Int64.to_float pld /. Int64.to_float step)::prev)) h ;
-        Plot.stacked_area plot
 end
+
+module EthKey = Tuple4.Make (Integer16) (EthAddr) (EthAddr) (Integer16) (* Eth vlan, source, dest, proto *)
+module EthPld = Plot.TimeGraph (Traffic) (EthKey)
+
+(* Plot amount of traffic (eth_pld) against time, with a different plot per MAC sockpair *)
+let eth_plot_vol_time ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto step dbdir name =
+    let label_of_key (vlan, mac_src, mac_dst, mac_proto) =
+        (if vlan <> -1 then "vlan:"^string_of_int vlan^"," else "")^
+        (EthAddr.to_string mac_src)^"->"^
+        (EthAddr.to_string mac_dst)^","^
+        (string_of_int mac_proto) in
+    let fold = Traffic.fold ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name in
+    let extract (ts1, ts2, _, vlan, mac_src, mac_dst, mac_proto, mac_pld, _, _, _, _, _, _, _, _) =
+        (vlan, mac_src, mac_dst, mac_proto), ts1, ts2, Int64.to_float mac_pld in
+    EthPld.plot step fold extract label_of_key
+
+module IPKey = Tuple2.Make (InetAddr) (InetAddr) (* source, dest *)
+module IPPld = Plot.TimeGraph (Traffic) (IPKey)
+
+(* Plot amount of traffic (eth_pld) against time, with a different plot per MAC sockpair *)
+let ip_plot_vol_time ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto step dbdir name =
+    let label_of_key (src, dst) =
+        (InetAddr.to_string src)^"->"^(InetAddr.to_string dst) in
+    let fold = Traffic.fold ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name in
+    let extract (ts1, ts2, _, _, _, _, _, mac_pld, _, src, dst, _, _, _, _, _) =
+        (src, dst), ts1, ts2, Int64.to_float mac_pld in
+    IPPld.plot step fold extract label_of_key
+
+(* FIXME: app should be a string, and we should also report various eth apps *)
+module AppKey = Tuple2.Make (Integer8) (Integer16)
+module AppPld = Plot.TimeGraph (Traffic) (AppKey)
+
+(* Plot amount of traffic (eth_pld) against time, with a different plot per MAC sockpair *)
+let app_plot_vol_time ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto step dbdir name =
+    let label_of_key (proto, port) =
+        let proto = try Unix.((getprotobynumber proto).p_name)
+                    with Not_found -> "" in
+        let serv = try Unix.((getservbyport port proto).s_name)
+                   with Not_found -> string_of_int port in
+        if String.length proto = 0 then serv
+        else if String.length serv = 0 then proto
+        else proto ^ "," ^ serv in
+    let fold = Traffic.fold ?start ?stop ?vlan ?source ?dest ?eth_proto ?ip_proto dbdir name in
+    let extract (ts1, ts2, _, _, _, _, _, mac_pld, _, _, _, proto, _, _, port, _) =
+        (proto, port), ts1, ts2, Int64.to_float mac_pld in
+    AppPld.plot step fold extract label_of_key
 
 (* Lod1: Accumulated over 10mins *)
 (* Lod2: round timestamp to hour *)
@@ -272,11 +259,15 @@ let main =
         "-verbose", Set verbose, "verbose" ;
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
         "-step", Set_int step, "time step for plots (default: 60)" ;
-        "-dump", String (function tbname -> Traffic.(dump ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
+        "-dump", String (function tbname -> Traffic.(iter ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
                                                           ?vlan:!vlan ?source:!source ?dest:!dest !dbdir tbname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
-        "-plot", String (function tbname -> Traffic.(plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
-                                                          ?vlan:!vlan ?source:!source ?dest:!dest ~step:!step !dbdir tbname)), "plot this table" ;
+        "-plot", String (function tbname -> ip_plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
+                                                             ?vlan:!vlan ?source:!source ?dest:!dest !step !dbdir tbname), "plot this table" ;
+        "-plot2", String (function tbname -> eth_plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
+                                                               ?vlan:!vlan ?source:!source ?dest:!dest !step !dbdir tbname), "plot this table" ;
+        "-plot3", String (function tbname -> app_plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
+                                                               ?vlan:!vlan ?source:!source ?dest:!dest !step !dbdir tbname), "plot this table" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-vlan", String (fun s -> vlan := Some (Integer16.of_string s)), "limit queries to this VLAN" ;

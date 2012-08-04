@@ -1,10 +1,9 @@
 open Bricabrac
-
-let max_graphs = 10 (* lesser plots are accumulated into a "other" plot *)
+open Datatype
 
 (* Can be ploted, although no as stacked area, with:
  * plot for [i=0:50] 'traf' index i using 1:2 title columnheader(1) with lines smooth unique *)
-let stacked_area datasets =
+let stacked_area max_graphs datasets =
     let datasets =
         if Hashtbl.length datasets > max_graphs then (
             let max_peak = Array.create (max_graphs-1) None (* ordered by max peak (bigger first) *)
@@ -64,3 +63,51 @@ let stacked_area datasets =
         List.iter (fun (x, y) ->
             Printf.printf "%f %f\n" x y) ;
         Printf.printf "\n\n") datasets
+
+
+module TimeGraph (Record : DATATYPE) (Key : DATATYPE) =
+struct
+    module Maplot = Map.Make (struct
+        type t = Int64.t * Key.t
+        let compare = Pervasives.compare
+    end)
+
+    let plot step fold extract label_of_key =
+        assert (step > 0) ;
+        let step = Int64.of_int step in
+        let cumul_y m k y =
+            let prev = try Maplot.find k m with Not_found -> 0. in
+            Maplot.add k (prev +. y) m in
+        let m =
+            fold (fun r m ->
+                let k, (t1s, _t1us), (t2s, _t2us), y = extract r in
+                (* step is a number of seconds. *)
+                let t1' = Int64.div t1s step
+                and t2' = Int64.div t2s step in
+                if t1' = t2' then (
+                    cumul_y m (Int64.mul t1' step, k) y
+                ) else (
+                    let dt = Int64.sub t2' t1' in
+                    let dy = y /. Int64.to_float dt in
+                    let rec aux ts prev =
+                        if ts >= t2' then prev
+                        else aux (Int64.succ ts)
+                                 (cumul_y prev (Int64.mul ts step, k) dy) in
+                    aux t1' m
+                )
+            )
+            Maplot.empty
+            (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
+                Maplot.fold (fun k v m -> cumul_y m k v) m2 m1) in
+        let plot = Hashtbl.create 71
+        and step = Int64.to_float step in
+        Maplot.iter (fun (t, k) y ->
+            let label = label_of_key k in
+            let prev = try Hashtbl.find plot label with Not_found -> [] in
+            (* Notice we want y/secs, so we divide each sample by time step *)
+            Hashtbl.replace plot label ((Int64.to_float t, y /. step)::prev)) m ;
+        
+        stacked_area 10 plot
+end
+
+
