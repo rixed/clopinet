@@ -147,7 +147,7 @@ Or just run: junkie -c this_file
        (index-size 1024)
        (timeout 0))
      (traffic-l4-end
-       (on-entry (pass "printf(\"TCP\\t%s\\t%s\\t%\"PRIuPTR\"\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+       (on-entry (pass "printf(\"TRF\\t%s\\t%s\\t%\"PRIuPTR\"\\t%d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
                         timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
                         (int)" vlan ",
                         eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
