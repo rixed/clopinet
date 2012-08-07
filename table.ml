@@ -37,7 +37,10 @@ let iter_snums tdir hnum aggr_reader f =
         with Failure _ -> ()
     and files = Sys.readdir (Dbfile.dir tdir hnum) in
     try (
-        Parmap.pariter ~ncores:!ncores iterfile (Parmap.A files)
+        if !ncores > 1 then
+            Parmap.pariter ~ncores:!ncores iterfile (Parmap.A files)
+        else
+            Array.iter iterfile files
     ) with Sys_error _ -> () (* no such directory, may happen in we haven't written anything yet *)
 
 let iter_hnums tdir f =
@@ -78,16 +81,22 @@ let fold_snums tdir hnum aggr_reader f start merge =
         with Failure _ -> res
     and files = Sys.readdir (Dbfile.dir tdir hnum) in
     try (
-        Parmap.parfold ~ncores:!ncores foldfile (Parmap.A files) start merge
+        if !ncores > 1 then
+            Parmap.parfold ~ncores:!ncores foldfile (Parmap.A files) start merge
+        else
+            Array.fold_right foldfile files start
     ) with Sys_error _ -> start (* no such directory, may happen in we haven't written anything yet *)
 
 let fold_hnums tdir f start merge =
     try (
-        Sys.readdir tdir |>
-        Array.fold_left (fun res name ->
-            try f (int_of_string name) start |> merge res
-            with Failure _ -> res)
-            start
+        let res =
+            Sys.readdir tdir |>
+            Array.fold_left (fun prev name ->
+                try (f (int_of_string name) start) :: prev
+                with Failure _ -> prev)
+                [] in
+        Printf.printf "Consolidating partial results...\n%!" ;
+        List.fold_left merge start res
     ) with Sys_error _ -> start
 
 let fold tdir reader f start merge =
