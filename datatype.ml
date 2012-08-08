@@ -66,36 +66,67 @@ let string_of_list l =
 let write_char_list oc l =
     Output.string oc (string_of_list l)
 
-let write_var_int64 oc n =
-    (* Recode negative number so that higher bits are 0 : stores (abs(n) lsl 1)+sign.
-     * Notice that if n > 0 then we can mult it by 2 since we have a 0 bit at highest
-     * position, but then ocaml will think it's negative again, so we have to
-     * consider than n<0 means n is actually huge. *)
-    let n = if n >= 0L then Int64.shift_left n 1
-            else Int64.add 1L (Int64.shift_left (Int64.neg n) 1) in
-    let rec aux n =
-        if n >= 0L && n < 128L then Output.byte oc (Int64.to_int n)
-        else (
-            Output.byte oc ((Int64.to_int n) lor 128) ;
-            aux (Int64.shift_right_logical n 7)
-        ) in
-    aux n
+module MakeVarInt (Int : sig
+        type t
+        val zero : t
+        val i128 : t
+        val succ : t -> t
+        val logor : t -> t -> t
+        val shift_left : t -> int -> t
+        val shift_right_logical : t -> int -> t
+        val of_int : int -> t
+        val to_int : t -> int
+        val neg : t -> t
+    end) =
+struct
+    let write oc n =
+        (* Recode negative number so that higher bits are 0 : stores (abs(n) lsl 1)+sign.
+         * Notice that if n > 0 then we can mult it by 2 since we have a 0 bit at highest
+         * position, but then ocaml will think it's negative again, so we have to
+         * consider than n<0 means n is actually huge. *)
+        let n = if n >= Int.zero then Int.shift_left n 1
+                else Int.succ (Int.shift_left (Int.neg n) 1) in
+        let rec aux n =
+            if n >= Int.zero && n < Int.i128 then Output.byte oc (Int.to_int n)
+            else (
+                Output.byte oc ((Int.to_int n) lor 128) ;
+                aux (Int.shift_right_logical n 7)
+            ) in
+        aux n
 
-let write_var_int oc n =
-    write_var_int64 oc (Int64.of_int n)
+    let rec read ic =
+        let rec aux n dec =
+            let b = BinInput.read ic in
+            (* FIXME: 3*loop+1 allocs for reading a single 64bit value is too much! *)
+            let n = Int.logor n (Int.shift_left (Int.of_int (b land 127)) dec) in
+            if b < 128 then n else aux n (dec+7) in
+        let n = aux Int.zero 0 in
+        (* bit 0 is actually the sign bit *)
+        (if Int.to_int n land 1 = 0 then id else Int.neg)
+            (Int.shift_right_logical n 1)
+end
 
-let rec read_var_int64 ic =
-    let rec aux n dec =
-        let b = BinInput.read ic in
-        let n = Int64.logor n (Int64.shift_left (Int64.of_int (b land 127)) dec) in
-        if b < 128 then n else aux n (dec+7) in
-    let n = aux 0L 0 in
-    (* bit 0 is actually the sign bit *)
-    (if Int64.to_int n land 1 = 0 then id else Int64.neg)
-        (Int64.shift_right_logical n 1)
-
-let read_var_int ic =
-    Int64.to_int (read_var_int64 ic)
+(*module VarInt64 = struct
+    let read ic =
+        let bits = BinInput.nread ic 8 |>
+                   Bitstring.bitstring_of_string in
+        bitmatch bits with { n : 64 } -> n
+end*)
+module VarInt64 = MakeVarInt(struct include Int64 let i128=128L end)
+module VarInt32 = MakeVarInt(struct include Int32 let i128=128l end)
+module VarInt = MakeVarInt(
+    struct
+        type t = int
+        let zero = 0
+        let i128 = 128
+        let succ n = n+1
+        let logor = (lor)
+        let shift_left = (lsl)
+        let shift_right_logical = (lsr)
+        let of_int = id
+        let to_int = id
+        let neg n = -n
+    end)
 
 let read_txt_until ic delim =
     let rec aux p =
@@ -155,11 +186,11 @@ Datatype_of (struct
     let equal = (=)
     let hash = Hashtbl.hash
     let write oc t =
-        write_var_int oc (String.length t) ;
+        VarInt.write oc (String.length t) ;
         Output.string oc t
     let write_txt = Output.string
     let read ic =
-        let len = read_var_int ic in
+        let len = VarInt.read ic in
         assert (len >= 0) ;
         BinInput.nread ic len
     let read_txt ic =
@@ -174,12 +205,12 @@ struct
         let hash = Hashtbl.hash
         let name = "float"
         let write oc f =
-            Int64.bits_of_float f |> write_var_int64 oc
+            Int64.bits_of_float f |> VarInt64.write oc
         let write_txt oc f =
             let s = string_of_float f in
             Output.string oc s
         let read ic =
-            read_var_int64 ic |> Int64.float_of_bits
+            VarInt64.read ic |> Int64.float_of_bits
         let read_txt ic =
             (* hello, I'm slow! *)
             Text.read_txt ic |> float_of_string
@@ -200,7 +231,7 @@ struct
         let name = "int"
         let equal = (=)
         let hash = id
-        let write = write_var_int
+        let write = VarInt.write
         let write_txt oc i =
             if i = 0 then Output.char oc '0' else
             let rec aux l p i =
@@ -211,7 +242,7 @@ struct
                 Output.char oc '-' ;
                 aux 0 [] (-i)
             )
-        let read = read_var_int
+        let read = VarInt.read
         let read_txt ic =
             let neg = peek_sign ic in
             let rec aux v =
@@ -276,9 +307,9 @@ struct
         let name = "int32"
         let equal = (=)
         let hash = Int32.to_int
-        let write oc t = write_var_int64 oc (Int64.of_int32 t)
+        let write oc t = VarInt64.write oc (Int64.of_int32 t)
         let write_txt oc i = Printf.sprintf "%ld" i |> Output.string oc
-        let read ic = Int64.to_int32 (read_var_int64 ic)
+        let read = VarInt32.read
         let read_txt ic =
             let neg = peek_sign ic in
             let rec aux v =
@@ -305,9 +336,9 @@ struct
         let name = "int64"
         let equal = (=)
         let hash = Int64.to_int
-        let write = write_var_int64
+        let write = VarInt64.write
         let write_txt oc i = Printf.sprintf "%Ld" i |> Output.string oc
-        let read  = read_var_int64
+        let read  = VarInt64.read
         let read_txt ic =
             let neg = peek_sign ic in
             let rec aux v =
@@ -481,16 +512,16 @@ struct
         let equal = (=)
         let hash (a, b) = Int64.to_int a + b
         let write oc (s,u) =
-            write_var_int64 oc s ;
-            write_var_int oc u
+            VarInt64.write oc s ;
+            VarInt.write oc u
         let write_txt oc (s,u) =
             Integer64.write_txt oc s ;
             Output.string oc "s " ;
             Integer.write_txt oc u ;
             Output.string oc "us"
         let read ic =
-            let s = read_var_int64 ic in
-            let u = read_var_int ic in
+            let s = VarInt64.read ic in
+            let u = VarInt.read ic in
             s, u
         let read_txt ic =
             let s = Integer64.read_txt ic in
@@ -566,7 +597,7 @@ Datatype_of (struct
     let name = "(listof " ^ T.name ^ ")"
 
     let write oc t =
-        write_var_int oc (List.length t) ;
+        VarInt.write oc (List.length t) ;
         List.iter (T.write oc) t
 
     let write_txt oc t =
@@ -581,7 +612,7 @@ Datatype_of (struct
         Output.char oc ']'
 
     let read ic =
-        let len = read_var_int ic in
+        let len = VarInt.read ic in
         assert (len >= 0) ;
         let res = ref [] in
         for i = 1 to len do
