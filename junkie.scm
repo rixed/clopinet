@@ -22,7 +22,7 @@ Or just run: junkie -c this_file
      (url str)
      (qry-host str)]
     [(http-answer
-       (on-entry (pass "printf(\"WEB\\t%d\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t1\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0\\t%s\\t%s\\n\",
+       (on-entry (pass "printf(\"WEB\\t%d\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\t%s\\t%s\\n\",
                         (int)" vlan ",
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "), " server-port ",
@@ -74,7 +74,7 @@ Or just run: junkie -c this_file
      (qry-stop timestamp)
      (qry-name str)]
     [(dns-answer
-       (on-entry (pass "printf(\"DNS\\t%d\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t1\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0\\t%s\\n\",
+       (on-entry (pass "printf(\"DNS\\t%d\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\t%s\\n\",
                         (int)" vlan ",
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
