@@ -11,7 +11,7 @@ type ('a, 'b) t = 'a -> 'b option -> 'b
 let min ?(lt=(<)) x = function
     | None -> x
     | Some y -> if lt x y then x else y
-    
+
 let inv f = fun a b -> f b a
 
 let max ?(gt=(>)) x = min (inv gt) x

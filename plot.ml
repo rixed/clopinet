@@ -106,7 +106,7 @@ struct
             let prev = try Hashtbl.find plot label with Not_found -> [] in
             (* Notice we want y/secs, so we divide each sample by time step *)
             Hashtbl.replace plot label ((Int64.to_float t, y /. step)::prev)) m ;
-        
+
         stacked_area 10 plot
 end
 
