@@ -66,31 +66,20 @@ let string_of_list l =
 let write_char_list oc l =
     Output.string oc (string_of_list l)
 
-module MakeVarInt (Int : sig
-        type t
-        val zero : t
-        val i128 : t
-        val succ : t -> t
-        val logor : t -> t -> t
-        val shift_left : t -> int -> t
-        val shift_right_logical : t -> int -> t
-        val of_int : int -> t
-        val to_int : t -> int
-        val neg : t -> t
-    end) =
+module VarInt =
 struct
     let write oc n =
         (* Recode negative number so that higher bits are 0 : stores (abs(n) lsl 1)+sign.
          * Notice that if n > 0 then we can mult it by 2 since we have a 0 bit at highest
          * position, but then ocaml will think it's negative again, so we have to
          * consider than n<0 means n is actually huge. *)
-        let n = if n >= Int.zero then Int.shift_left n 1
-                else Int.succ (Int.shift_left (Int.neg n) 1) in
+        let n = if n >= 0 then n lsl 1
+                else 1 + ((- n) lsl 1) in
         let rec aux n =
-            if n >= Int.zero && n < Int.i128 then Output.byte oc (Int.to_int n)
+            if n >= 0 && n < 128 then Output.byte oc n
             else (
-                Output.byte oc ((Int.to_int n) lor 128) ;
-                aux (Int.shift_right_logical n 7)
+                Output.byte oc (n lor 128) ;
+                aux (n lsr 7)
             ) in
         aux n
 
@@ -98,35 +87,38 @@ struct
         let rec aux n dec =
             let b = BinInput.read ic in
             (* FIXME: 3*loop+1 allocs for reading a single 64bit value is too much! *)
-            let n = Int.logor n (Int.shift_left (Int.of_int (b land 127)) dec) in
+            let n = n lor ((b land 127) lsl dec) in
             if b < 128 then n else aux n (dec+7) in
-        let n = aux Int.zero 0 in
+        let n = aux 0 0 in
         (* bit 0 is actually the sign bit *)
-        (if Int.to_int n land 1 = 0 then id else Int.neg)
-            (Int.shift_right_logical n 1)
+        (if n land 1 = 0 then id else (~-)) (n lsr 1)
 end
 
-(*module VarInt64 = struct
+let fst_of_3 (x,_,_) = x
+
+module VarInt32 =
+struct
+    let write oc n =
+        (BITSTRING { n : 32 : nativeendian }) |>
+        fst_of_3 |> (* bitstring_of_string would allocate a new string :-( *)
+        Output.string oc
+    let read ic =
+        let bits = BinInput.nread ic 4 |>
+                   Bitstring.bitstring_of_string in
+        bitmatch bits with { n : 32 } -> n
+end
+
+module VarInt64 =
+struct
+    let write oc n =
+        (BITSTRING { n : 64 : nativeendian }) |>
+        fst_of_3 |> (* bitstring_of_string would allocate a new string :-( *)
+        Output.string oc
     let read ic =
         let bits = BinInput.nread ic 8 |>
                    Bitstring.bitstring_of_string in
         bitmatch bits with { n : 64 } -> n
-end*)
-module VarInt64 = MakeVarInt(struct include Int64 let i128=128L end)
-module VarInt32 = MakeVarInt(struct include Int32 let i128=128l end)
-module VarInt = MakeVarInt(
-    struct
-        type t = int
-        let zero = 0
-        let i128 = 128
-        let succ n = n+1
-        let logor = (lor)
-        let shift_left = (lsl)
-        let shift_right_logical = (lsr)
-        let of_int = id
-        let to_int = id
-        let neg n = -n
-    end)
+end
 
 let read_txt_until ic delim =
     let rec aux p =
@@ -623,7 +615,7 @@ Datatype_of (struct
     let read_txt ic =
         let fst = TxtInput.read ic in
         assert (fst = '[') ;
-        let res = 
+        let res =
             let rec aux p =
                 if TxtInput.peek ic = ']' then p else
                 aux (T.read_txt ic :: p) in
