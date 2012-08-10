@@ -105,7 +105,7 @@ struct
     let read ic =
         let bits = BinInput.nread ic 4 |>
                    Bitstring.bitstring_of_string in
-        bitmatch bits with { n : 32 } -> n
+        bitmatch bits with { n : 32 : nativeendian } -> n
 end
 
 module VarInt64 =
@@ -117,7 +117,7 @@ struct
     let read ic =
         let bits = BinInput.nread ic 8 |>
                    Bitstring.bitstring_of_string in
-        bitmatch bits with { n : 64 } -> n
+        bitmatch bits with { n : 64 : nativeendian } -> n
 end
 
 let read_txt_until ic delim =
