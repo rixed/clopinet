@@ -67,17 +67,19 @@ let stacked_area max_graphs datasets =
 
 module TimeGraph (Record : DATATYPE) (Key : DATATYPE) =
 struct
-    module Maplot = Map.Make (struct
+    module Maplot = Finite_map_impl.Finite_map (struct
         type t = Int64.t * Key.t
-        let compare = Pervasives.compare
+        let compare (t1,k1) (t2,k2) =
+            let c = Integer64.compare t1 t2 in
+            if c = 0 then Key.compare k1 k2
+            else c
     end)
 
     let plot step fold extract label_of_key =
         assert (step > 0) ;
         let step = Int64.of_int step in
         let cumul_y m k y =
-            let prev = try Maplot.find k m with Not_found -> 0. in
-            Maplot.add k (prev +. y) m in
+            Maplot.update_with_default y m k (fun prev -> prev +. y) in
         let m =
             fold (fun r m ->
                 let k, (t1s, _t1us), (t2s, _t2us), y = extract r in
@@ -98,16 +100,14 @@ struct
             )
             Maplot.empty
             (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
-                Maplot.fold (fun k v m -> cumul_y m k v) m2 m1) in
+                Maplot.fold_left cumul_y m1 m2) in
         let plot = Hashtbl.create 71
         and step = Int64.to_float step in
-        Maplot.iter (fun (t, k) y ->
+        Maplot.iter m (fun (t, k) y ->
             let label = label_of_key k in
             let prev = try Hashtbl.find plot label with Not_found -> [] in
             (* Notice we want y/secs, so we divide each sample by time step *)
-            Hashtbl.replace plot label ((Int64.to_float t, y /. step)::prev)) m ;
+            Hashtbl.replace plot label ((Int64.to_float t, y /. step)::prev)) ;
 
         stacked_area 10 plot
 end
-
-
