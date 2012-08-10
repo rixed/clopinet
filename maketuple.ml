@@ -19,6 +19,10 @@ let maketuple n =
         String.concat "," (unfold (fun i -> sprintf "%c%d" c i)) in
     printf "    let equal (%s) (%s) =\n" (parms 'a') (parms 'b') ;
     foreach (fun i -> printf "        " ; if i > 0 then printf "&& " ; printf "T%d.equal a%d b%d\n" i i i) ;
+    printf "    let compare (%s) (%s) =\n" (parms 'a') (parms 'b') ;
+    foreach (fun i -> printf "        " ;
+                      if i < n-1 then printf "let c = T%d.compare a%d b%d in if c <> 0 then c else\n" i i i
+                                 else printf "T%d.compare a%d b%d" i i i) ;
     printf "    let hash = Hashtbl.hash\n" ;
     printf "    let name = " ;
     foreach (fun i -> if i > 0 then printf "^\"*\"^" ; printf "T%d.name" i) ;

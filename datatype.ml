@@ -12,6 +12,7 @@ sig
 
     val name      : string
     val equal     : t -> t -> bool
+    val compare   : t -> t -> int
     val hash      : t -> int
     val write     : Output.t -> t -> unit
     val write_txt : Output.t -> t -> unit
@@ -151,6 +152,7 @@ module Bool : DATATYPE with type t = bool =
 Datatype_of (struct
     type t = bool
     let equal = (=)
+    let compare a b = if a = b then 0 else if a then -1 else 1
     let hash = function true -> 1 | false -> 0
     let name = "bool"
     let write oc t = Output.byte oc (if t then 1 else 0)
@@ -163,6 +165,7 @@ module Void : DATATYPE with type t = unit =
 Datatype_of (struct
     type t = unit
     let equal () () = true
+    let compare () () = 0
     let hash () = 0
     let name = "void"
     let write _ _ = ()
@@ -176,6 +179,7 @@ Datatype_of (struct
     type t = string
     let name = "string"
     let equal = (=)
+    let compare = String.compare
     let hash = Hashtbl.hash
     let write oc t =
         VarInt.write oc (String.length t) ;
@@ -194,6 +198,7 @@ struct
     include Datatype_of (struct
         type t = float
         let equal = (=)
+        let compare a b = if a = b then 0 else if a < b then -1 else 1
         let hash = Hashtbl.hash
         let name = "float"
         let write oc f =
@@ -222,6 +227,7 @@ struct
         type t = int
         let name = "int"
         let equal = (=)
+        let compare a b = if a = b then 0 else if a < b then -1 else 1
         let hash = id
         let write = VarInt.write
         let write_txt oc i =
@@ -298,6 +304,7 @@ struct
         type t = Int32.t
         let name = "int32"
         let equal = (=)
+        let compare a b = if a = b then 0 else if a < b then -1 else 1
         let hash = Int32.to_int
         let write oc t = VarInt64.write oc (Int64.of_int32 t)
         let write_txt oc i = Printf.sprintf "%ld" i |> Output.string oc
@@ -327,6 +334,7 @@ struct
         type t = Int64.t
         let name = "int64"
         let equal = (=)
+        let compare a b = if a = b then 0 else if a < b then -1 else 1
         let hash = Int64.to_int
         let write = VarInt64.write
         let write_txt oc i = Printf.sprintf "%Ld" i |> Output.string oc
@@ -355,6 +363,7 @@ Datatype_of (struct
     type t = Unix.inet_addr
     let name = "inetAddr"
     let equal = (=)
+    let compare = compare
     let hash = Hashtbl.hash
     let write oc t =
         let (str : string) = Obj.magic t in (* underlying repr of a inet_addr is a string for some reason, probably to handle both v4 and v6 *)
@@ -376,6 +385,7 @@ Datatype_of (struct
     let name = "cidr"
     let equal (n1,m1) (n2,m2) =
         n1 = n2 && m1 = m2
+    let compare = compare
     let hash (n,m) =
         InetAddr.hash n + m
     let write oc (n,m) =
@@ -460,6 +470,7 @@ Datatype_of (struct
     type t = char * char * char * char * char * char
     let name = "ethAddr"
     let equal = (=)
+    let compare = Pervasives.compare
     let hash = Hashtbl.hash
     let write oc (a,b,c,d,e,f) =
         let open Output in
@@ -502,6 +513,10 @@ struct
         type t = Int64.t * int (* secs, usecs *)
         let name = "timestamp"
         let equal = (=)
+        let compare (s1,u1) (s2,u2) =
+            let c = Int64.compare s1 s2 in
+            if c = 0 then Integer.compare u1 u2
+            else c
         let hash (a, b) = Int64.to_int a + b
         let write oc (s,u) =
             VarInt64.write oc s ;
@@ -584,6 +599,14 @@ Datatype_of (struct
         | a::a', b::b' -> T.equal a b && equal a' b'
         | _ -> false
 
+    let rec compare a b = match a, b with
+        | [], x -> if x = [] then 0 else -1
+        | x, [] -> 1
+        | a::a', b::b' ->
+            let c = T.compare a b in
+            if c = 0 then compare a' b'
+            else c
+
     let hash = Hashtbl.hash (* Hum no! should use the T.hash function on the first elements *)
 
     let name = "(listof " ^ T.name ^ ")"
@@ -630,6 +653,7 @@ module Altern1 (T1:DATATYPE) :
 Datatype_of (struct
     type t = T1.t
     let equal = T1.equal
+    let compare = T1.compare
     let hash = T1.hash
     let name = "V1of1 of "^T1.name
     let write oc t1 =
@@ -653,6 +677,11 @@ Datatype_of (struct
         | V1of2 a, V1of2 b -> T1.equal a b
         | V2of2 a, V2of2 b -> T2.equal a b
         | _ -> false
+    let compare a b = match a, b with
+        | V1of2 a, V1of2 b -> T1.compare a b
+        | V2of2 a, V2of2 b -> T2.compare a b
+        | V1of2 _, V2of2 _ -> -1
+        | V2of2 _, V1of2 _ -> 1
     let hash = function
         | V1of2 a -> T1.hash a
         | V2of2 a -> T2.hash a
