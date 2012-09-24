@@ -43,8 +43,8 @@ struct
         InetAddr.hash ip_src
     (* Metafile stores timestamp range *)
     let meta_aggr (ts1, ts2, _count, _vlan, _mac_src, _mac_dst, _proto, _pld, _mtu, _ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) bound_opt =
-        let bound = Aggregator.bounds ~lt:Timestamp.lt ts1 bound_opt in
-        Aggregator.bounds ~lt:Timestamp.lt ts2 (Some bound)
+        let bound = Aggregator.bounds ~cmp:Timestamp.compare ts1 bound_opt in
+        Aggregator.bounds ~cmp:Timestamp.compare ts2 (Some bound)
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
     let table_name dbdir name = dbdir ^ "/" ^ name
@@ -61,16 +61,16 @@ struct
             | Some v -> f v in
         let iter_hnum hnum =
             Table.iter_snums tdir hnum meta_read (fun snum bounds ->
-                let (<<<) = Timestamp.lt in
+                let cmp = Timestamp.compare in
                 let scan_it = match bounds with
                     | None -> true
                     | Some (ts1, ts2) ->
-                        check start (fun start -> not (ts2 <<< start)) &&
-                        check stop  (fun stop  -> not (stop <<< ts1)) in
+                        check start (fun start -> not (cmp ts2 start < 0)) &&
+                        check stop  (fun stop  -> not (cmp stop ts1 < 0)) in
                 if scan_it then (
                     Table.iter_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_src, mac_dst, mac_prot, _, _, _, _, ip_prot, _, _, _, _) as x) ->
-                        if check start     (fun start -> not (ts2 <<< start)) &&
-                           check stop      (fun stop  -> not (stop <<< ts1)) &&
+                        if check start     (fun start -> not (cmp ts2 start < 0)) &&
+                           check stop      (fun stop  -> not (cmp stop ts1 < 0)) &&
                            check source    (fun mac   -> EthAddr.equal mac mac_src) &&
                            check dest      (fun mac   -> EthAddr.equal mac mac_dst) &&
                            check eth_proto (fun proto -> proto = mac_prot) &&
@@ -102,17 +102,17 @@ struct
             | Some v -> f v in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
-                let (<<<) = Timestamp.lt in
+                let cmp = Timestamp.compare in
                 let scan_it = match bounds with
                     | None -> true
                     | Some (ts1, ts2) ->
-                        check start (fun start -> not (ts2 <<< start)) &&
-                        check stop  (fun stop  -> not (stop <<< ts1)) in
+                        check start (fun start -> not (cmp ts2 start < 0)) &&
+                        check stop  (fun stop  -> not (cmp stop ts1 < 0)) in
                 let res =
                     if scan_it then (
                         Table.fold_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_src, mac_dst, mac_prot, _, _, _, _, ip_prot, _, _, _, _) as x) prev ->
-                            if check start     (fun start -> not (ts2 <<< start)) &&
-                               check stop      (fun stop  -> not (stop <<< ts1)) &&
+                            if check start     (fun start -> not (cmp ts2 start < 0)) &&
+                               check stop      (fun stop  -> not (cmp stop ts1 < 0)) &&
                                check source    (fun mac   -> EthAddr.equal mac mac_src) &&
                                check dest      (fun mac   -> EthAddr.equal mac mac_dst) &&
                                check eth_proto (fun proto -> proto = mac_prot) &&

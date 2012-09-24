@@ -11,5 +11,5 @@
 *.annot
 *.s
 *.top
-test_*
+*.db
 tuple*.ml

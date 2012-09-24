@@ -43,7 +43,7 @@ struct
         InetAddr.hash srv
     (* Metafile stores timestamp range *)
     let meta_aggr (_vlan, _clte, _clt, _srve, _srv, _srvp, _method, _err, ts, _rt, _host, _url) =
-        Aggregator.bounds ~lt:Timestamp.lt ts
+        Aggregator.bounds ~cmp:Timestamp.compare ts
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
     let table_name dbdir name = dbdir ^ "/" ^ name
@@ -71,16 +71,16 @@ struct
             | Some v -> f v in
         let iter_hnum hnum =
             Table.iter_snums tdir hnum meta_read (fun snum bounds ->
-                let (<<<) = Timestamp.lt in
+                let cmp = Timestamp.compare in
                 let scan_it = match bounds with
                     | None -> true
                     | Some (ts1, ts2) ->
-                        check start (fun start -> not (ts2 <<< start)) &&
-                        check stop  (fun stop  -> not (stop <<< ts1)) in
+                        check start (fun start -> not (cmp ts2 start < 0)) &&
+                        check stop  (fun stop  -> not (cmp stop ts1 < 0)) in
                 if scan_it then (
                     Table.iter_file tdir hnum snum read (fun ((_vlan, _clte, clt, _srve, srv, _srvp, met, err, ts, rt, h, u) as x) ->
-                        if check start  (fun start -> not (ts <<< start)) &&
-                           check stop   (fun stop  -> not (stop <<< ts)) &&
+                        if check start  (fun start -> not (cmp ts start < 0)) &&
+                           check stop   (fun stop  -> not (cmp stop ts < 0)) &&
                            check rt_min (fun rt_m  -> let _c, _mi,ma,_avg,_std = rt in ma > rt_m) &&
                            check client (fun cidr  -> inter_cidr clt cidr) &&
                            check server (fun cidr  -> in_cidr srv cidr) &&

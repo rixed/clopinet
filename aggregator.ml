@@ -8,9 +8,9 @@ open LStream
 
 type ('a, 'b) t = 'a -> 'b option -> 'b
 
-let min ?(lt=(<)) x = function
+let min ?(cmp=Pervasives.compare) x = function
     | None -> x
-    | Some y -> if lt x y then x else y
+    | Some y -> if cmp x y < 0 then x else y
 
 let inv f = fun a b -> f b a
 
@@ -24,11 +24,11 @@ let avg (++) x = function
     | None -> 1, x
     | Some (n, y) -> n+1, x++y
 
-let bounds ?(lt=(<)) x = function
+let bounds ?(cmp=Pervasives.compare) x = function
     | None -> x, x
     | Some (mi, ma) ->
-        (if lt x mi then x else mi),
-        (if lt ma x then x else ma)
+        (if cmp x mi < 0 then x else mi),
+        (if cmp ma x < 0 then x else ma)
 
 (* [accum flush aggr] returns a function taking entries (as [k, v]) and grouping
    them (by [k], aggregating [v]s with aggr), flushing into the given [ks] whenever

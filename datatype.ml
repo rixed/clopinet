@@ -52,7 +52,6 @@ sig
     val idiv : t -> int -> t
     val imul : t -> int -> t
     val mul  : t -> t -> t
-    val lt   : t -> t -> bool
 end
 
 (* Some tools *)
@@ -218,7 +217,6 @@ struct
     let idiv t i = t /. (float_of_int i)
     let imul t i = t *. (float_of_int i)
     let mul t1 t2 = t1 *. t2
-    let lt = (<)
 end
 
 module Integer : NUMBER with type t = int =
@@ -257,7 +255,6 @@ struct
     let idiv = (/)
     let imul = ( * )
     let mul = ( * )
-    let lt = (<)
 end
 
 module Integer8 : NUMBER with type t = int =
@@ -274,7 +271,6 @@ struct
     let idiv = (/)
     let imul = ( * )
     let mul = ( * )
-    let lt = (<)
 end
 
 module Integer16 : NUMBER with type t = int =
@@ -295,7 +291,6 @@ struct
     let idiv = (/)
     let imul = ( * )
     let mul = ( * )
-    let lt = (<)
 end
 
 module Integer32 : NUMBER with type t = Int32.t =
@@ -325,7 +320,6 @@ struct
     let idiv t i = Int32.div t (Int32.of_int i)
     let imul t i = Int32.mul t (Int32.of_int i)
     let mul = Int32.mul
-    let lt = (<)
 end
 
 module Integer64 : NUMBER with type t = Int64.t =
@@ -355,7 +349,6 @@ struct
     let idiv t i = Int64.div t (Int64.of_int i)
     let imul t i = Int64.mul t (Int64.of_int i)
     let mul = Int64.mul
-    let lt = (<)
 end
 
 module InetAddr : DATATYPE with type t = Unix.inet_addr =
@@ -470,7 +463,13 @@ Datatype_of (struct
     type t = char * char * char * char * char * char
     let name = "ethAddr"
     let equal = (=)
-    let compare = Pervasives.compare
+    let compare (a1,a2,a3,a4,a5,a6) (b1,b2,b3,b4,b5,b6) =
+        let c = int_of_char b1 - int_of_char a1 in if c <> 0 then c else
+        let c = int_of_char b2 - int_of_char a2 in if c <> 0 then c else
+        let c = int_of_char b3 - int_of_char a3 in if c <> 0 then c else
+        let c = int_of_char b4 - int_of_char a4 in if c <> 0 then c else
+        let c = int_of_char b5 - int_of_char a5 in if c <> 0 then c else
+        int_of_char b6 - int_of_char a6
     let hash = Hashtbl.hash
     let write oc (a,b,c,d,e,f) =
         let open Output in
@@ -574,7 +573,6 @@ struct
         Int64.add (Int64.mul s i64) (Int64.div u' 1_000_000L),
         Int64.rem u' 1_000_000L |> Int64.to_int
     let mul _ _ = failwith "Cant mul timestamps!"
-    let lt (s1,u1) (s2,u2) = s1 < s2 || (s1 = s2 && u1 < u2)
 end
 
 (* Useful to round a timestamp to some amount of seconds *)
@@ -601,7 +599,7 @@ Datatype_of (struct
 
     let rec compare a b = match a, b with
         | [], x -> if x = [] then 0 else -1
-        | x, [] -> 1
+        | _, [] -> 1
         | a::a', b::b' ->
             let c = T.compare a b in
             if c = 0 then compare a' b'
