@@ -1,6 +1,9 @@
 TODO stack
 ----------
 
+* Optimiser le scan et surtout la fabriquation du hash/map pour stoquer les
+aggrégats des plots
+
 * A plot command that fetch the data (selected according to the same cmd line 
 filters) and prepare it (ie, build distinct datasets) before writing into a 
 temp file and forking to gnuplot (then removing the temp file). Its argument 
@@ -39,8 +42,8 @@ display file and offset where the error occured))
 * SVG (and x11) version of dump command that performs one among several kind 
   of plots with given columns
 
-* CGI version of dns.opt/web.opt (both Sys.Arg or Cgi.parse, depending of
-envvars!)
+* CGI version of dns.opt/web.opt (both Arg.parse or Cgi.parse_args, depending 
+  of envvars!)
 
 
 * More tests for the helper functions and the (de)serializers.

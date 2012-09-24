@@ -246,7 +246,6 @@ let load dbdir create fname =
                 raise e)) ()
         flush_all ()
 
-
 let main =
     let dbdir = ref "./" and start = ref None and stop = ref None 
     and source = ref None and dest = ref None and vlan = ref None

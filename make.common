@@ -6,7 +6,7 @@ OCAMLYACC  = ocamlyacc
 OCAMLDEP   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldep
 OCAMLDOC   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldoc -html -colorize-code -thread -all-params
 OCAMLMKTOP = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlmktop -thread -g -rectypes
-override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -inline 99 -S
+override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -inline 50
 override OCAMLFLAGS    += $(INCS) -w Ael -g -annot
 
 .PHONY: opt clean clean-spec install uninstall reinstall doc clear
