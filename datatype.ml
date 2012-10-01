@@ -34,7 +34,11 @@ module Datatype_of (B : DATATYPE_BASE) :
 struct
     include B
     let of_string str =
-        TxtInput.of_string str |> read_txt
+        let inp = TxtInput.of_string str in
+        let v = read_txt inp in
+        (* Check that we've consumed the whole string *)
+        try ignore (TxtInput.peek inp) ; raise (Failure "Cannot consume all input")
+        with End_of_file -> v
     let to_string t =
         let buf = Buffer.create 32 in
         write_txt (Output.of_buffer buf) t ;
@@ -219,6 +223,7 @@ struct
     let mul t1 t2 = t1 *. t2
 end
 
+exception Overflow
 module Integer : NUMBER with type t = int =
 struct
     include Datatype_of (struct
@@ -245,7 +250,8 @@ struct
                 let d = try TxtInput.peek ic with End_of_file -> '\n' in
                 if d < '0' || d > '9' then v else (
                     TxtInput.swallow ic ;
-                    aux (v*10 + (int_of_char d - Char.code '0'))
+                    let new_v = v*10 + (int_of_char d - Char.code '0') in
+                    if new_v < v then raise Overflow else aux new_v
                 ) in
             (if neg then (~-) else id) (aux 0)
     end)

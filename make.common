@@ -32,10 +32,10 @@ endif
 .SUFFIXES: .mll .mly .ml .mli .cmo .cmi .cmx .opt .byte
 
 .cmo.byte:
-	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES)" $(ARCHIVE) -linkpkg $(OCAMLFLAGS) $^
+	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES)" $(ARCHIVE)  $(EXTRALIBS) -linkpkg $(OCAMLFLAGS) $^
 
 .cmx.opt:
-	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" $(XARCHIVE) -linkpkg $(OCAMLOPTFLAGS) $^
+	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" $(XARCHIVE) $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $^
 
 .ml.cmo:
 	$(OCAMLC) $(SYNTAX) -package "$(REQUIRES)" $(OCAMLFLAGS) -c $<

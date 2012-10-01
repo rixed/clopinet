@@ -12,4 +12,5 @@
 *.s
 *.top
 *.db
+*.cgi
 tuple*.ml

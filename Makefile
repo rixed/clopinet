@@ -22,9 +22,10 @@ SOURCES  = \
 	dbfile.ml \
 	table.ml \
 	plot.ml \
+	traffic.ml
 
 EXAMPLES_BYTE = \
-	dns.byte web.byte traffic.byte \
+	dns.byte web.byte traffic_exe.byte \
 
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
@@ -33,7 +34,7 @@ REQUIRES = bricabrac pfds bitstring bitstring.syntax zip parmap
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc
-all: $(ARCHIVE) mlrrd.top examples
+all: $(ARCHIVE) mlrrd.top examples www
 
 include $(top_srcdir)/make.common
 
@@ -66,3 +67,8 @@ clean-spec:
 
 loc:
 	@ls *.ml *.mli -1 | grep -v tuple | xargs cat | wc -l
+
+.PHONY: www
+www:
+	$(MAKE) -C $(top_srcdir)/www index.cgi
+
