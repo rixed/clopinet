@@ -53,8 +53,8 @@ struct
             hash_on_src write
             meta_aggr meta_read meta_write
 
-    (* TODO: filters on IP addresses/proto and ports *)
-    let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto dbdir name f =
+    (* TODO: filters on ports *)
+    let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name f =
         let tdir = table_name dbdir name in
         let check vopt f = match vopt with
             | None -> true
@@ -68,20 +68,22 @@ struct
                         check start (fun start -> not (cmp ts2 start < 0)) &&
                         check stop  (fun stop  -> not (cmp stop ts1 < 0)) in
                 if scan_it then (
-                    Table.iter_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_src', mac_dst', mac_prot, _, _, _, _, ip_prot, _, _, _, _) as x) ->
+                    Table.iter_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, _, _, _) as x) ->
                         if check start     (fun start -> not (cmp ts2 start < 0)) &&
                            check stop      (fun stop  -> not (cmp stop ts1 < 0)) &&
-                           check mac_src   (fun mac   -> EthAddr.equal mac mac_src') &&
-                           check mac_dst   (fun mac   -> EthAddr.equal mac mac_dst') &&
+                           check mac_src   (fun mac   -> EthAddr.equal mac mac_s) &&
+                           check mac_dst   (fun mac   -> EthAddr.equal mac mac_d) &&
                            check eth_proto (fun proto -> proto = mac_prot) &&
+                           check ip_src    (fun ip    -> InetAddr.equal ip ip_s) &&
+                           check ip_dst    (fun ip    -> InetAddr.equal ip ip_d) &&
                            check ip_proto  (fun proto -> proto = ip_prot) &&
                            check vlan      (fun vlan  -> vl = Some vlan) then   (* FIXME: we have no way to filter on unset vlan only *)
                            f x))) in
-        match mac_dst with
-        | Some dst ->
-            if !verbose then Printf.fprintf stderr "Using index\n" ;
+        match ip_src with
+        | Some ip ->
             (* We have an index for this! Build the list of hnums *)
-            let hnum = EthAddr.hash dst mod Table.max_hash_size in
+            let hnum = InetAddr.hash ip mod Table.max_hash_size in
+            if !verbose then Printf.fprintf stderr "Using index %d\n" hnum ;
             iter_hnum hnum
         | _ ->
             Table.iter_hnums tdir iter_hnum
@@ -95,7 +97,7 @@ struct
             Int64.add ip_pld ip_pld',
             Int64.add l4_pld l4_pld'
 
-    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto dbdir name f fst merge =
+    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name f fst merge =
         let tdir = table_name dbdir name in
         let check vopt f = match vopt with
             | None -> true
@@ -110,12 +112,14 @@ struct
                         check stop  (fun stop  -> not (cmp stop ts1 < 0)) in
                 let res =
                     if scan_it then (
-                        Table.fold_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_src', mac_dst', mac_prot, _, _, _, _, ip_prot, _, _, _, _) as x) prev ->
+                        Table.fold_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, _, _, _) as x) prev ->
                             if check start     (fun start -> not (cmp ts2 start < 0)) &&
                                check stop      (fun stop  -> not (cmp stop ts1 < 0)) &&
-                               check mac_src   (fun mac   -> EthAddr.equal mac mac_src') &&
-                               check mac_dst   (fun mac   -> EthAddr.equal mac mac_dst') &&
+                               check mac_src   (fun mac   -> EthAddr.equal mac mac_s) &&
+                               check mac_dst   (fun mac   -> EthAddr.equal mac mac_d) &&
                                check eth_proto (fun proto -> proto = mac_prot) &&
+                               check ip_src    (fun ip    -> InetAddr.equal ip ip_s) &&
+                               check ip_dst    (fun ip    -> InetAddr.equal ip ip_d) &&
                                check ip_proto  (fun proto -> proto = ip_prot) &&
                                check vlan      (fun vlan  -> vl = Some vlan) then
                                f x prev
@@ -126,11 +130,11 @@ struct
                     ) in
                 res)
                 fst merge in
-        match mac_dst with
-        | Some dst ->
-            if !verbose then Printf.fprintf stderr "Using index\n" ;
+        match ip_src with
+        | Some ip ->
             (* We have an index for this! Build the list of hnums *)
-            let hnum = EthAddr.hash dst mod Table.max_hash_size in
+            let hnum = InetAddr.hash ip mod Table.max_hash_size in
+            if !verbose then Printf.fprintf stderr "Using index %d\n" hnum ;
             fold_hnum hnum fst
         | _ ->
             Table.fold_hnums tdir fold_hnum fst merge
@@ -140,13 +144,13 @@ module EthKey = Tuple4.Make (Option (UInteger16)) (EthAddr) (EthAddr) (UInteger1
 module EthPld = Plot.TimeGraph (Traffic) (EthKey)
 
 (* Plot amount of traffic (eth_pld) against time, with a different plot per MAC sockpair *)
-let eth_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto step dbdir name =
+let eth_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto step dbdir name =
     let label_of_key (vlan, mac_src, mac_dst, mac_proto) =
         (match vlan with Some vl -> "vlan:"^string_of_int vl^"," | None -> "")^
         (EthAddr.to_string mac_src)^"->"^
         (EthAddr.to_string mac_dst)^","^
         (string_of_int mac_proto) in
-    let fold = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto dbdir name in
+    let fold = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
     let extract (ts1, ts2, _, vlan, mac_src, mac_dst, mac_proto, mac_pld, _, _, _, _, _, _, _, _) =
         (vlan, mac_src, mac_dst, mac_proto), ts1, ts2, Int64.to_float mac_pld in
     EthPld.plot step fold extract label_of_key
@@ -155,10 +159,10 @@ module IPKey = Tuple2.Make (InetAddr) (InetAddr) (* source, dest *)
 module IPPld = Plot.TimeGraph (Traffic) (IPKey)
 
 (* Plot amount of traffic (eth_pld) against time, with a different plot per IP sockpair *)
-let ip_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto step dbdir name =
+let ip_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto step dbdir name =
     let label_of_key (src, dst) =
         (InetAddr.to_string src)^"->"^(InetAddr.to_string dst) in
-    let fold = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto dbdir name in
+    let fold = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
     let extract (ts1, ts2, _, _, _, _, _, mac_pld, _, src, dst, _, _, _, _, _) =
         (src, dst), ts1, ts2, Int64.to_float mac_pld in
     IPPld.plot step fold extract label_of_key
@@ -168,7 +172,7 @@ module AppKey = Tuple2.Make (UInteger8) (UInteger16)
 module AppPld = Plot.TimeGraph (Traffic) (AppKey)
 
 (* Plot amount of traffic (eth_pld) against time, with a different plot per proto/port *)
-let app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto step dbdir name =
+let app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto step dbdir name =
     let label_of_key (proto, port) =
         let proto = try Unix.((getprotobynumber proto).p_name)
                     with Not_found -> "" in
@@ -177,7 +181,7 @@ let app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto 
         if String.length proto = 0 then serv
         else if String.length serv = 0 then proto
         else proto ^ "," ^ serv in
-    let fold = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto dbdir name in
+    let fold = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
     let extract (ts1, ts2, _, _, _, _, _, mac_pld, _, _, _, proto, _, _, port, _) =
         (proto, port), ts1, ts2, Int64.to_float mac_pld in
     AppPld.plot step fold extract label_of_key

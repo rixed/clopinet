@@ -1,8 +1,6 @@
 TODO stack
 ----------
 
-* Le type VLAN doit être int option (Option (UInteger16))
-
 * Optimiser le scan et surtout la fabriquation du hash/map pour stoquer les
 aggrégats des plots
 

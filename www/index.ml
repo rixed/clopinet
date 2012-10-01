@@ -135,6 +135,14 @@ struct
         module Type = OptInputOfDatatype(Integer16)
         let name = "eth-proto"
     end
+    module IpSrcField = struct
+        module Type = OptInputOfDatatype(InetAddr)
+        let name = "ip-src"
+    end
+    module IpDstField = struct
+        module Type = OptInputOfDatatype(InetAddr)
+        let name = "ip-dst"
+    end
     module IpProtoField = struct
         module Type = OptInputOfDatatype(Integer8)
         let name = "ip-proto"
@@ -162,11 +170,13 @@ struct
                               (ConsOf (FieldOf (MacSrcField))
                               (ConsOf (FieldOf (MacDstField))
                               (ConsOf (FieldOf (EthProtoField))
+                              (ConsOf (FieldOf (IpSrcField))
+                              (ConsOf (FieldOf (IpDstField))
                               (ConsOf (FieldOf (IpProtoField))
                               (ConsOf (FieldOf (TimeStepField))
                               (ConsOf (FieldOf (TblNameField))
                               (ConsOf (FieldOf (GroupByField))
-                                      (NulType)))))))))))
+                                      (NulType)))))))))))))
 
 end
 
@@ -223,15 +233,15 @@ struct
         let search args =
             let filters = Forms.Traffic.from_args "filter" args in
             let graph = match filters with
-            | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_proto, (Value time_step, (Value tblname, (Value group_by, ()))))))))) ->
+            | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value group_by, ()))))))))))) ->
                 let tblname = Forms.TblNames.options.(tblname) in
                 let datasets = match group_by with
                     | 0 (* macs *) ->
-                        eth_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto time_step dbdir tblname
+                        eth_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto time_step dbdir tblname
                     | 2 (* apps *) ->
-                        app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto time_step dbdir tblname
+                        app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto time_step dbdir tblname
                     | _ (* defaults + ips *) ->
-                        ip_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_proto time_step dbdir tblname in
+                        ip_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto time_step dbdir tblname in
                 View.table_of_datasets datasets
             | _ -> [ cdata "fill in the form!" ] in
             View.make_app_page
