@@ -29,9 +29,17 @@ let check_timestamp () =
     assert (of_string "123s"       = (123L, 0)) ;
     assert (of_string "123"        = (123L, 0))
 
+module TestOption = Option (Integer8)
+let check_option () =
+    let open TestOption in
+    assert (of_string "None" = None) ;
+    assert (of_string "Some 1" = Some 1) ;
+    assert (of_string "Some -42" = Some ~-42)
+
 let _ =
     check_datatools () ;
     check_cidr () ;
     check_mac () ;
     check_timestamp () ;
+    check_option () ;
     print_string "Ok\n"

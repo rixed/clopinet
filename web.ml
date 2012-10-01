@@ -37,7 +37,7 @@ module BoundsTS = Tuple2.Make (Timestamp) (Timestamp)
 
 module Web =
 struct
-    include Altern1 (Tuple12.Make (Integer16) (EthAddr) (Cidr) (EthAddr) (InetAddr) (Integer16) (Integer8) (Integer16) (Timestamp) (Distribution) (Text) (Text))
+    include Altern1 (Tuple12.Make (Option (Integer16)) (EthAddr) (Cidr) (EthAddr) (InetAddr) (Integer16) (Integer8) (Integer16) (Timestamp) (Distribution) (Text) (Text))
     (* We hash on the server IP *)
     let hash_on_srv (_vlan, _clte, _clt, _srve, srv, _srvp, _method, _err, _ts, _rt, _host, _url) =
         InetAddr.hash srv

@@ -38,7 +38,9 @@ let nread t n =
     if n = 0 then "" else
     let s = String.create n in
     (match t with
-    | File ic -> really_input ic s 0 n
+    | File ic ->
+        (* FIXME: try Unix.read, which has a much bigger IO buffer (16K vs 4K) *)
+        really_input ic s 0 n
     | Zip ic -> Gzip.really_input ic s 0 n
     | String str ->
         if n > String.length str.s - str.o then raise End_of_file ;

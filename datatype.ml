@@ -263,6 +263,20 @@ struct
     let mul = ( * )
 end
 
+module UInteger8 : NUMBER with type t = int =
+struct
+    include Integer
+    let name = "uint8"
+    let write = Output.byte
+    let read ic =
+        BinInput.read ic
+    let checked n = if n < 0 || n >= 256 then raise Overflow else n
+    let read_txt ic =
+        read_txt ic |> checked
+    let of_string s =
+        of_string s |> checked
+end
+
 module Integer8 : NUMBER with type t = int =
 struct
     include Integer
@@ -271,15 +285,14 @@ struct
     let read ic =
         let n = BinInput.read ic in
         if n < 128 then n else n-256
-    let zero = 0
-    let add = (+)
-    let sub = (-)
-    let idiv = (/)
-    let imul = ( * )
-    let mul = ( * )
+    let checked n = if n < -128 || n >= 128 then raise Overflow else n
+    let read_txt ic =
+        read_txt ic |> checked
+    let of_string s =
+        of_string s |> checked
 end
 
-module Integer16 : NUMBER with type t = int =
+module UInteger16 : NUMBER with type t = int =
 struct
     include Integer
     let name = "int16"
@@ -289,17 +302,29 @@ struct
     let read ic =
         let fst_b = BinInput.read ic in
         let snd_b = BinInput.read ic in
-        let n = fst_b + (snd_b lsl 8) in
-        if n < 32768 then n else n-65536
-    let zero = 0
-    let add = (+)
-    let sub = (-)
-    let idiv = (/)
-    let imul = ( * )
-    let mul = ( * )
+        fst_b + (snd_b lsl 8)
+    let checked n = if n < 0 || n >= 65536 then raise Overflow else n
+    let read_txt ic =
+        read_txt ic |> checked
+    let of_string s =
+        of_string s |> checked
 end
 
-module Integer32 : NUMBER with type t = Int32.t =
+module Integer16 : NUMBER with type t = int =
+struct
+    include Integer
+    let name = "uint16"
+    let read ic =
+        let n = read ic in
+        if n < 32768 then n else n-65536
+    let checked n = if n < -32768 || n >= 32768 then raise Overflow else n
+    let read_txt ic =
+        read_txt ic |> checked
+    let of_string s =
+        of_string s |> checked
+end
+
+module UInteger32 : NUMBER with type t = Int32.t =
 struct
     include Datatype_of (struct
         type t = Int32.t
@@ -308,17 +333,17 @@ struct
         let compare a b = if a = b then 0 else if a < b then -1 else 1
         let hash = Int32.to_int
         let write oc t = VarInt64.write oc (Int64.of_int32 t)
-        let write_txt oc i = Printf.sprintf "%ld" i |> Output.string oc
+        let write_txt oc i = Printf.sprintf "%lu" i |> Output.string oc
         let read = VarInt32.read
         let read_txt ic =
-            let neg = peek_sign ic in
             let rec aux v =
                 let d = try TxtInput.peek ic with End_of_file -> '\n' in
                 if d < '0' || d > '9' then v else (
                     TxtInput.swallow ic ;
-                    aux (Int32.add (Int32.mul v 10l) (Int32.of_int (int_of_char d - Char.code '0')))
+                    let new_v = Int32.add (Int32.mul v 10l) (Int32.of_int (int_of_char d - Char.code '0')) in
+                    if new_v < v then raise Overflow else aux new_v
                 ) in
-            (if neg then Int32.neg else id) (aux 0l)
+            aux 0l
     end)
     let zero = 0l
     let add = Int32.add
@@ -328,7 +353,19 @@ struct
     let mul = Int32.mul
 end
 
-module Integer64 : NUMBER with type t = Int64.t =
+module Integer32 : NUMBER with type t = Int32.t =
+struct
+    include UInteger32
+    let name = "uint32"
+    let write_txt oc i = Printf.sprintf "%ld" i |> Output.string oc
+    let read_txt ic =
+        let neg = peek_sign ic in
+        let n = read_txt ic in
+        if neg then Int32.neg n else n
+    (* TODO: check overflow *)
+end
+
+module UInteger64 : NUMBER with type t = Int64.t =
 struct
     include Datatype_of (struct
         type t = Int64.t
@@ -337,17 +374,17 @@ struct
         let compare a b = if a = b then 0 else if a < b then -1 else 1
         let hash = Int64.to_int
         let write = VarInt64.write
-        let write_txt oc i = Printf.sprintf "%Ld" i |> Output.string oc
+        let write_txt oc i = Printf.sprintf "%Lu" i |> Output.string oc
         let read  = VarInt64.read
         let read_txt ic =
-            let neg = peek_sign ic in
             let rec aux v =
                 let d = try TxtInput.peek ic with End_of_file -> '\n' in (* any non digit char would do *)
                 if d < '0' || d > '9' then v else (
                     TxtInput.swallow ic ;
-                    aux (Int64.add (Int64.mul v 10L) (Int64.of_int (int_of_char d - Char.code '0')))
+                    let new_v = Int64.add (Int64.mul v 10L) (Int64.of_int (int_of_char d - Char.code '0')) in
+                    if new_v < v then raise Overflow else aux new_v
                 ) in
-            (if neg then Int64.neg else id) (aux 0L)
+            aux 0L
     end)
     let zero = 0L
     let add = Int64.add
@@ -355,6 +392,18 @@ struct
     let idiv t i = Int64.div t (Int64.of_int i)
     let imul t i = Int64.mul t (Int64.of_int i)
     let mul = Int64.mul
+end
+
+module Integer64 : NUMBER with type t = Int64.t =
+struct
+    include UInteger64
+    let name = "uint64"
+    let write_txt oc i = Printf.sprintf "%Ld" i |> Output.string oc
+    let read_txt ic =
+        let neg = peek_sign ic in
+        let n = read_txt ic in
+        if neg then Int64.neg n else n
+    (* TODO: check overflow *)
 end
 
 module InetAddr : DATATYPE with type t = Unix.inet_addr =
@@ -378,9 +427,9 @@ Datatype_of (struct
         Unix.inet_addr_of_string
 end)
 
-module Cidr : DATATYPE with type t = InetAddr.t * Integer16.t =
+module Cidr : DATATYPE with type t = InetAddr.t * UInteger16.t =
 Datatype_of (struct
-    type t = InetAddr.t * Integer16.t
+    type t = InetAddr.t * UInteger16.t
     let name = "cidr"
     let equal (n1,m1) (n2,m2) =
         n1 = n2 && m1 = m2
@@ -388,21 +437,21 @@ Datatype_of (struct
     let hash (n,m) =
         InetAddr.hash n + m
     let write oc (n,m) =
-        InetAddr.write oc n ; Integer16.write oc m
+        InetAddr.write oc n ; UInteger16.write oc m
     let write_txt oc (n,m) =
         InetAddr.write_txt oc n ;
         Output.char oc '/' ;
-        Integer16.write_txt oc m
+        UInteger16.write_txt oc m
     let read ic =
         let n = InetAddr.read ic in
-        n, Integer16.read ic
+        n, UInteger16.read ic
     let read_txt ic =
         let n = read_txt_until ic "/\t\n" |>
                 Unix.inet_addr_of_string in
         let delim = try TxtInput.peek ic with End_of_file -> '\n' in
         if delim = '/' then (
             TxtInput.swallow ic ;
-            n, Integer16.read_txt ic
+            n, UInteger16.read_txt ic
         ) else n, 32
 end)
 
@@ -527,7 +576,7 @@ struct
             VarInt64.write oc s ;
             VarInt.write oc u
         let write_txt oc (s,u) =
-            Integer64.write_txt oc s ;
+            UInteger64.write_txt oc s ;
             Output.string oc "s " ;
             Integer.write_txt oc u ;
             Output.string oc "us"
@@ -536,7 +585,7 @@ struct
             let u = VarInt.read ic in
             s, u
         let read_txt ic =
-            let s = Integer64.read_txt ic in
+            let s = UInteger64.read_txt ic in
             let u = try (
                 while
                     let c = TxtInput.peek ic in c = 's' || c = ' '
@@ -652,24 +701,24 @@ Datatype_of (struct
         res
 end)
 
-module Altern1 (T1:DATATYPE) :
-    DATATYPE with type t = T1.t =
+module Altern1 (T:DATATYPE) :
+    DATATYPE with type t = T.t =
 Datatype_of (struct
-    type t = T1.t
-    let equal = T1.equal
-    let compare = T1.compare
-    let hash = T1.hash
-    let name = "V1of1 of "^T1.name
+    type t = T.t
+    let equal = T.equal
+    let compare = T.compare
+    let hash = T.hash
+    let name = "V1of1 of "^T.name
     let write oc t1 =
         Output.byte oc 0 ; (* So that we will be able to decode it later when we add version *)
-        T1.write oc t1
-    let write_txt = T1.write_txt
+        T.write oc t1
+    let write_txt = T.write_txt
     let read ic =
         let v = BinInput.read ic in
         if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
         assert (v = 0) ;
-        T1.read ic
-    let read_txt = T1.read_txt
+        T.read ic
+    let read_txt = T.read_txt
 end)
 
 type ('a, 'b) versions_2 = V1of2 of 'a | V2of2 of 'b
@@ -707,5 +756,46 @@ Datatype_of (struct
         | '1' -> V1of2 (T1.read_txt ic)
         | '2' -> V2of2 (T2.read_txt ic)
         | c -> failwith ("Bad version "^Char.escaped c)
+end)
+
+module Option (T:DATATYPE) :
+    DATATYPE with type t = T.t option =
+Datatype_of (struct
+    type t = T.t option
+    let equal a b = match a,b with
+        | Some x, Some y -> T.equal x y
+        | _ -> false
+    let compare a b = match a,b with
+        | Some x, Some y -> T.compare x y
+        | Some _, None -> 1
+        | None, Some _ -> -1
+        | None, None -> 0
+    let hash = function
+        | Some x -> T.hash x
+        | None -> 0
+    let name = T.name^" option"
+    let write oc = function
+        | None -> Output.byte oc 0
+        | Some x ->
+            Output.byte oc 1 ;
+            T.write oc x
+    let write_txt oc = function
+        | None -> Output.string oc "None"
+        | Some x -> Output.string oc "Some " ;
+                    T.write_txt oc x
+    let read ic =
+        let o = BinInput.read ic in
+        if o <> 0 then (
+            assert (o = 1) ;
+            Some (T.read ic)
+        ) else None
+    let read_txt ic =
+        let o = TxtInput.nread ic 4 in
+        if o = "None" then None
+        else (
+            assert (o = "Some") ;
+            let sep = TxtInput.read ic in assert (sep = ' ') ;
+            Some (T.read_txt ic)
+        )
 end)
 
