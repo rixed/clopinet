@@ -377,14 +377,14 @@ struct
         let write_txt oc i = Printf.sprintf "%Lu" i |> Output.string oc
         let read  = VarInt64.read
         let read_txt ic =
-            let rec aux v =
-                let d = try TxtInput.peek ic with End_of_file -> '\n' in (* any non digit char would do *)
+            let rec aux ?(first=false) v =
+                let d = try TxtInput.peek ic with End_of_file when not first -> '\n' in (* any non digit char would do *)
                 if d < '0' || d > '9' then v else (
                     TxtInput.swallow ic ;
                     let new_v = Int64.add (Int64.mul v 10L) (Int64.of_int (int_of_char d - Char.code '0')) in
                     if new_v < v then raise Overflow else aux new_v
                 ) in
-            aux 0L
+            aux ~first:true 0L
     end)
     let zero = 0L
     let add = Int64.add
