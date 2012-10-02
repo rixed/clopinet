@@ -95,7 +95,6 @@ let fold_hnums tdir f start merge =
                 try (f (int_of_string name) start) :: prev
                 with Failure _ -> prev)
                 [] in
-        Printf.printf "Consolidating partial results...\n%!" ;
         List.fold_left merge start res
     ) with Sys_error _ -> start
 
