@@ -67,7 +67,7 @@ doc: $(SOURCES)
 	mkdir -p $@
 	$(OCAMLDOC) $(SYNTAX) -d doc $^
 
-clear: $(SOURCES)
-	sed -i -e 's/[ 	]\+$$//' $^
+clear:
+	sed -i -e 's/[ 	]\+$$//' $(wildcard *.ml *.c)
 
 -include .depend

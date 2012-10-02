@@ -180,7 +180,7 @@ let load dbdir create fname =
 
 
 let main =
-    let dbdir = ref "./" and start = ref None and stop = ref None 
+    let dbdir = ref "./" and start = ref None and stop = ref None
     and rt_min = ref None and qname = ref None and error = ref None
     and client = ref None and server = ref None and peer =ref None
     and create = ref false and req_min = ref None in

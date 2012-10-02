@@ -3,7 +3,7 @@ open Datatype
 open Traffic
 
 let main =
-    let dbdir = ref "./" and start = ref None and stop = ref None 
+    let dbdir = ref "./" and start = ref None and stop = ref None
     and mac_src = ref None and mac_dst = ref None and vlan = ref None
     and eth_proto = ref None and ip_src = ref None and ip_dst = ref None
     and ip_proto = ref None and create = ref false and step = ref 60 in
@@ -15,7 +15,7 @@ let main =
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
         "-step", Set_int step, "time step for plots (default: 60)" ;
         "-dump", String (function tbname -> Traffic.(iter ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
-                                                          ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst 
+                                                          ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst
                                                           ?ip_src:!ip_src ?ip_dst:!ip_dst !dbdir tbname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
         "-plot", String (function tbname -> ip_plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto

@@ -191,7 +191,7 @@ let load dbdir create fname =
 
 
 let main =
-    let dbdir = ref "./" and start = ref None and stop = ref None 
+    let dbdir = ref "./" and start = ref None and stop = ref None
     and rt_min = ref None and url = ref None and status = ref None
     and client = ref None and server = ref None and host = ref None
     and peer = ref None and meth = ref None and create = ref false in
