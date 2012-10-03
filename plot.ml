@@ -1,8 +1,8 @@
-open Bricabrac
+open Batteries
 open Datatype
 
-(* Can be ploted, although no as stacked area, with:
- * plot for [i=0:50] 'traf' index i using 1:2 title columnheader(1) with lines smooth unique *)
+let sort_pt (x1, _) (x2, _) = compare x1 x2
+
 let top_datasets max_graphs datasets =
     (* Reduce number of datasets to max_graphs *)
     if Hashtbl.length datasets <= max_graphs then (
@@ -58,6 +58,8 @@ let top_datasets max_graphs datasets =
         new_datasets
     )
 
+(* Can be ploted, although no as stacked area, with:
+ * plot for [i=0:50] 'traf' index i using 1:2 title columnheader(1) with lines smooth unique *)
 let stacked_area datasets =
     Hashtbl.iter (fun label pts ->
         Printf.printf "\"%s\"\n" label ;
@@ -111,5 +113,10 @@ struct
             (* Notice we want y/secs, so we divide each sample by time step *)
             Hashtbl.replace datasets label ((Int64.to_float t, y /. step)::prev)) ;
 
-        top_datasets max_graphs datasets
+        (* reduce number of datasets to max_graphs *)
+        let datasets = top_datasets max_graphs datasets in
+
+        (* sort all pts according to x value *)
+        Hashtbl.map (fun _label pts -> List.sort sort_pt pts)
+                    datasets
 end

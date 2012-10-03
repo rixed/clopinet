@@ -21,6 +21,17 @@ struct
 
     let msgs () = div ~attrs:["id","notifs"] !msgs
 
+    (* Google charts *)
+
+    let chart_head = [
+        tag "script" ~attrs:["type","text/javascript" ; "src","https://www.google.com/jsapi"] [] ;
+        tag "script" ~attrs:["type","text/javascript" ; "src","static/js/graph.js"] [] ;
+        tag "script" ~attrs:["type","text/javascript"]
+            [ cdata "graph_init();" ]
+    ]
+
+    let chart_div = div ~attrs:["id","chart_div"] []
+
     (* rendering of pages *)
 
     let menu () =
@@ -31,23 +42,59 @@ struct
     (* add the menu *)
     let make_app_page content =
         let body = menu () :: msgs () :: [ tag "div" ~attrs:["id","page"] content ]
-        and head = [ title "MlRRD" ; link_css "static/css/style.css" ] in
+        and head = [ title "MlRRD" ; link_css "static/css/style.css" ] @ chart_head in
         html head body
 
     let table_of_datasets datasets =
         let all_rows =
             Hashtbl.fold (fun label pts doc ->
                 let rows =
-                    List.sort (fun (x1, _) (x2, _) -> compare x1 x2) pts |>
                     List.map (fun (x, y) ->
                         tr [ td [ cdata (string_of_float x) ] ;
-                             td [ cdata (string_of_float y) ] ]) in
+                             td [ cdata (string_of_float y) ] ])
+                        pts in
                 (tr [ th ~attrs:["colspan", "2"] [ cdata label ] ] ::
                 rows) @ doc)
                 datasets [] in
         [ table (tr [ th [ cdata "time" ] ;
                       th [ cdata "qtt" ] ] ::
                  all_rows) ]
+
+    let js_of_datasets datasets =
+        (* get the labels in _some_ order *)
+        let labels = Hashtbl.keys datasets |> List.of_enum in
+        (* We need the list of all used xs *)
+        let xs = Hashtbl.fold (fun _label pts xs ->
+            List.map fst pts |>
+            List.merge compare xs |>
+            List.sort_unique compare)
+            datasets [] in
+        let js =
+            let os = IO.output_string () in
+            Printf.fprintf os "{\ncols: %a,\nrows: %a\n}"
+                (* display the labels *)
+                (List.print ~first:"[ { label: 'Time', type: 'datetime' },"
+                            ~last:" ]" ~sep:",\n"
+                               (fun oc label -> Printf.fprintf oc "{ label: '%s', type: 'number' }" label))
+                labels
+                (* iter on all possible xs *)
+                (List.print ~first:"[ " ~last:" ]" ~sep:", "
+                            (fun oc x ->
+                                Printf.fprintf oc "{c: [ {v: new Date(%f)}, " (x*.1000.) (* takes milliseconds *) ;
+                                (* iter on all datasets *)
+                                List.iter (fun label ->
+                                    let pts = Hashtbl.find datasets label in
+                                    match pts with
+                                    | (px,py)::rest when px = x ->
+                                        Printf.fprintf oc "{v:%f}," py ;
+                                        Hashtbl.replace datasets label rest
+                                    | _ ->
+                                        Printf.fprintf oc "{v:0}," (* TODO: "," ? *))
+                                    labels ;
+                                Printf.fprintf oc " ] }\n"))
+                xs ;
+            IO.close_out os in
+        raw js
 end
 
 module InputOfDatatype (D : DATATYPE) :
@@ -164,6 +211,10 @@ struct
                                    let options = [| "macs";"ips";"apps" |] end)
         let name = "group by"
     end
+    module MaxGraphsField = struct
+        module Type = OptInteger (struct let min = 1 let max = 32 end)
+        let name = "#series"
+    end
     module Traffic = RecordOf (ConsOf (FieldOf (StartField))
                               (ConsOf (FieldOf (StopField))
                               (ConsOf (FieldOf (VlanField))
@@ -176,7 +227,8 @@ struct
                               (ConsOf (FieldOf (TimeStepField))
                               (ConsOf (FieldOf (TblNameField))
                               (ConsOf (FieldOf (GroupByField))
-                                      (NulType)))))))))))))
+                              (ConsOf (FieldOf (MaxGraphsField))
+                                      (NulType))))))))))))))
 
 end
 
@@ -230,24 +282,38 @@ struct
         include Traffic
         let dbdir = dbdir^"/traffic"
         type search_type = Macs | Ips | App
-        let search args =
+        let page args =
             let filters = Forms.Traffic.from_args "filter" args in
-            let graph = match filters with
-            | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value group_by, ()))))))))))) ->
-                let tblname = Forms.TblNames.options.(tblname) in
-                let datasets = match group_by with
-                    | 0 (* macs *) ->
-                        eth_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto time_step dbdir tblname
-                    | 2 (* apps *) ->
-                        app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto time_step dbdir tblname
-                    | _ (* defaults + ips *) ->
-                        ip_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto time_step dbdir tblname in
-                View.table_of_datasets datasets
-            | _ -> [ cdata "fill in the form!" ] in
+            let filters_form = form "main/traffic" (Forms.Traffic.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value group_by, (Value max_graphs, ())))))))))))) ->
+                    let tblname = Forms.TblNames.options.(tblname) in
+                    let datasets = match group_by with
+                        | 0 (* macs *) ->
+                            eth_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
+                        | 2 (* apps *) ->
+                            app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
+                        | _ (* defaults + ips *) ->
+                            ip_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname in
+                    [ View.chart_div ;
+                      tag "script" ~attrs:["type","text/javascript"]
+                        [ Raw "var data = new google.visualization.DataTable(" ;
+                          View.js_of_datasets datasets ;
+                          Raw ", 0.5);\n\
+console.log(data);\n\
+var options = {\n\
+    title:'Volume of traffic (bytes)',\n\
+    isStacked:true,\n\
+    hAxis:{format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
+    legend:{textStyle:{fontSize:9}}\n\
+};\n\
+var chart = new google.visualization.AreaChart(document.getElementById('chart_div'));\n\
+chart.draw(data, options);\n" ] ]
+                | _ ->
+                    [ cdata "Fill in the form to show the graph" ] in
             View.make_app_page
-                (h1 "Traffic" ::
-                 form "main/traffic" (Forms.Traffic.edit "filter" filters) ::
-                 graph)
+                (h1 "Traffic" :: filters_form :: disp_graph)
+
     end
 
     let ensure_logged runner args =
@@ -273,6 +339,6 @@ let _ =
         | ["main"; "logout"] ->
             Ctrl.logout
         | ["main";"traffic"] ->
-            Ctrl.ensure_logged Ctrl.Traffic.search
+            Ctrl.ensure_logged Ctrl.Traffic.page
         | _ -> Ctrl.Invalid.run)
 

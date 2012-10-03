@@ -1,17 +1,10 @@
 TODO stack
 ----------
 
+* CGI: in traffic filters IPs should be a CIDR not InetAddr.
+
 * Optimiser le scan et surtout la fabriquation du hash/map pour stoquer les
 aggrégats des plots
-
-* A plot command that fetch the data (selected according to the same cmd line 
-filters) and prepare it (ie, build distinct datasets) before writing into a 
-temp file and forking to gnuplot (then removing the temp file). Its argument 
-would be the kind of desired plot, but the general idea of splitting a dataset 
-according to a column value used as index and keeping only a few of the whole 
-columns should be factored out. Also, we'd like to aggregate the selected 
-values before splitting. So that's select | aggregate | sort/split | plot
-
 
 * find a way to parallelize reading even if callback function needs global 
 state (ie. use no global state but a Parmap to post-aggregate datas?)

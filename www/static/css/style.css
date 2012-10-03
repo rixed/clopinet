@@ -1,3 +1,4 @@
-* {
- margin: 0;
+div#chart_div {
+    width: 95%;
+    height: 600;
 }
