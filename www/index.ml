@@ -306,6 +306,8 @@ struct
 console.log(data);\n\
 var options = {\n\
     title:'Volume of traffic (bytes)',\n\
+    width:'100%',\n\
+    height:600,\n\
     isStacked:true,\n\
     hAxis:{format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
     legend:{textStyle:{fontSize:9}}\n\
