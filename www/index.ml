@@ -295,11 +295,14 @@ struct
                             app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
                         | _ (* defaults + ips *) ->
                             ip_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname in
-                    [ View.chart_div ;
-                      tag "script" ~attrs:["type","text/javascript"]
-                        [ Raw "var data = new google.visualization.DataTable(" ;
-                          View.js_of_datasets datasets ;
-                          Raw ", 0.5);\n\
+                    if Hashtbl.length datasets = 0 then
+                        [ cdata "No data" ]
+                    else
+                        [ View.chart_div ;
+                          tag "script" ~attrs:["type","text/javascript"]
+                            [ Raw "var data = new google.visualization.DataTable(" ;
+                              View.js_of_datasets datasets ;
+                              Raw ", 0.5);\n\
 console.log(data);\n\
 var options = {\n\
     title:'Volume of traffic (bytes)',\n\
