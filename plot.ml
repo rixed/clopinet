@@ -23,7 +23,7 @@ let top_datasets max_graphs datasets =
                 Hashtbl.replace others x (prev_y +. y)) in
         let insert_max max label =
             let rec aux i =
-                if i < Array.length max_peak - 1 then (
+                if i < Array.length max_peak then (
                     if (match max_peak.(i) with
                         | None -> true
                         | Some (m, _) -> m < max) then
@@ -51,7 +51,7 @@ let top_datasets max_graphs datasets =
             )) datasets ;
         (* recompose datasets from max_peak and others *)
         let others_pts = Hashtbl.fold (fun x y pts -> (x,y)::pts) others []
-        and new_datasets = Hashtbl.create 11 in
+        and new_datasets = Hashtbl.create max_graphs in
         Array.iter (function None -> () | Some (_max, label) ->
             Hashtbl.add new_datasets label (Hashtbl.find datasets label)) max_peak ;
         Hashtbl.add new_datasets "others" others_pts ;
@@ -107,6 +107,11 @@ struct
                     Maplot.fold_left cumul_y m1 m2) in
         let datasets = Hashtbl.create 71
         and step = Int64.to_float step in
+        (* FIXME: Here we are adding points to datasets from the maplot, but we also want
+         * to add zeris on unset timesteps. So all in all datasets should be arrays of ys,
+         * initialized with 0., plus an indication of x0 and dx (ie. tmin and dt) *)
+        (* In other words we have two kinds of datasets : continuous and discrete, like in
+         * the Google Charts API ! *)
         Maplot.iter m (fun (t, k) y ->
             let label = label_of_key k in
             let prev = try Hashtbl.find datasets label with Not_found -> [] in
