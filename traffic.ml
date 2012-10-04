@@ -144,40 +144,35 @@ module EthKey = Tuple4.Make (Option (UInteger16)) (EthAddr) (EthAddr) (UInteger1
 module EthPld = Plot.TimeGraph (Traffic) (EthKey)
 
 (* Plot amount of traffic (eth_pld) against time, with a different plot per MAC sockpair *)
-let eth_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs step dbdir name =
+let eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs step dbdir name =
     let label_of_key (vlan, mac_src, mac_dst, mac_proto) =
         (match vlan with Some vl -> "vlan:"^string_of_int vl^"," | None -> "")^
         (EthAddr.to_string mac_src)^"\\u2192"^
         (EthAddr.to_string mac_dst)^","^
         (string_of_int mac_proto) in
-    let fold1 = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
-    let fold2 = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
+    let fold = Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
     let extract (ts1, ts2, _, vlan, mac_src, mac_dst, mac_proto, mac_pld, _, _, _, _, _, _, _, _) =
         (vlan, mac_src, mac_dst, mac_proto), ts1, ts2, Int64.to_float mac_pld in
-    let tmin, tmax = EthPld.get_min_max fold1 extract in
-    tmin, EthPld.plot_continuous ?max_graphs tmin tmax step fold2 extract label_of_key
+    EthPld.plot_continuous ?max_graphs start stop step fold extract label_of_key
 
 module IPKey = Tuple2.Make (InetAddr) (InetAddr) (* source, dest *)
 module IPPld = Plot.TimeGraph (Traffic) (IPKey)
 
 (* Plot amount of traffic (eth_pld) against time, with a different plot per IP sockpair *)
-let ip_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs step dbdir name =
+let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs step dbdir name =
     let label_of_key (src, dst) =
         (InetAddr.to_string src)^"\\u2192"^(InetAddr.to_string dst) in
-    let fold1 = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
-    let fold2 = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
+    let fold = Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
     let extract (ts1, ts2, _, _, _, _, _, mac_pld, _, src, dst, _, _, _, _, _) =
         (src, dst), ts1, ts2, Int64.to_float mac_pld in
-    let tmin, tmax = IPPld.get_min_max fold1 extract in
-    Printf.printf "tmin=%Ld, tmax=%Ld\n%!" tmin tmax ;
-    tmin, IPPld.plot_continuous ?max_graphs tmin tmax step fold2 extract label_of_key
+    IPPld.plot_continuous ?max_graphs start stop step fold extract label_of_key
 
 (* FIXME: app should be a string, and we should also report various eth apps *)
 module AppKey = Tuple2.Make (UInteger8) (UInteger16)
 module AppPld = Plot.TimeGraph (Traffic) (AppKey)
 
 (* Plot amount of traffic (eth_pld) against time, with a different plot per proto/port *)
-let app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs step dbdir name =
+let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs step dbdir name =
     let label_of_key (proto, port) =
         let proto = try Unix.((getprotobynumber proto).p_name)
                     with Not_found -> "" in
@@ -186,12 +181,10 @@ let app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?i
         if String.length proto = 0 then serv
         else if String.length serv = 0 then proto
         else proto ^ "," ^ serv in
-    let fold1 = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
-    let fold2 = Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
+    let fold = Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
     let extract (ts1, ts2, _, _, _, _, _, mac_pld, _, _, _, proto, _, _, port, _) =
         (proto, port), ts1, ts2, Int64.to_float mac_pld in
-    let tmin, tmax = AppPld.get_min_max fold1 extract in
-    tmin, AppPld.plot_continuous ?max_graphs tmin tmax step fold2 extract label_of_key
+    AppPld.plot_continuous ?max_graphs start stop step fold extract label_of_key
 
 (* Lod1: Accumulated over 10mins *)
 (* Lod2: round timestamp to hour *)

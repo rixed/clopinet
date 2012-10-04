@@ -84,7 +84,7 @@ struct
                 (min t_min1 t_min2, max t_max1 t_max2))
 
     (* fold iterate over the database, while extract extract from a row the key, X start, X stop and Y value. *)
-    let plot_continuous ?(max_graphs=10) tmin tmax step fold extract label_of_key =
+    let plot_continuous ?(max_graphs=10) (tmin, _) (tmax, _) step fold extract label_of_key =
         assert (step > 0) ;
         let step = Int64.of_int step in
         (* Fetch min and max available time *)
@@ -105,7 +105,6 @@ struct
         let m =
             fold (fun r m ->
                 let k, (t1s, _t1us), (t2s, _t2us), y = extract r in (* FIXME: use millisecs when splitting values accross several time steps *)
-                (* step is a number of seconds. *)
                 let x1' = row_of_time t1s
                 and x2' = row_of_time t2s in
                 if x1' = x2' then (

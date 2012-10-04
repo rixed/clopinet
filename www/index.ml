@@ -60,7 +60,7 @@ struct
                       th [ cdata "qtt" ] ] ::
                  all_rows) ]
 
-    let js_of_datasets time_step tmin datasets =
+    let js_of_datasets time_step (tmin, _) datasets =
         (* get the labels in _some_ order *)
         let labels = Hashtbl.keys datasets |> List.of_enum in
         let nb_xs = Hashtbl.find datasets (List.hd labels) |> Array.length in
@@ -154,11 +154,11 @@ struct
                                     (NulType)))
 
     module StartField = struct
-        module Type = OptInputOfDatatype(Timestamp)
+        module Type = InputOfDatatype(Timestamp)
         let name = "start"
     end
     module StopField = struct
-        module Type = OptInputOfDatatype(Timestamp)
+        module Type = InputOfDatatype(Timestamp)
         let name = "stop"
     end
     module VlanField = struct
@@ -283,21 +283,21 @@ struct
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value group_by, (Value max_graphs, ())))))))))))) ->
                     let tblname = Forms.TblNames.options.(tblname) in
-                    let tmin, datasets = match group_by with
+                    let datasets = match group_by with
                         | 0 (* macs *) ->
-                            eth_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
+                            eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
                         | 2 (* apps *) ->
-                            app_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
+                            app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
                         | _ (* defaults + ips *) ->
-                            ip_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname in
+                            ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname in
                     if Hashtbl.length datasets = 0 then
                         [ cdata "No data" ]
                     else
                         [ View.chart_div ;
                           tag "script" ~attrs:["type","text/javascript"]
                             [ Raw "var data = new google.visualization.DataTable(" ;
-                              View.js_of_datasets time_step tmin datasets ;
-                              Raw ", 0.5);\n\
+                              View.js_of_datasets time_step start datasets ;
+                              Raw ");\n\
 console.log(data);\n\
 var options = {\n\
     title:'Traffic (bytes per secs)',\n\
