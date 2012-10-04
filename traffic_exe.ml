@@ -18,15 +18,6 @@ let main =
                                                           ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst
                                                           ?ip_src:!ip_src ?ip_dst:!ip_dst !dbdir tbname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
-        "-plot", String (function tbname -> ip_plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto
-                                                             ?ip_src:!ip_src ?ip_dst:!ip_dst ?ip_proto:!ip_proto
-                                                             ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst !step !dbdir tbname |> Plot.stacked_area), "plot this table" ;
-        "-plot2", String (function tbname -> eth_plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto
-                                                               ?ip_src:!ip_src ?ip_dst:!ip_dst ?ip_proto:!ip_proto
-                                                               ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst !step !dbdir tbname |> Plot.stacked_area), "plot this table" ;
-        "-plot3", String (function tbname -> app_plot_vol_time ?start:!start ?stop:!stop ?eth_proto:!eth_proto
-                                                               ?ip_src:!ip_src ?ip_dst:!ip_dst ?ip_proto:!ip_proto
-                                                               ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst !step !dbdir tbname |> Plot.stacked_area), "plot this table" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-vlan", String (fun s -> vlan := Some (Integer16.of_string s)), "limit queries to this VLAN" ;

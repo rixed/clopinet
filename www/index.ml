@@ -60,39 +60,34 @@ struct
                       th [ cdata "qtt" ] ] ::
                  all_rows) ]
 
-    let js_of_datasets datasets =
+    let js_of_datasets time_step tmin datasets =
         (* get the labels in _some_ order *)
         let labels = Hashtbl.keys datasets |> List.of_enum in
-        (* We need the list of all used xs *)
-        let xs = Hashtbl.fold (fun _label pts xs ->
-            List.map fst pts |>
-            List.merge compare xs |>
-            List.sort_unique compare)
-            datasets [] in
+        let nb_xs = Hashtbl.find datasets (List.hd labels) |> Array.length in
+        let time_step = Int64.of_int time_step in
         let js =
             let os = IO.output_string () in
-            Printf.fprintf os "{\ncols: %a,\nrows: %a\n}"
+            Printf.fprintf os "{\ncols: %a,\nrows: [ "
                 (* display the labels *)
-                (List.print ~first:"[ { label: 'Time', type: 'datetime' },"
+                (List.print ~first:"[ { label: 'Time', type: 'datetime' },\n"
                             ~last:" ]" ~sep:",\n"
                                (fun oc label -> Printf.fprintf oc "{ label: '%s', type: 'number' }" label))
-                labels
-                (* iter on all possible xs *)
-                (List.print ~first:"[ " ~last:" ]" ~sep:", "
-                            (fun oc x ->
-                                Printf.fprintf oc "{c: [ {v: new Date(%f)}, " (x*.1000.) (* takes milliseconds *) ;
-                                (* iter on all datasets *)
-                                List.iter (fun label ->
-                                    let pts = Hashtbl.find datasets label in
-                                    match pts with
-                                    | (px,py)::rest when px = x ->
-                                        Printf.fprintf oc "{v:%f}," py ;
-                                        Hashtbl.replace datasets label rest
-                                    | _ ->
-                                        Printf.fprintf oc "{v:0}," (* TODO: "," ? *))
-                                    labels ;
-                                Printf.fprintf oc " ] }\n"))
-                xs ;
+                labels ;
+            (* Iter on all rows *)
+            let time_step_ms = Int64.mul 1000L time_step in
+            let rec print_row r t =
+                if r < nb_xs then (
+                    Printf.fprintf os "{c: [{v: new Date(%Ld)}, " t ;
+                    (* iter on all datasets *)
+                    List.iter (fun label ->
+                        let ys = Hashtbl.find datasets label in
+                        Printf.fprintf os "{v:%f}," ys.(r))
+                        labels ;
+                    Printf.fprintf os " ]},\n" ;
+                    print_row (succ r) (Int64.add t time_step_ms)
+                ) in
+            print_row 0 (Int64.mul tmin 1000L) ;
+            Printf.fprintf os " ]\n}\n" ;
             IO.close_out os in
         raw js
 end
@@ -288,7 +283,7 @@ struct
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value group_by, (Value max_graphs, ())))))))))))) ->
                     let tblname = Forms.TblNames.options.(tblname) in
-                    let datasets = match group_by with
+                    let tmin, datasets = match group_by with
                         | 0 (* macs *) ->
                             eth_plot_vol_time ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
                         | 2 (* apps *) ->
@@ -301,11 +296,11 @@ struct
                         [ View.chart_div ;
                           tag "script" ~attrs:["type","text/javascript"]
                             [ Raw "var data = new google.visualization.DataTable(" ;
-                              View.js_of_datasets datasets ;
+                              View.js_of_datasets time_step tmin datasets ;
                               Raw ", 0.5);\n\
 console.log(data);\n\
 var options = {\n\
-    title:'Volume of traffic (bytes)',\n\
+    title:'Traffic (bytes per secs)',\n\
     width:'100%',\n\
     height:600,\n\
     isStacked:true,\n\

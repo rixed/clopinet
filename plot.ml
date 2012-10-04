@@ -3,24 +3,20 @@ open Datatype
 
 let sort_pt (x1, _) (x2, _) = compare x1 x2
 
-let top_datasets max_graphs datasets =
+let top_datasets max_graphs datasets nb_steps =
+    (* FIXME: return an ordered list? *)
     (* Reduce number of datasets to max_graphs *)
     if Hashtbl.length datasets <= max_graphs then (
         datasets
     ) else (
-        let max_peak = Array.create (max_graphs-1) None (* ordered by max peak (bigger first) *)
-        and others = Hashtbl.create 57
-        and max_pts pts =
-            let rec aux m = function
-                | [] -> m
-                | (_x, y)::res -> aux (max m y) res in
-            aux 0. pts in
+        let max_peak = Array.make (max_graphs-1) None (* ordered by max peak (bigger first) *)
+        and others = Array.make nb_steps 0.
+        and max_pts pts = Array.fold_left max min_float pts in
         let add_to_others label =
             Hashtbl.find datasets label |>
-            List.iter (fun (x, y) ->
+            Array.iteri (fun i y ->
                 (* add it to others then *)
-                let prev_y = try Hashtbl.find others x with Not_found -> 0. in
-                Hashtbl.replace others x (prev_y +. y)) in
+                others.(i) <- others.(i) +. y) in
         let insert_max max label =
             let rec aux i =
                 if i < Array.length max_peak then (
@@ -50,11 +46,10 @@ let top_datasets max_graphs datasets =
                 add_to_others label
             )) datasets ;
         (* recompose datasets from max_peak and others *)
-        let others_pts = Hashtbl.fold (fun x y pts -> (x,y)::pts) others []
-        and new_datasets = Hashtbl.create max_graphs in
+        let new_datasets = Hashtbl.create max_graphs in
         Array.iter (function None -> () | Some (_max, label) ->
             Hashtbl.add new_datasets label (Hashtbl.find datasets label)) max_peak ;
-        Hashtbl.add new_datasets "others" others_pts ;
+        Hashtbl.add new_datasets "others" others ;
         new_datasets
     )
 
@@ -73,55 +68,78 @@ let stacked_area datasets =
 module TimeGraph (Record : DATATYPE) (Key : DATATYPE) =
 struct
     module Maplot = Finite_map_impl.Finite_map (struct
-        type t = Int64.t * Key.t
-        let compare (t1,k1) (t2,k2) =
-            let c = Integer64.compare t1 t2 in
-            if c = 0 then Key.compare k1 k2
-            else c
+        type t = Key.t
+        let compare = Key.compare
     end)
 
-    let plot ?(max_graphs=10) step fold extract label_of_key =
+(*    let test (type a) (f : a -> a) : int * bool =
+        f 1, f true*)
+
+    let get_min_max fold extract =
+        fold (fun r (t_min, t_max) ->
+            let _k, (t1s, _t1us), (t2s, _t2us), _y = extract r in
+            min t_min t1s, max t_max t2s)
+            (Int64.max_int, Int64.min_int)
+            (fun (t_min1, t_max1) (t_min2, t_max2) ->
+                (min t_min1 t_min2, max t_max1 t_max2))
+
+    (* fold iterate over the database, while extract extract from a row the key, X start, X stop and Y value. *)
+    let plot_continuous ?(max_graphs=10) tmin tmax step fold extract label_of_key =
         assert (step > 0) ;
         let step = Int64.of_int step in
-        let cumul_y m k y =
-            Maplot.update_with_default y m k (fun prev -> prev +. y) in
+        (* Fetch min and max available time *)
+        let row_of_time t = Int64.div (Int64.sub t tmin) step |> Int64.to_int in
+        let nb_steps = row_of_time tmax |> succ in
+        (* Now prepare the datasets as a map of Key.t to array of Y *)
+        let flat_dataset () = Array.make nb_steps 0. in
+        let cumul_y m k x y =
+            Maplot.update_with_default_delayed
+                (fun () ->
+                    let a = flat_dataset () in
+                    a.(x) <- y ;
+                    a)
+                m k
+                (fun a ->
+                    a.(x) <- a.(x) +. y ;
+                    a) in
         let m =
             fold (fun r m ->
-                let k, (t1s, _t1us), (t2s, _t2us), y = extract r in
+                let k, (t1s, _t1us), (t2s, _t2us), y = extract r in (* FIXME: use millisecs when splitting values accross several time steps *)
                 (* step is a number of seconds. *)
-                let t1' = Int64.div t1s step
-                and t2' = Int64.div t2s step in
-                if t1' = t2' then (
-                    cumul_y m (Int64.mul t1' step, k) y
+                let x1' = row_of_time t1s
+                and x2' = row_of_time t2s in
+                if x1' = x2' then (
+                    cumul_y m k x1' y
                 ) else (
-                    let dt = Int64.sub t2' t1' in
-                    let dy = y /. Int64.to_float dt in
-                    let rec aux ts prev =
-                        if ts >= t2' then prev
-                        else aux (Int64.succ ts)
-                                 (cumul_y prev (Int64.mul ts step, k) dy) in
-                    aux t1' m
+                    let dt = x2'-x1' |> succ |> float_of_int in
+                    let dy = y /. dt in
+                    let rec aux x prev =
+                        if x > x2' then prev
+                        else aux (succ x)
+                                 (cumul_y prev k x dy) in
+                    aux x1' m
                 ))
                 Maplot.empty
                 (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
-                    Maplot.fold_left cumul_y m1 m2) in
+                    Maplot.fold_left (fun m k a ->
+                        (* add k->a into m *)
+                        Maplot.update_with_default a m k (fun a ->
+                            Array.iteri (fun i y -> a.(i) <- y +. a.(i)) a ;
+                            a))
+                        m1 m2) in
         let datasets = Hashtbl.create 71
         and step = Int64.to_float step in
-        (* FIXME: Here we are adding points to datasets from the maplot, but we also want
-         * to add zeris on unset timesteps. So all in all datasets should be arrays of ys,
-         * initialized with 0., plus an indication of x0 and dx (ie. tmin and dt) *)
-        (* In other words we have two kinds of datasets : continuous and discrete, like in
-         * the Google Charts API ! *)
-        Maplot.iter m (fun (t, k) y ->
+        (* Build hashtables indexed by label (instead of map indexed by some key), and convert Y into Y per second. *)
+        Maplot.iter m (fun k a ->
             let label = label_of_key k in
-            let prev = try Hashtbl.find datasets label with Not_found -> [] in
-            (* Notice we want y/secs, so we divide each sample by time step *)
-            Hashtbl.replace datasets label ((Int64.to_float t, y /. step)::prev)) ;
+            (* Note that several keys may map to the same label, thus these precautions *)
+            try let a' = Hashtbl.find datasets label in
+                Array.iteri (fun i y -> a'.(i) <- (a'.(i) +. y) /. step) a
+            with Not_found ->
+                Array.iteri (fun i y -> a.(i) <- (a.(i) +. y) /. step) a ;
+                Hashtbl.add datasets label a) ;
 
         (* reduce number of datasets to max_graphs *)
-        let datasets = top_datasets max_graphs datasets in
+        top_datasets max_graphs datasets nb_steps
 
-        (* sort all pts according to x value *)
-        Hashtbl.map (fun _label pts -> List.sort sort_pt pts)
-                    datasets
 end

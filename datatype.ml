@@ -578,6 +578,7 @@ Datatype_of (struct
         a,b,c,d,e,f
 end)
 
+(* FIXME: should be a single Int64.t for milliseconds since 1/1/70 *)
 module Timestamp =
 struct
     include Datatype_of (struct
