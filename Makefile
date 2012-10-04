@@ -45,6 +45,7 @@ examples: $(ARCHIVE) $(XARCHIVE) $(EXAMPLES)
 check.byte: $(ARCHIVE)
 check.opt: $(XARCHIVE)
 check: check.byte
+	@echo "Running check..."
 	@./check.byte || echo "FAILED"
 
 mlrrd.top: $(ARCHIVE)

@@ -1,4 +1,7 @@
-open Bricabrac
+open Batteries
+
+let peek_eof2nl ic =
+    try TxtInput.peek ic with End_of_file -> '\n'
 
 (*
    DATATYPES
@@ -95,7 +98,7 @@ struct
             if b < 128 then n else aux n (dec+7) in
         let n = aux 0 0 in
         (* bit 0 is actually the sign bit *)
-        (if n land 1 = 0 then id else (~-)) (n lsr 1)
+        (if n land 1 = 0 then identity else (~-)) (n lsr 1)
 end
 
 let fst_of_3 (x,_,_) = x
@@ -231,7 +234,7 @@ struct
         let name = "int"
         let equal = (=)
         let compare a b = if a = b then 0 else if a < b then -1 else 1
-        let hash = id
+        let hash = identity
         let write = VarInt.write
         let write_txt oc i =
             if i = 0 then Output.char oc '0' else
@@ -247,13 +250,13 @@ struct
         let read_txt ic =
             let neg = peek_sign ic in
             let rec aux v =
-                let d = try TxtInput.peek ic with End_of_file -> '\n' in
+                let d = peek_eof2nl ic in
                 if d < '0' || d > '9' then v else (
                     TxtInput.swallow ic ;
                     let new_v = v*10 + (int_of_char d - Char.code '0') in
                     if new_v < v then raise Overflow else aux new_v
                 ) in
-            (if neg then (~-) else id) (aux 0)
+            (if neg then (~-) else identity) (aux 0)
     end)
     let zero = 0
     let add = (+)
@@ -261,6 +264,20 @@ struct
     let idiv = (/)
     let imul = ( * )
     let mul = ( * )
+end
+
+module UInteger : NUMBER with type t = int =
+struct
+    include Integer
+    let read_txt ic =
+        let rec aux v =
+            let d = peek_eof2nl ic in
+            if Char.is_digit d then (
+                TxtInput.swallow ic ;
+                let new_v = v*10 + (int_of_char d - Char.code '0') in
+                if new_v < v then raise Overflow else aux new_v
+            ) else v in
+        aux 0
 end
 
 module UInteger8 : NUMBER with type t = int =
@@ -337,7 +354,7 @@ struct
         let read = VarInt32.read
         let read_txt ic =
             let rec aux v =
-                let d = try TxtInput.peek ic with End_of_file -> '\n' in
+                let d = peek_eof2nl ic in
                 if d < '0' || d > '9' then v else (
                     TxtInput.swallow ic ;
                     let new_v = Int32.add (Int32.mul v 10l) (Int32.of_int (int_of_char d - Char.code '0')) in
@@ -448,7 +465,7 @@ Datatype_of (struct
     let read_txt ic =
         let n = read_txt_until ic "/\t\n" |>
                 Unix.inet_addr_of_string in
-        let delim = try TxtInput.peek ic with End_of_file -> '\n' in
+        let delim = peek_eof2nl ic in
         if delim = '/' then (
             TxtInput.swallow ic ;
             n, UInteger16.read_txt ic
@@ -586,21 +603,39 @@ struct
             s, u
         let read_txt ic =
             let s = UInteger64.read_txt ic in
-            let u = try (
-                while
-                    let c = TxtInput.peek ic in c = 's' || c = ' '
-                do
-                    TxtInput.swallow ic
-                done ;
-                let u = Integer.read_txt ic in
-                try while
-                        let c = TxtInput.peek ic in c = 'u' || c = 's'
+            let u =
+                if peek_eof2nl ic = '.' then (
+                    (* floating point notation *)
+                    TxtInput.swallow ic ;
+                    let rec read_next_digit value nb_digits =
+                        let to_digit c = Char.code c - Char.code '0' in (* FIXME: move me in Batteries *)
+                        let c = peek_eof2nl ic in
+                        if Char.is_digit c then (
+                            TxtInput.swallow ic ;
+                            let c = to_digit c in
+                            let value' = value + match nb_digits with
+                                | 0 -> c*100
+                                | 1 -> c*10
+                                | 2 -> c*1
+                                | 3 -> if c > 5 then 1 else 0
+                                | _ -> 0 in
+                            read_next_digit value' (succ nb_digits)
+                        ) else value in
+                    read_next_digit 0 0
+                ) else (
+                    while
+                        let c = peek_eof2nl ic in c = 's' || c = ' '
+                    do
+                        TxtInput.swallow ic
+                    done ;
+                    let u = try UInteger.read_txt ic with End_of_file -> 0 in
+                    while
+                        let c = peek_eof2nl ic in c = 'u' || c = 's'
                     do
                         TxtInput.swallow ic
                     done ;
                     u
-               with End_of_file -> u
-            ) with End_of_file -> 0 in
+                ) in
             s, u
     end)
 

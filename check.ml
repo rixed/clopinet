@@ -2,11 +2,16 @@ open Bricabrac
 open Datatype
 
 let assert_exc exn f x =
-    try ignore (f x) ; assert false
-    with exn' ->
-        if exn <> exn' then
-            Printf.printf "Got exn \"%s\" instead of \"%s\"\n" (Printexc.to_string exn') (Printexc.to_string exn) ;
-        assert (exn = exn')
+    let ok =
+        try ignore (f x) ;
+            Printf.printf "Got a result instead of \"%s\"\n%!" (Printexc.to_string exn) ;
+            false
+        with exn' ->
+            if exn <> exn' then
+                Printf.printf "Got exn \"%s\" instead of \"%s\"\n%!" (Printexc.to_string exn') (Printexc.to_string exn) ;
+            assert (exn = exn') ;
+            true in
+    assert ok
 
 let check_datatools () =
     assert (string_of_list ['a'; 'b'; 'c'] = "abc") ;
@@ -51,6 +56,11 @@ let check_timestamp () =
     assert (of_string "123s 456"   = (123L, 456)) ;
     assert (of_string "123s"       = (123L, 0)) ;
     assert (of_string "123"        = (123L, 0)) ;
+    assert (of_string "123."       = (123L, 0)) ;
+    assert (of_string "123.456"    = (123L, 456)) ;
+    assert (of_string "123.4569"   = (123L, 457)) ;
+    assert (of_string "123.1"      = (123L, 100)) ;
+    assert_exc (Failure "Cannot consume all input") of_string "-1" ;
     assert_exc End_of_file of_string ""
 
 module TestOption = Option (Integer8)
