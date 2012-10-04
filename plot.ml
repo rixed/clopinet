@@ -122,9 +122,9 @@ struct
                 (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
                     Maplot.fold_left (fun m k a ->
                         (* add k->a into m *)
-                        Maplot.update_with_default a m k (fun a ->
-                            Array.iteri (fun i y -> a.(i) <- y +. a.(i)) a ;
-                            a))
+                        Maplot.update_with_default a m k (fun a' ->
+                            Array.iteri (fun i y -> a'.(i) <- y +. a.(i)) a' ;
+                            a'))
                         m1 m2) in
         let datasets = Hashtbl.create 71
         and step = Int64.to_float step in
@@ -135,7 +135,7 @@ struct
             try let a' = Hashtbl.find datasets label in
                 Array.iteri (fun i y -> a'.(i) <- (a'.(i) +. y) /. step) a
             with Not_found ->
-                Array.iteri (fun i y -> a.(i) <- (a.(i) +. y) /. step) a ;
+                Array.iteri (fun i y -> a.(i) <- y /. step) a ;
                 Hashtbl.add datasets label a) ;
 
         (* reduce number of datasets to max_graphs *)
