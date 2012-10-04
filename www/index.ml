@@ -200,7 +200,7 @@ struct
     end
     module TblNames = struct
         let name = "db-tables"
-        let options = [| "30secs";"1hour";"10mins" |]
+        let options = [| "30secs";"10mins";"1hour" |]
     end
     module TblNameField = struct
         module Type = Enum (TblNames)
