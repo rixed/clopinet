@@ -30,7 +30,7 @@ Or just run: junkie -c this_file
                         " (timestamp-sub qry-stop qry-start) ", " (timestamp-sub qry-stop qry-start) ", " (timestamp-sub qry-stop qry-start) ",
                         " qry-host ", " url ");\n")))
      (web-qry
-       (index-size 1024))]
+       (index-size 5024))]
     ; edges
     [(root web-qry
         (match (cap eth ip tcp http) (if
@@ -82,7 +82,7 @@ Or just run: junkie -c this_file
                         " (timestamp-sub qry-stop qry-start) ", " (timestamp-sub qry-stop qry-start) ", " (timestamp-sub qry-stop qry-start) ",
                         " qry-name ");\n")))
      (dns-query
-       (index-size 1024))]
+       (index-size 5024))]
     ; edges
     [(root dns-query
         (match (cap eth ip dns) (if
@@ -134,7 +134,7 @@ Or just run: junkie -c this_file
                         eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
                         " eth-pld ", " eth-mtu ");\n")))
      (traffic-eth
-       (index-size 1024)
+       (index-size 5024)
        (timeout 0))
      (traffic-ip-end
        (on-entry (pass "printf(\"TRF\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0\\t0\\t0\\n\",
@@ -144,7 +144,7 @@ Or just run: junkie -c this_file
                         " eth-pld ", " eth-mtu ",
                         ip_addr_2_str(" ip-src "), ip_addr_2_str(" ip-dst "), " ip-proto ", " ip-pld ");\n")))
      (traffic-ip
-       (index-size 1024)
+       (index-size 5024)
        (timeout 0))
      (traffic-l4-end
        (on-entry (pass "printf(\"TRF\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",

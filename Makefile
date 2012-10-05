@@ -67,7 +67,7 @@ clean-spec:
 	rm -f mlrrd.top
 
 loc:
-	@ls *.ml *.mli -1 | grep -v tuple | xargs cat | wc -l
+	@ls *.ml *.mli www/*.ml -1 | grep -v tuple | xargs cat | wc -l
 
 .PHONY: www
 www:

@@ -1,16 +1,15 @@
 TODO stack
 ----------
 
-* CGI: in traffic filters IPs should be a CIDR not InetAddr.
+* Try reading with Unix.read instead of input_char
 
 * An Interval type
 
-* Optimiser le scan et surtout la fabriquation du hash/map pour stoquer les
-aggrégats des plots
+* CGI: in traffic filters IPs should be a CIDR not InetAddr.
 
-* find a way to parallelize reading even if callback function needs global 
-state (ie. use no global state but a Parmap to post-aggregate datas?)
-
+* It would be nice if any reasonably widespread date format were 
+understood by Timestamp.read_txt. Or provide a helper function (for better
+performances)
 
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
@@ -56,11 +55,6 @@ but only a central writer performs the accumulations in the various Lods.
 * In the same spirit than locking, write a file with the textual 
 representation of the record type in a table directory (and check it when 
 opening the table).
-
-
-* It would be nice if any reasonably widespread date format were 
-understood by Timestamp.read_txt. Or provide a helper function (for better
-performances)
 
 
 * Think of a way to ensure that when we compute a hash to select a part of

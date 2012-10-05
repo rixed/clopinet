@@ -61,7 +61,7 @@ clean: clean-spec
 
 # Dependencies
 .depend:
-	$(OCAMLDEP) $(SYNTAX) -package "$(REQUIRES)" -I .. $^ > $@
+	$(OCAMLDEP) $(SYNTAX) -package "$(REQUIRES)" -I .. *.ml *.mli > $@
 
 depend: .depend
 
