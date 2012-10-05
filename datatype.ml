@@ -2,6 +2,12 @@ open Batteries
 
 let peek_eof2nl ic =
     try TxtInput.peek ic with End_of_file -> '\n'
+let swallow_all c ic =
+    while peek_eof2nl ic = c do
+        TxtInput.swallow ic
+    done
+let try_swallow_one c ic =
+    if peek_eof2nl ic = c then TxtInput.swallow ic
 
 (*
    DATATYPES
@@ -40,7 +46,7 @@ struct
         let inp = TxtInput.of_string str in
         let v = read_txt inp in
         (* Check that we've consumed the whole string *)
-        try ignore (TxtInput.peek inp) ; raise (Failure "Cannot consume all input")
+        try ignore (TxtInput.peek inp) ; failwith "Cannot consume all input"
         with End_of_file -> v
     let to_string t =
         let buf = Buffer.create 32 in
@@ -578,33 +584,19 @@ Datatype_of (struct
         a,b,c,d,e,f
 end)
 
-(* FIXME: should be a single Int64.t for milliseconds since 1/1/70 *)
 module Timestamp =
 struct
     include Datatype_of (struct
-        type t = Int64.t * int (* secs, usecs *)
+        include UInteger64
         let name = "timestamp"
-        let equal = (=)
-        let compare (s1,u1) (s2,u2) =
-            let c = Int64.compare s1 s2 in
-            if c = 0 then Integer.compare u1 u2
-            else c
-        let hash (a, b) = Int64.to_int a + b
-        let write oc (s,u) =
-            VarInt64.write oc s ;
-            VarInt.write oc u
-        let write_txt oc (s,u) =
-            UInteger64.write_txt oc s ;
-            Output.string oc "s " ;
-            Integer.write_txt oc u ;
-            Output.string oc "us"
-        let read ic =
-            let s = VarInt64.read ic in
-            let u = VarInt.read ic in
-            s, u
+        let write_txt oc t =
+            UInteger64.write_txt oc (Int64.div t 1000L) ;
+            Output.char oc '.' ;
+            Output.string oc (Printf.sprintf "%03Ld" (Int64.rem t 1000L))
         let read_txt ic =
+            (* TODO: add other, friendlier, input formats *)
             let s = UInteger64.read_txt ic in
-            let u =
+            let ms =
                 if peek_eof2nl ic = '.' then (
                     (* floating point notation *)
                     TxtInput.swallow ic ;
@@ -624,55 +616,45 @@ struct
                         ) else value in
                     read_next_digit 0 0
                 ) else (
-                    while
-                        let c = peek_eof2nl ic in c = 's' || c = ' '
-                    do
-                        TxtInput.swallow ic
-                    done ;
-                    let u = try UInteger.read_txt ic with End_of_file -> 0 in
-                    while
-                        let c = peek_eof2nl ic in c = 'u' || c = 's'
-                    do
-                        TxtInput.swallow ic
-                    done ;
-                    u
+                    swallow_all ' ' ic ;
+                    try_swallow_one 's' ic ;
+                    swallow_all ' ' ic ;
+                    let ms = ref (try UInteger.read_txt ic with End_of_file -> 0) in
+                    swallow_all ' ' ic ;
+                    let c = peek_eof2nl ic in
+                    if c = 'u' then (
+                        (* microseconds!*)
+                        TxtInput.swallow ic ;
+                        ms := (!ms+499) / 1000
+                    ) else if c = 'm' then
+                        TxtInput.swallow ic ;
+                    try_swallow_one 's' ic ;
+                    !ms
                 ) in
-            s, u
+            Int64.add (Int64.mul s 1000L)
+                      (Int64.of_int ms)
     end)
 
-    let seconds (s,_u) = s
-    let microseconds (_s,u) = u
+    let seconds t = Int64.div t 1000L
+    let milliseconds t = Int64.rem t 1000L
 
-    let zero = 0L, 0
-    let add (s1,u1) (s2,u2) = Int64.add s1 s2, u1 + u2
-    let sub (s1,u1) (s2,u2) =
-        assert (s1 > s2 || (s1 = s2 && u1 > u2)) ;
-        let s' = Int64.sub s1 s2 in
-        if u1 > u2 then
-            s', u1-u2
-        else
-            Int64.pred s', 1_000_000 + u1 - u2
-    let idiv (s,u) i =
+    let zero = 0L
+    let add = Int64.add
+    let sub = Int64.sub
+    let idiv t i =
         let i64 = Int64.of_int i in
-        Int64.div s i64,
-        (Int64.div
-            (Int64.add (Int64.mul (Int64.rem s i64) 1_000_000L) (Int64.of_int u))
-            i64) |> Int64.to_int
-    let imul (s,u) i =
+        Int64.div t i64
+    let imul t i =
         let i64 = Int64.of_int i in
-        let u' = Int64.mul i64 (Int64.of_int u) in
-        Int64.add (Int64.mul s i64) (Int64.div u' 1_000_000L),
-        Int64.rem u' 1_000_000L |> Int64.to_int
-    let mul _ _ = failwith "Cant mul timestamps!"
+        Int64.mul t i64
+    let mul _ _ = failwith "Cannot mul timestamps!"
 end
 
-(* Useful to round a timestamp to some amount of seconds *)
-let round_sec n sec =
+let round_timestamp ?(ceil=false) n t =
     let n = Int64.of_int n in
-    Int64.mul n (Int64.div sec n)
-
-let round_timestamp ?(ceil=false) n (sec, _usec) =
-    Int64.add (round_sec n sec) (if ceil then Int64.of_int n else 0L), 0
+    let r = Int64.rem t n in
+    let t' = Int64.sub t r in
+    if ceil && r <> 0L then Int64.add t' n else t'
 
 (*
    Functors to easily assemble more complex types

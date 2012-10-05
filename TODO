@@ -3,6 +3,8 @@ TODO stack
 
 * CGI: in traffic filters IPs should be a CIDR not InetAddr.
 
+* An Interval type
+
 * Optimiser le scan et surtout la fabriquation du hash/map pour stoquer les
 aggrégats des plots
 

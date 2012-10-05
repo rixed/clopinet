@@ -72,21 +72,9 @@ struct
         let compare = Key.compare
     end)
 
-(*    let test (type a) (f : a -> a) : int * bool =
-        f 1, f true*)
-
-    let get_min_max fold extract =
-        fold (fun r (t_min, t_max) ->
-            let _k, (t1s, _t1us), (t2s, _t2us), _y = extract r in
-            min t_min t1s, max t_max t2s)
-            (Int64.max_int, Int64.min_int)
-            (fun (t_min1, t_max1) (t_min2, t_max2) ->
-                (min t_min1 t_min2, max t_max1 t_max2))
-
     (* fold iterate over the database, while extract extract from a row the key, X start, X stop and Y value. *)
-    let plot_continuous ?(max_graphs=10) (tmin, _) (tmax, _) step fold extract label_of_key =
-        assert (step > 0) ;
-        let step = Int64.of_int step in
+    let plot_continuous ?(max_graphs=10) tmin tmax step fold extract label_of_key =
+        assert (step > 0L) ;
         (* Fetch min and max available time *)
         let row_of_time t = Int64.div (Int64.sub t tmin) step |> Int64.to_int in
         let nb_steps = row_of_time tmax |> succ in
@@ -104,19 +92,20 @@ struct
                     a) in
         let m =
             fold (fun r m ->
-                let k, (t1s, _t1us), (t2s, _t2us), y = extract r in (* FIXME: use millisecs when splitting values accross several time steps *)
-                let x1' = row_of_time t1s
-                and x2' = row_of_time t2s in
-                if x1' = x2' then (
-                    cumul_y m k x1' y
+                let k, t1, t2, y = extract r in
+                let r1 = row_of_time t1
+                and r2 = row_of_time t2 in
+                if r1 = r2 then (
+                    cumul_y m k r1 y
                 ) else (
-                    let dt = x2'-x1' |> succ |> float_of_int in
+                    (* We should split value more accurately here *)
+                    let dt = r2-r1 |> succ |> float_of_int in
                     let dy = y /. dt in
                     let rec aux x prev =
-                        if x > x2' then prev
+                        if x > r2 then prev
                         else aux (succ x)
                                  (cumul_y prev k x dy) in
-                    aux x1' m
+                    aux r1 m
                 ))
                 Maplot.empty
                 (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)

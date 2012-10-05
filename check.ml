@@ -50,16 +50,19 @@ let check_mac () =
 
 let check_timestamp () =
     let open Timestamp in
-    assert (of_string "123s 456us" = (123L, 456)) ;
-    assert (of_string "123 456us"  = (123L, 456)) ;
-    assert (of_string "123 456"    = (123L, 456)) ;
-    assert (of_string "123s 456"   = (123L, 456)) ;
-    assert (of_string "123s"       = (123L, 0)) ;
-    assert (of_string "123"        = (123L, 0)) ;
-    assert (of_string "123."       = (123L, 0)) ;
-    assert (of_string "123.456"    = (123L, 456)) ;
-    assert (of_string "123.4569"   = (123L, 457)) ;
-    assert (of_string "123.1"      = (123L, 100)) ;
+    assert (of_string "123s 456ms"  = 123456L) ;
+    assert (of_string "123 456ms"   = 123456L) ;
+    assert (of_string "123s 456us"  = 123000L) ;
+    assert (of_string "123s 1456us" = 123001L) ;
+    assert (of_string "123s 1678us" = 123002L) ;
+    assert (of_string "123 456"     = 123456L) ;
+    assert (of_string "123s 456"    = 123456L) ;
+    assert (of_string "123s"        = 123000L) ;
+    assert (of_string "123"         = 123000L) ;
+    assert (of_string "123."        = 123000L) ;
+    assert (of_string "123.456"     = 123456L) ;
+    assert (of_string "123.4569"    = 123457L) ;
+    assert (of_string "123.1"       = 123100L) ;
     assert_exc (Failure "Cannot consume all input") of_string "-1" ;
     assert_exc End_of_file of_string ""
 

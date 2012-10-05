@@ -60,11 +60,10 @@ struct
                       th [ cdata "qtt" ] ] ::
                  all_rows) ]
 
-    let js_of_datasets time_step (tmin, _) datasets =
+    let js_of_datasets time_step tmin datasets =
         (* get the labels in _some_ order *)
         let labels = Hashtbl.keys datasets |> List.of_enum in
         let nb_xs = Hashtbl.find datasets (List.hd labels) |> Array.length in
-        let time_step = Int64.of_int time_step in
         let js =
             let os = IO.output_string () in
             Printf.fprintf os "{\ncols: %a,\nrows: [ "
@@ -74,7 +73,6 @@ struct
                                (fun oc label -> Printf.fprintf oc "{ label: '%s', type: 'number' }" label))
                 labels ;
             (* Iter on all rows *)
-            let time_step_ms = Int64.mul 1000L time_step in
             let rec print_row r t =
                 if r < nb_xs then (
                     Printf.fprintf os "{c: [{v: new Date(%Ld)}, " t ;
@@ -84,9 +82,9 @@ struct
                         Printf.fprintf os "{v:%f}," ys.(r))
                         labels ;
                     Printf.fprintf os " ]},\n" ;
-                    print_row (succ r) (Int64.add t time_step_ms)
+                    print_row (succ r) (Int64.add t time_step)
                 ) in
-            print_row 0 (Int64.mul tmin 1000L) ;
+            print_row 0 tmin ;
             Printf.fprintf os " ]\n}\n" ;
             IO.close_out os in
         raw js
@@ -190,8 +188,8 @@ struct
         let name = "ip-proto"
     end
     module TimeStepField = struct
-        module Type = Integer (struct let min = 1 let max = 60*60*24*365 end)
-        let name = "time step (s)"
+        module Type = Integer (struct let min = 1 let max = max_int end)
+        let name = "time step (ms)"
     end
     module TblNames = struct
         let name = "db-tables"
@@ -282,7 +280,8 @@ struct
             let filters_form = form "main/traffic" (Forms.Traffic.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value group_by, (Value max_graphs, ())))))))))))) ->
-                    let tblname = Forms.TblNames.options.(tblname) in
+                    let time_step = Int64.of_int time_step
+                    and tblname = Forms.TblNames.options.(tblname) in
                     let datasets = match group_by with
                         | 0 (* macs *) ->
                             eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
