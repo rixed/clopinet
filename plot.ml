@@ -116,15 +116,15 @@ struct
                             a'))
                         m1 m2) in
         let datasets = Hashtbl.create 71
-        and step = Int64.to_float step in
+        and step_s = Int64.to_float step /. 1000. in
         (* Build hashtables indexed by label (instead of map indexed by some key), and convert Y into Y per second. *)
         Maplot.iter m (fun k a ->
             let label = label_of_key k in
             (* Note that several keys may map to the same label, thus these precautions *)
             try let a' = Hashtbl.find datasets label in
-                Array.iteri (fun i y -> a'.(i) <- (a'.(i) +. y) /. step) a
+                Array.iteri (fun i y -> a'.(i) <- (a'.(i) +. y) /. step_s) a
             with Not_found ->
-                Array.iteri (fun i y -> a.(i) <- y /. step) a ;
+                Array.iteri (fun i y -> a.(i) <- y /. step_s) a ;
                 Hashtbl.add datasets label a) ;
 
         (* reduce number of datasets to max_graphs *)
