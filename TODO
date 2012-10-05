@@ -1,6 +1,9 @@
 TODO stack
 ----------
 
+* Sort the datasets for plotting (or more precisely, preserve the ordering
+  of top_datasets.
+
 * Try reading with Unix.read instead of input_char
 
 * An Interval type

@@ -3,55 +3,53 @@ open Datatype
 
 let sort_pt (x1, _) (x2, _) = compare x1 x2
 
+(* Reduce number of datasets to max_graphs.
+ * Returns an array of (label, pts), bigger y max first (apart from
+ * others, at the end) *)
 let top_datasets max_graphs datasets nb_steps =
-    (* FIXME: return an ordered list? *)
-    (* Reduce number of datasets to max_graphs *)
-    if Hashtbl.length datasets <= max_graphs then (
-        datasets
-    ) else (
-        let max_peak = Array.make (max_graphs-1) None (* ordered by max peak (bigger first) *)
-        and others = Array.make nb_steps 0.
-        and max_pts pts = Array.fold_left max min_float pts in
-        let add_to_others label =
-            Hashtbl.find datasets label |>
-            Array.iteri (fun i y ->
-                (* add it to others then *)
-                others.(i) <- others.(i) +. y) in
-        let insert_max max label =
-            let rec aux i =
-                if i < Array.length max_peak then (
-                    if (match max_peak.(i) with
-                        | None -> true
-                        | Some (m, _) -> m < max) then
-                    (
-                        (* make one place *)
-                        if i < Array.length max_peak - 1 then (
-                            (* move last entry into others *)
-                            (match max_peak.(Array.length max_peak - 1) with
-                                | None -> ()
-                                | Some (_m, label) -> add_to_others label) ;
-                            (* make some room *)
-                            Array.blit max_peak i max_peak (i+1) (Array.length max_peak - i - 1)
-                        ) ;
-                        max_peak.(i) <- Some (max, label) ;
-                        true
-                    ) else (
-                        aux (i+1)
-                    )
-                ) else false in
-            aux 0 in
-        Hashtbl.iter (fun label pts ->
-            let max = max_pts pts in
-            if not (insert_max max label) then (
-                add_to_others label
-            )) datasets ;
-        (* recompose datasets from max_peak and others *)
-        let new_datasets = Hashtbl.create max_graphs in
-        Array.iter (function None -> () | Some (_max, label) ->
-            Hashtbl.add new_datasets label (Hashtbl.find datasets label)) max_peak ;
-        Hashtbl.add new_datasets "others" others ;
-        new_datasets
-    )
+    let max_peak = Array.make (max_graphs-1) None (* ordered by max peak (bigger first) *)
+    and others_pts = Array.make nb_steps 0.
+    and max_pts pts = Array.fold_left max min_float pts
+    and need_others = ref false in
+    let add_to_others label =
+        need_others := true ;
+        Hashtbl.find datasets label |>
+        Array.iteri (fun i y ->
+            (* add it to others then *)
+            others_pts.(i) <- others_pts.(i) +. y) in
+    let insert_max max label =
+        let rec aux i =
+            if i < Array.length max_peak then (
+                if (match max_peak.(i) with
+                    | None -> true
+                    | Some (m, _) -> m < max) then
+                (
+                    (* make one place by moving last entry into others *)
+                    (match max_peak.(Array.length max_peak - 1) with
+                        | None -> ()
+                        | Some (_m, label) -> add_to_others label) ;
+                    (* and scrolling entries *)
+                    if i < Array.length max_peak - 1 then
+                        Array.blit max_peak i max_peak (i+1) (Array.length max_peak - i - 1) ;
+                    max_peak.(i) <- Some (max, label) ;
+                    true
+                ) else (
+                    aux (i+1)
+                )
+            ) else false in
+        aux 0 in
+    Hashtbl.iter (fun label pts ->
+        let max = max_pts pts in
+        if not (insert_max max label) then (
+            add_to_others label
+        )) datasets ;
+    (* recompose datasets from max_peak and others *)
+    let new_datasets = Hashtbl.create max_graphs in
+    Array.iter (function None -> () | Some (_max, label) ->
+        Hashtbl.add new_datasets label (Hashtbl.find datasets label)) max_peak ;
+    if !need_others then
+        Hashtbl.add new_datasets "others" others_pts ;
+    new_datasets
 
 (* Can be ploted, although no as stacked area, with:
  * plot for [i=0:50] 'traf' index i using 1:2 title columnheader(1) with lines smooth unique *)
