@@ -9,7 +9,7 @@ OCAMLMKTOP = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlmktop -thread -g -rectype
 override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -inline 50
 override OCAMLFLAGS    += $(INCS) -w Ael -g -annot
 
-.PHONY: opt clean clean-spec install uninstall reinstall doc clear
+.PHONY: opt clean clean-spec install uninstall reinstall doc clear depend
 
 ifdef PKG_NAME
 OBJECTS  = $(SOURCES:.ml=.cmo)
@@ -60,8 +60,10 @@ clean: clean-spec
 	rm -f *.cm[ioxa] *.cmxa *.a *.s *.o *.byte *.opt .depend *.annot
 
 # Dependencies
-.depend: $(wildcard *.ml) $(wildcard *.mli) $(wildcard *.mll) $(wildcard *.mly)
+.depend:
 	$(OCAMLDEP) $(SYNTAX) -package "$(REQUIRES)" -I .. $^ > $@
+
+depend: .depend
 
 doc: $(SOURCES)
 	mkdir -p $@
