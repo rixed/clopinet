@@ -78,15 +78,15 @@ struct
         let nb_steps = row_of_time tmax |> succ in
         (* Now prepare the datasets as a map of Key.t to array of Y *)
         let flat_dataset () = Array.make nb_steps 0. in
-        let cumul_y m k x y =
+        let cumul_y m k r1 r2 y =
             Maplot.update_with_default_delayed
                 (fun () ->
                     let a = flat_dataset () in
-                    a.(x) <- y ;
+                    for x = r1 to r2 do a.(x) <- y done ;
                     a)
                 m k
                 (fun a ->
-                    a.(x) <- a.(x) +. y ;
+                    for x = r1 to r2 do a.(x) <- a.(x) +. y done ;
                     a) in
         let m =
             fold (fun r m ->
@@ -94,16 +94,12 @@ struct
                 let r1 = row_of_time t1
                 and r2 = row_of_time t2 in
                 if r1 = r2 then (
-                    cumul_y m k r1 y
+                    cumul_y m k r1 r1 y
                 ) else (
                     (* We should split value more accurately here *)
                     let dt = r2-r1 |> succ |> float_of_int in
-                    let dy = y /. dt in
-                    let rec aux x prev =
-                        if x > r2 then prev
-                        else aux (succ x)
-                                 (cumul_y prev k x dy) in
-                    aux r1 m
+                    let y' = y /. dt in
+                    cumul_y m k r1 r2 y'
                 ))
                 Maplot.empty
                 (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
