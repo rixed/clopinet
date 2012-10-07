@@ -1,7 +1,5 @@
 (* Binary input from ordinary file or zip file *)
 
-open Bricabrac
-
 let debug = false
 
 type strofs = { s : string ; mutable o : int }
@@ -39,8 +37,7 @@ let nread t n =
     let s = String.create n in
     (match t with
     | File ic ->
-        (* FIXME: try Unix.read, which has a much bigger IO buffer (16K vs 4K) *)
-        really_input ic s 0 n
+        unsafe_really_input ic s 0 n
     | Zip ic -> Gzip.really_input ic s 0 n
     | String str ->
         if n > String.length str.s - str.o then raise End_of_file ;
@@ -56,5 +53,5 @@ let close = function
 
 let with_file ?try_gz fname f =
     let t = open_in ?try_gz fname in
-    try_finalize f t close t
+    BatPervasives.with_dispose ~dispose:close f t
 
