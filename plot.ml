@@ -44,12 +44,14 @@ let top_datasets max_graphs datasets nb_steps =
             add_to_others label
         )) datasets ;
     (* recompose datasets from max_peak and others *)
-    let new_datasets = Hashtbl.create max_graphs in
-    Array.iter (function None -> () | Some (_max, label) ->
-        Hashtbl.add new_datasets label (Hashtbl.find datasets label)) max_peak ;
-    if !need_others then
-        Hashtbl.add new_datasets "others" others_pts ;
-    new_datasets
+    let rec add_next_dataset prev i =
+        if i < 0 then prev else
+        add_next_dataset (match max_peak.(i) with
+            | None -> prev
+            | Some (_max, label) -> (label, Hashtbl.find datasets label)::prev)
+            (pred i) in
+    add_next_dataset (if !need_others then ["others", others_pts] else [])
+                     (Array.length max_peak - 1)
 
 (* Can be ploted, although no as stacked area, with:
  * plot for [i=0:50] 'traf' index i using 1:2 title columnheader(1) with lines smooth unique *)

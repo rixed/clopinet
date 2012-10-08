@@ -61,26 +61,24 @@ struct
                  all_rows) ]
 
     let js_of_datasets time_step tmin datasets =
-        (* get the labels in _some_ order *)
-        let labels = Hashtbl.keys datasets |> List.of_enum in
-        let nb_xs = Hashtbl.find datasets (List.hd labels) |> Array.length in
+        let datasets = List.rev datasets in (* for some reason the legend is reversed in the graph lib *)
+        let nb_xs = List.hd datasets |> snd |> Array.length in
         let js =
             let os = IO.output_string () in
             Printf.fprintf os "{\ncols: %a,\nrows: [ "
                 (* display the labels *)
                 (List.print ~first:"[ { label: 'Time', type: 'datetime' },\n"
                             ~last:" ]" ~sep:",\n"
-                               (fun oc label -> Printf.fprintf oc "{ label: '%s', type: 'number' }" label))
-                labels ;
+                               (fun oc (label, _ys) -> Printf.fprintf oc "{ label: '%s', type: 'number' }" label))
+                datasets ;
             (* Iter on all rows *)
             let rec print_row r t =
                 if r < nb_xs then (
                     Printf.fprintf os "{c: [{v: new Date(%Ld)}, " t ;
                     (* iter on all datasets *)
-                    List.iter (fun label ->
-                        let ys = Hashtbl.find datasets label in
+                    List.iter (fun (_label, ys) ->
                         Printf.fprintf os "{v:%f}," ys.(r))
-                        labels ;
+                        datasets ;
                     Printf.fprintf os " ]},\n" ;
                     print_row (succ r) (Int64.add t time_step)
                 ) in
@@ -289,7 +287,7 @@ struct
                             app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
                         | _ (* defaults + ips *) ->
                             ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname in
-                    if Hashtbl.length datasets = 0 then
+                    if datasets = [] then
                         [ cdata "No data" ]
                     else
                         [ View.chart_div ;
