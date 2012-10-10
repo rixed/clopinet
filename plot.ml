@@ -84,7 +84,7 @@ struct
             Maplot.update_with_default_delayed
                 (fun () ->
                     let a = flat_dataset () in
-                    for x = r1 to r2 do a.(x) <- y done ;
+                    for x = r1 to r2 do a.(x) <- y done ; (* FIXME: unsafe array set by compilation option? *)
                     a)
                 m k
                 (fun a ->
@@ -93,8 +93,22 @@ struct
         let m =
             fold (fun r m ->
                 let k, t1, t2, y = extract r in
+                (* clip t1 and t2. beware that [t1;t2] is closed while [tmin;tmax[ is semi-closed *)
+                (* FIXME: use timestamps comparison function, sub, etc..? *)
+                assert (t1 < tmax && t2 >= tmin) ;
+                let t1, y =
+                    if t1 >= tmin then t1, y
+                    else tmin, y -. (Int64.to_float (Int64.div (Int64.sub tmin t1) (Int64.sub t2 t1))) in
+                let t2, y =
+                    if t2 <= tmax then t2, y
+                    else tmax, y -. (Int64.to_float (Int64.div (Int64.sub t2 tmax) (Int64.sub t2 t1))) in
                 let r1 = row_of_time t1
                 and r2 = row_of_time t2 in
+                (*
+                let check_r r =
+                    if r < 0 || r >= nb_steps then Printf.printf "XXX: r=%d while nb_steps=%d\n%!" r nb_steps in
+                check_r r1 ; check_r r2 ;*)
+
                 if r1 = r2 then (
                     cumul_y m k r1 r1 y
                 ) else (

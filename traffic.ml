@@ -20,7 +20,7 @@ let once_every n =
 let never_flush _k _v = false
 
 (* Lod0: Traffic stats for periods of 30s, with fields:
-  TS1, TS2, count, vlan, src mac, dst mac, proto, eth payload, eth mtu, src ip, dst ip, ip proto, ip payload *)
+  TS1, TS2, count, vlan, src mac, dst mac, proto, eth payload, eth mtu, src ip, dst ip, ip proto, ip payload, src port, dst port, l4 payload *)
 
 module Bounds64 = Tuple2.Make (UInteger64) (UInteger64)
 module BoundsTS = Tuple2.Make (Timestamp) (Timestamp)
@@ -65,12 +65,12 @@ struct
                 let scan_it = match bounds with
                     | None -> true
                     | Some (ts1, ts2) ->
-                        check start (fun start -> not (cmp ts2 start < 0)) &&
-                        check stop  (fun stop  -> not (cmp stop ts1 < 0)) in
+                        check start (fun start -> cmp ts2 start >= 0) &&
+                        check stop  (fun stop  -> cmp stop ts1 > 0) in
                 if scan_it then (
                     Table.iter_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, _, _, _) as x) ->
-                        if check start     (fun start -> not (cmp ts2 start < 0)) &&
-                           check stop      (fun stop  -> not (cmp stop ts1 < 0)) &&
+                        if check start     (fun start -> cmp ts2 start >= 0) &&
+                           check stop      (fun stop  -> cmp stop ts1 > 0) &&
                            check mac_src   (fun mac   -> EthAddr.equal mac mac_s) &&
                            check mac_dst   (fun mac   -> EthAddr.equal mac mac_d) &&
                            check eth_proto (fun proto -> proto = mac_prot) &&
@@ -97,6 +97,7 @@ struct
             Int64.add ip_pld ip_pld',
             Int64.add l4_pld l4_pld'
 
+    (* we look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
     let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name f fst merge =
         let tdir = table_name dbdir name in
         let check vopt f = match vopt with
@@ -108,13 +109,13 @@ struct
                 let scan_it = match bounds with
                     | None -> true
                     | Some (ts1, ts2) ->
-                        check start (fun start -> not (cmp ts2 start < 0)) &&
-                        check stop  (fun stop  -> not (cmp stop ts1 < 0)) in
+                        check start (fun start -> cmp ts2 start >= 0) &&
+                        check stop  (fun stop  -> cmp stop ts1 > 0) in
                 let res =
                     if scan_it then (
                         Table.fold_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, _, _, _) as x) prev ->
-                            if check start     (fun start -> not (cmp ts2 start < 0)) &&
-                               check stop      (fun stop  -> not (cmp stop ts1 < 0)) &&
+                            if check start     (fun start -> cmp ts2 start >= 0) &&
+                               check stop      (fun stop  -> cmp stop ts1 > 0) &&
                                check mac_src   (fun mac   -> EthAddr.equal mac mac_s) &&
                                check mac_dst   (fun mac   -> EthAddr.equal mac mac_d) &&
                                check eth_proto (fun proto -> proto = mac_prot) &&
@@ -140,31 +141,30 @@ struct
             Table.fold_hnums tdir fold_hnum fst merge
 end
 
-module EthKey = Tuple4.Make (Option (UInteger16)) (EthAddr) (EthAddr) (UInteger16) (* Eth vlan, source, dest, proto *)
+module EthKey = Tuple2.Make (Option (UInteger16)) (EthAddr) (* Eth vlan, source/dest *)
 module EthPld = Plot.TimeGraph (Traffic) (EthKey)
 
+type plot_what = PacketCount | Volume
+
 (* Plot amount of traffic (eth_pld) against time, with a different plot per MAC sockpair *)
-let eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs step dbdir name =
-    let label_of_key (vlan, mac_src, mac_dst, mac_proto) =
+let eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs by_src what step dbdir name =
+    let label_of_key (vlan, mac_src) =
         (match vlan with Some vl -> "vlan:"^string_of_int vl^"," | None -> "")^
-        (EthAddr.to_string mac_src)^"\\u2192"^
-        (EthAddr.to_string mac_dst)^","^
-        (string_of_int mac_proto) in
+        (EthAddr.to_string mac_src) in
     let fold = Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
-    let extract (ts1, ts2, _, vlan, mac_src, mac_dst, mac_proto, mac_pld, _, _, _, _, _, _, _, _) =
-        (vlan, mac_src, mac_dst, mac_proto), ts1, ts2, Int64.to_float mac_pld in
+    let extract (ts1, ts2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) =
+        (vlan, if by_src then mac_src else mac_dst), ts1, ts2, Int64.to_float (if what = PacketCount then count else mac_pld) in
     EthPld.plot_continuous ?max_graphs start stop step fold extract label_of_key
 
-module IPKey = Tuple2.Make (InetAddr) (InetAddr) (* source, dest *)
+module IPKey = (InetAddr) (* source/dest *)
 module IPPld = Plot.TimeGraph (Traffic) (IPKey)
 
 (* Plot amount of traffic (eth_pld) against time, with a different plot per IP sockpair *)
-let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs step dbdir name =
-    let label_of_key (src, dst) =
-        (InetAddr.to_string src)^"\\u2192"^(InetAddr.to_string dst) in
+let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs by_src what step dbdir name =
+    let label_of_key = InetAddr.to_string in
     let fold = Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
-    let extract (ts1, ts2, _, _, _, _, _, mac_pld, _, src, dst, _, _, _, _, _) =
-        (src, dst), ts1, ts2, Int64.to_float mac_pld in
+    let extract (ts1, ts2, count, _, _, _, _, mac_pld, _, src, dst, _, _, _, _, _) =
+        (if by_src then src else dst), ts1, ts2, Int64.to_float (if what = PacketCount then count else mac_pld) in
     IPPld.plot_continuous ?max_graphs start stop step fold extract label_of_key
 
 (* FIXME: app should be a string, and we should also report various eth apps *)
@@ -172,7 +172,7 @@ module AppKey = Tuple2.Make (UInteger8) (UInteger16)
 module AppPld = Plot.TimeGraph (Traffic) (AppKey)
 
 (* Plot amount of traffic (eth_pld) against time, with a different plot per proto/port *)
-let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs step dbdir name =
+let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what step dbdir name =
     let label_of_key (proto, port) =
         let proto = try Unix.((getprotobynumber proto).p_name)
                     with Not_found -> "" in
@@ -180,10 +180,10 @@ let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
                    with Not_found -> string_of_int port in
         if String.length proto = 0 then serv
         else if String.length serv = 0 then proto
-        else proto ^ "," ^ serv in
+        else proto ^ "/" ^ serv in
     let fold = Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
-    let extract (ts1, ts2, _, _, _, _, _, mac_pld, _, _, _, proto, _, _, port, _) =
-        (proto, port), ts1, ts2, Int64.to_float mac_pld in
+    let extract (ts1, ts2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) =
+        (proto, min p1 p2), ts1, ts2, Int64.to_float (if what = PacketCount then count else mac_pld) in
     AppPld.plot_continuous ?max_graphs start stop step fold extract label_of_key
 
 (* Lod1: Accumulated over 10mins *)

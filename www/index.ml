@@ -199,11 +199,16 @@ struct
     end
     module GroupByField = struct
         module Type = Enum (struct let name = "key"
-                                   let options = [| "macs";"ips";"apps" |] end)
+                                   let options = [| "src-mac";"dst-mac";"src-ip";"dst-ip";"apps" |] end)
         let name = "group by"
     end
+    module PlotWhat = struct
+        module Type = Enum (struct let name = "y"
+                                   let options = [| "packets";"volume" |] end)
+        let name = "Y"
+    end
     module MaxGraphsField = struct
-        module Type = OptInteger (struct let min = 1 let max = 32 end)
+        module Type = OptInteger (struct let min = 1 let max = 100 end)
         let name = "#series"
     end
     module Traffic = RecordOf (ConsOf (FieldOf (StartField))
@@ -217,9 +222,10 @@ struct
                               (ConsOf (FieldOf (IpProtoField))
                               (ConsOf (FieldOf (TimeStepField))
                               (ConsOf (FieldOf (TblNameField))
+                              (ConsOf (FieldOf (PlotWhat))
                               (ConsOf (FieldOf (GroupByField))
                               (ConsOf (FieldOf (MaxGraphsField))
-                                      (NulType))))))))))))))
+                                      (NulType)))))))))))))))
 
 end
 
@@ -277,27 +283,29 @@ struct
             let filters = Forms.Traffic.from_args "filter" args in
             let filters_form = form "main/traffic" (Forms.Traffic.edit "filter" filters) in
             let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value group_by, (Value max_graphs, ())))))))))))) ->
+                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))) ->
                     let time_step = Int64.of_int time_step
-                    and tblname = Forms.TblNames.options.(tblname) in
+                    and tblname = Forms.TblNames.options.(tblname)
+                    and what = if what = 0 then PacketCount else Volume in
                     let datasets = match group_by with
-                        | 0 (* macs *) ->
-                            eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
-                        | 2 (* apps *) ->
-                            app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname
-                        | _ (* defaults + ips *) ->
-                            ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs time_step dbdir tblname in
+                        | 0 (* src-mac *) | 1 (* dst-mac *) as sd ->
+                            eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs (sd = 0) what time_step dbdir tblname
+                        | 2 (* src-ip *) | 3 (* dst-ip *) as sd ->
+                            ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs (sd = 2) what time_step dbdir tblname
+                        | _ (* default, apps *) ->
+                            app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what time_step dbdir tblname in
                     if datasets = [] then
                         [ cdata "No data" ]
                     else
+                        let what = if what = PacketCount then "Packets" else "Bytes" in
                         [ View.chart_div ;
                           tag "script" ~attrs:["type","text/javascript"]
                             [ Raw "var data = new google.visualization.DataTable(" ;
                               View.js_of_datasets time_step start datasets ;
-                              Raw ");\n\
+                              Raw (");\n\
 console.log(data);\n\
 var options = {\n\
-    title:'Traffic (bytes per secs)',\n\
+    title:'Traffic - "^what^" per secs',\n\
     width:'100%',\n\
     height:600,\n\
     isStacked:true,\n\
@@ -305,7 +313,7 @@ var options = {\n\
     legend:{textStyle:{fontSize:9}}\n\
 };\n\
 var chart = new google.visualization.AreaChart(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n" ] ]
+chart.draw(data, options);\n") ] ]
                 | _ ->
                     [ cdata "Fill in the form to show the graph" ] in
             View.make_app_page
