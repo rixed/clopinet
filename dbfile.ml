@@ -16,15 +16,14 @@ let path tdir hnum snum =
 
 let get ?prev tdir hnum snum =
     let fopen i =
-        let oc =
-            let mode = [ Open_append ; Open_creat ; Open_binary ] in
-            let oc = open_out_gen mode perm (path tdir hnum snum) in
+        let oc = Serial.make_obuf (path tdir hnum snum) in
+        (* FIXME: in ll_serial, lock opened obufs!
             (* Lock from the current pos up to the end of file.
              * specs says: "lock all bytes starting at the location specified by l_whence
              * and l_start through to the end of file, no matter how large the file grows". *)
             Unix.(lockf (descr_of_out_channel oc) F_LOCK 0) ;
             (* This lock will be dismissed whenever we close the file *)
-            Output.of_channel oc in
+            Output.of_channel oc in *)
         fds.(i) <- Some (tdir, hnum, snum, oc) ;
         i, oc in
     let get_new () = match !free_fds with
@@ -36,7 +35,7 @@ let get ?prev tdir hnum snum =
             let i = Random.int (Array.length fds) in
             (match fds.(i) with
             | Some (_, _, _, oc) ->
-                Output.close oc ;
+                Serial.close_obuf oc ;
                 fds.(i) <- None ;
                 fopen i
             | None -> assert false) in
@@ -47,7 +46,7 @@ let get ?prev tdir hnum snum =
             if dir == tdir && hnum = sernum && seqnum = snum then (
                 i, oc
             ) else (
-                Output.close oc ;
+                Serial.close_obuf oc ;
                 fds.(i) <- None ;
                 fopen i
             )
@@ -61,7 +60,7 @@ let close ?prev tdir hnum snum =
         (match fds.(i) with
         | Some (dir, sernum, seqnum, oc) ->
             if dir == tdir && sernum = hnum && seqnum = snum then (
-                Output.close oc ;
+                Serial.close_obuf oc ;
                 fds.(i) <- None ;
                 free_fds := i :: !free_fds
             )

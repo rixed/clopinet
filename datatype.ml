@@ -1,4 +1,5 @@
 open Batteries
+open Serial
 
 let peek_eof2nl ic =
     try TxtInput.peek ic with End_of_file -> '\n'
@@ -23,9 +24,9 @@ sig
     val equal     : t -> t -> bool
     val compare   : t -> t -> int
     val hash      : t -> int
-    val write     : Output.t -> t -> unit
+    val write     : obuf -> t -> unit
     val write_txt : Output.t -> t -> unit
-    val read      : BinInput.t -> t
+    val read      : ibuf -> t
     val read_txt  : TxtInput.t -> t
 end
 
@@ -81,55 +82,21 @@ let write_char_list oc l =
 
 module VarInt =
 struct
-    let write oc n =
-        (* Recode negative number so that higher bits are 0 : stores (abs(n) lsl 1)+sign.
-         * Notice that if n > 0 then we can mult it by 2 since we have a 0 bit at highest
-         * position, but then ocaml will think it's negative again, so we have to
-         * consider than n<0 means n is actually huge. *)
-        let n = if n >= 0 then n lsl 1
-                else 1 + ((- n) lsl 1) in
-        let rec aux n =
-            if n >= 0 && n < 128 then Output.byte oc n
-            else (
-                Output.byte oc (n lor 128) ;
-                aux (n lsr 7)
-            ) in
-        aux n
-
-    let rec read ic =
-        let rec aux n dec =
-            let b = BinInput.read ic in
-            let n = n lor ((b land 127) lsl dec) in
-            if b < 128 then n else aux n (dec+7) in
-        let n = aux 0 0 in
-        (* bit 0 is actually the sign bit *)
-        (if n land 1 = 0 then identity else (~-)) (n lsr 1)
+    let write = ser_varint
+    let read = deser_varint
 end
-
-let fst_of_3 (x,_,_) = x
 
 module VarInt32 =
 struct
-    let write oc n =
-        (BITSTRING { n : 32 : nativeendian }) |>
-        fst_of_3 |> (* bitstring_of_string would allocate a new string :-( *)
-        Output.string oc
-    let read ic =
-        let bits = BinInput.nread ic 4 |>
-                   Bitstring.bitstring_of_string in
-        bitmatch bits with { n : 32 : nativeendian } -> n
+    let write oc n = Int32.to_int n |> ser_varint oc
+    let read ic = deser_varint ic |> Int32.of_int
 end
 
 module VarInt64 =
 struct
-    let write oc n =
-        (BITSTRING { n : 64 : nativeendian }) |>
-        fst_of_3 |> (* bitstring_of_string would allocate a new string :-( *)
-        Output.string oc
-    let read ic =
-        let bits = BinInput.nread ic 8 |>
-                   Bitstring.bitstring_of_string in
-        bitmatch bits with { n : 64 : nativeendian } -> n
+    (* TODO: (de)ser_varint64 ? *)
+    let write = ser64
+    let read = deser64
 end
 
 let read_txt_until ic delim =
@@ -166,9 +133,9 @@ Datatype_of (struct
     let compare a b = if a = b then 0 else if a then -1 else 1
     let hash = function true -> 1 | false -> 0
     let name = "bool"
-    let write oc t = Output.byte oc (if t then 1 else 0)
+    let write = ser1
     let write_txt oc t = Output.char oc (if t then 't' else 'f')
-    let read ic = BinInput.read ic = 1
+    let read = deser1
     let read_txt ic = TxtInput.read ic = 't'
 end)
 
@@ -193,13 +160,13 @@ Datatype_of (struct
     let compare = String.compare
     let hash = Hashtbl.hash
     let write oc t =
-        VarInt.write oc (String.length t) ;
-        Output.string oc t
+        ser_varint oc (String.length t) ;
+        ser_string oc t
     let write_txt = Output.string
     let read ic =
-        let len = VarInt.read ic in
+        let len = deser_varint ic in
         assert (len >= 0) ;
-        BinInput.nread ic len
+        deser_string ic len
     let read_txt ic =
         read_txt_until ic "\t\n"
 end)
@@ -213,12 +180,12 @@ struct
         let hash = Hashtbl.hash
         let name = "float"
         let write oc f =
-            Int64.bits_of_float f |> VarInt64.write oc
+            Int64.bits_of_float f |> ser64 oc
         let write_txt oc f =
             let s = string_of_float f in
             Output.string oc s
         let read ic =
-            VarInt64.read ic |> Int64.float_of_bits
+            deser64 ic |> Int64.float_of_bits
         let read_txt ic =
             (* hello, I'm slow! *)
             Text.read_txt ic |> float_of_string
@@ -240,7 +207,7 @@ struct
         let equal = (=)
         let compare a b = if a = b then 0 else if a < b then -1 else 1
         let hash = identity
-        let write = VarInt.write
+        let write = ser_varint
         let write_txt oc i =
             if i = 0 then Output.char oc '0' else
             let rec aux l p i =
@@ -251,7 +218,7 @@ struct
                 Output.char oc '-' ;
                 aux 0 [] (-i)
             )
-        let read = VarInt.read
+        let read = deser_varint
         let read_txt ic =
             let neg = peek_sign ic in
             let rec aux v =
@@ -289,9 +256,8 @@ module UInteger8 : NUMBER with type t = int =
 struct
     include Integer
     let name = "uint8"
-    let write = Output.byte
-    let read ic =
-        BinInput.read ic
+    let write = ser8
+    let read = deser8
     let checked n = if n < 0 || n >= 256 then raise Overflow else n
     let read_txt ic =
         read_txt ic |> checked
@@ -303,9 +269,9 @@ module Integer8 : NUMBER with type t = int =
 struct
     include Integer
     let name = "int8"
-    let write = Output.byte
+    let write = ser8
     let read ic =
-        let n = BinInput.read ic in
+        let n = deser8 ic in
         if n < 128 then n else n-256
     let checked n = if n < -128 || n >= 128 then raise Overflow else n
     let read_txt ic =
@@ -318,13 +284,8 @@ module UInteger16 : NUMBER with type t = int =
 struct
     include Integer
     let name = "int16"
-    let write oc t =
-        Output.byte oc t ;
-        Output.byte oc (t lsr 8)
-    let read ic =
-        let fst_b = BinInput.read ic in
-        let snd_b = BinInput.read ic in
-        fst_b + (snd_b lsl 8)
+    let write = ser16
+    let read = deser16
     let checked n = if n < 0 || n >= 65536 then raise Overflow else n
     let read_txt ic =
         read_txt ic |> checked
@@ -337,7 +298,7 @@ struct
     include Integer
     let name = "uint16"
     let read ic =
-        let n = read ic in
+        let n = deser16 ic in
         if n < 32768 then n else n-65536
     let checked n = if n < -32768 || n >= 32768 then raise Overflow else n
     let read_txt ic =
@@ -354,9 +315,9 @@ struct
         let equal = (=)
         let compare a b = if a = b then 0 else if a < b then -1 else 1
         let hash = Int32.to_int
-        let write oc t = VarInt64.write oc (Int64.of_int32 t)
+        let write = ser32
         let write_txt oc i = Printf.sprintf "%lu" i |> Output.string oc
-        let read = VarInt32.read
+        let read = deser32
         let read_txt ic =
             let rec aux v =
                 let d = peek_eof2nl ic in
@@ -395,9 +356,9 @@ struct
         let equal = (=)
         let compare a b = if a = b then 0 else if a < b then -1 else 1
         let hash = Int64.to_int
-        let write = VarInt64.write
+        let write = ser64
         let write_txt oc i = Printf.sprintf "%Lu" i |> Output.string oc
-        let read  = VarInt64.read
+        let read = deser64
         let read_txt ic =
             let rec aux ?(first=false) v =
                 let d = try TxtInput.peek ic with End_of_file when not first -> '\n' in (* any non digit char would do *)
@@ -549,10 +510,9 @@ Datatype_of (struct
         int_of_char b6 - int_of_char a6
     let hash = Hashtbl.hash
     let write oc (a,b,c,d,e,f) =
-        let open Output in
-        char oc a ; char oc b ;
-        char oc c ; char oc d ;
-        char oc e ; char oc f
+        int_of_char a |> ser8 oc ; int_of_char b |> ser8 oc ;
+        int_of_char c |> ser8 oc ; int_of_char d |> ser8 oc ;
+        int_of_char e |> ser8 oc ; int_of_char f |> ser8 oc
     let write_txt oc (a,b,c,d,e,f) =
         let byte n =
             let n = Char.code n in
@@ -563,10 +523,10 @@ Datatype_of (struct
         byte_sep c ; byte_sep d ;
         byte_sep e ; byte f
     let read ic =
-        BinInput.(let a = char ic in let b = char ic in
-                  let c = char ic in let d = char ic in
-                  let e = char ic in let f = char ic in
-                  a,b,c,d,e,f)
+        let a = deser8 ic |> char_of_int in let b = deser8 ic |> char_of_int in
+        let c = deser8 ic |> char_of_int in let d = deser8 ic |> char_of_int in
+        let e = deser8 ic |> char_of_int in let f = deser8 ic |> char_of_int in
+        a,b,c,d,e,f
     let read_txt ic =
         let byte () =
             let hi = TxtInput.hexdigit ic in
@@ -727,11 +687,11 @@ Datatype_of (struct
     let hash = T.hash
     let name = "V1of1 of "^T.name
     let write oc t1 =
-        Output.byte oc 0 ; (* So that we will be able to decode it later when we add version *)
+        ser8 oc 0 ; (* So that we will be able to decode it later when we add version *)
         T.write oc t1
     let write_txt = T.write_txt
     let read ic =
-        let v = BinInput.read ic in
+        let v = deser8 ic in
         if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
         assert (v = 0) ;
         T.read ic
@@ -757,12 +717,12 @@ Datatype_of (struct
         | V2of2 a -> T2.hash a
     let name = "V1of2 of "^T1.name^" | V2of2 of "^T2.name
     let write oc = function
-        | V1of2 a -> Output.byte oc 0 ; T1.write oc a
-        | V2of2 a -> Output.byte oc 1 ; T2.write oc a
+        | V1of2 a -> ser8 oc 0 ; T1.write oc a
+        | V2of2 a -> ser8 oc 1 ; T2.write oc a
     let write_txt oc = function
         | V1of2 a -> Output.string oc "v1:" ; T1.write_txt oc a
         | V2of2 a -> Output.string oc "v2:" ; T2.write_txt oc a
-    let read ic = match BinInput.read ic with
+    let read ic = match deser8 ic with
         | 0 -> V1of2 (T1.read ic)
         | 1 -> V2of2 (T2.read ic)
         | v -> failwith ("Bad version "^string_of_int v)
@@ -792,16 +752,16 @@ Datatype_of (struct
         | None -> 0
     let name = T.name^" option"
     let write oc = function
-        | None -> Output.byte oc 0
+        | None -> ser8 oc 0
         | Some x ->
-            Output.byte oc 1 ;
+            ser8 oc 1 ;
             T.write oc x
     let write_txt oc = function
         | None -> Output.string oc "None"
         | Some x -> Output.string oc "Some " ;
                     T.write_txt oc x
     let read ic =
-        let o = BinInput.read ic in
+        let o = deser8 ic in
         if o <> 0 then (
             assert (o = 1) ;
             Some (T.read ic)

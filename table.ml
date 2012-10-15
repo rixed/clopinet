@@ -13,13 +13,13 @@ let ncores = ref 1
 (* The meta file, which accompany every dbfile, stores the aggregation result *)
 let read_meta tdir hnum snum aggr_reader =
     let fname = Dbfile.path tdir hnum snum ^ ".meta" in
-    try Some (BinInput.with_file ~try_gz:false fname aggr_reader)
+    try Some (Serial.with_file_in fname aggr_reader)
     with Sys_error _ -> None
 
 let iter_file tdir hnum snum reader f =
     let hnum = hnum mod max_hash_size in
     let fname = Dbfile.path tdir hnum snum in
-    BinInput.with_file fname (fun ic ->
+    Serial.with_file_in fname (fun ic ->
         (* TODO: Use posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL) *)
         try forever (fun () ->
             (* TODO: from time to time, call posix_fadvise(fd, 0, current_offset, POSIX_FADV_DONTNEED) *)
@@ -63,7 +63,7 @@ let iter tdir reader f =
 let fold_file tdir hnum snum reader f start =
     let hnum = hnum mod max_hash_size in
     let fname = Dbfile.path tdir hnum snum in
-    BinInput.with_file fname (fun ic ->
+    Serial.with_file_in fname (fun ic ->
         let rec aux res =
             match (try Some (reader ic) with End_of_file -> None) with
             | Some x -> aux (f x res)
@@ -127,19 +127,16 @@ type ('a, 'b) t =
                        { dir : string ;
                         hash : 'a -> int ;
                     h_caches : 'b h_cache option array ;
-                  val_writer : Output.t -> 'a -> unit ;
+                  val_writer : Serial.obuf -> 'a -> unit ;
                   aggregator : ('a, 'b) Aggregator.t ;
-                 aggr_reader : BinInput.t -> 'b ;
-                 aggr_writer : Output.t -> 'b -> unit }
+                 aggr_reader : Serial.ibuf -> 'b ;
+                 aggr_writer : Serial.obuf -> 'b -> unit }
 
 let save_meta t hnum h_cache =
     match h_cache.aggr with
     | Some aggr ->
         let fname = Dbfile.path t.dir hnum h_cache.max_snum ^ ".meta" in
-        with_file_out
-            ~mode:[Open_wronly;Open_creat;Open_binary]
-            ~perm:Dbfile.perm fname (fun oc ->
-            let oc = Output.of_channel oc in
+        Serial.with_file_out fname (fun oc ->
             t.aggr_writer oc aggr) ;
         h_cache.aggr <- None
     | None -> ()

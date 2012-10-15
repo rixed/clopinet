@@ -329,3 +329,25 @@ void write_varint(value custom, value v_)
     }
 }
 
+value read_string(value custom, value len_)
+{
+    CAMLparam2(custom, len_);
+    CAMLlocal1(ret);
+    unsigned len = Int_val(len_);
+    struct ibuf *ib = Data_custom_val(custom);
+    ibuf_make_available(ib, len);
+    ret = caml_alloc_string(len);
+    memcpy(String_val(ret), ib->next, len);
+    ib->next += len;
+    CAMLreturn(ret);
+}
+
+void write_string(value custom, value s)
+{
+    struct obuf *ob = Data_custom_val(custom);
+    unsigned const len = caml_string_length(s);
+    obuf_make_room(ob, len);
+    memcpy(ob->next, String_val(s), len);
+    ob->next += len;
+}
+
