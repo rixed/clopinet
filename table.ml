@@ -1,7 +1,7 @@
 open Bricabrac
 open LargeFile
 
-let max_file_size = 100_000
+let max_file_size = 10_000_000
 let max_hash_size = 2048
 let ncores = ref 1
 
@@ -20,7 +20,9 @@ let iter_file tdir hnum snum reader f =
     let hnum = hnum mod max_hash_size in
     let fname = Dbfile.path tdir hnum snum in
     BinInput.with_file fname (fun ic ->
+        (* TODO: Use posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL) *)
         try forever (fun () ->
+            (* TODO: from time to time, call posix_fadvise(fd, 0, current_offset, POSIX_FADV_DONTNEED) *)
             f (reader ic)) ()
         with End_of_file -> ())
 
@@ -111,6 +113,10 @@ let fold tdir reader f start merge =
    aggregator for each hnum.
    Because of this cache only one process can write.
    TODO: lock a file to check this *)
+
+(* Due to how we open and write in many files simultaneously, the
+   resulting file set will be fragmented up to a point reading will
+   be slow. Compression/copy solves this problem. *)
 
 type 'b h_cache =
           { mutable max_snum : int ;

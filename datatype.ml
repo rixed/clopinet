@@ -99,7 +99,6 @@ struct
     let rec read ic =
         let rec aux n dec =
             let b = BinInput.read ic in
-            (* FIXME: 3*loop+1 allocs for reading a single 64bit value is too much! *)
             let n = n lor ((b land 127) lsl dec) in
             if b < 128 then n else aux n (dec+7) in
         let n = aux 0 0 in

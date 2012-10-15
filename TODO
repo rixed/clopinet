@@ -1,6 +1,23 @@
 TODO stack
 ----------
 
+* Reading/Writing serialized data should be done in C for better perfs.
+  So give up GZip support, and implement a binInput able to read/write
+  caml's ints, int32s, int64s, strings, varints, bools, and so on.
+  Simple, Fast, easy to optimize.
+  Problems: we do not want to give up reading from a string, and we want
+  to compose higher level reader from lowel level ones.
+  -> on n'implémente que des (dé)sérialiseurs pour les types de base, à
+	 partir d'une zone mémoire qui contient soit le fichier soit une string
+	 ocaml. Si les fichiers ne font qu'un Mo on peut même les mapper
+	 entièrement.
+  Note: pour les booleens, avoir un offset en bit aussi, qu'on remet à zéro
+  à chaque fois qu'on doit lire un type aligné ; comme ca on peut packer
+  plusieurs bits (ou valeurs à moins de 8 bits) ensemble.
+
+* DB for traffic is too big. Packet counts, payloads, etc, should be variable 
+ints (since they are usualy very small)
+
 * An Interval type
 
 * CGI: in traffic filters IPs should be a CIDR not InetAddr.
