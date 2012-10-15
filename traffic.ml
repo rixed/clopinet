@@ -22,22 +22,21 @@ let never_flush _k _v = false
 (* Lod0: Traffic stats for periods of 30s, with fields:
   TS1, TS2, count, vlan, src mac, dst mac, proto, eth payload, eth mtu, src ip, dst ip, ip proto, ip payload, src port, dst port, l4 payload *)
 
-module Bounds64 = Tuple2.Make (UInteger64) (UInteger64)
 module BoundsTS = Tuple2.Make (Timestamp) (Timestamp)
 
 module Traffic =
 struct
-    include Altern1 (Tuple16.Make (Timestamp) (Timestamp)          (* start, stop *)
-                                  (UInteger64)                     (* packet count *)
+    include Altern1 (Tuple16.Make (Timestamp) (Timestamp)        (* start, stop *)
+                                  (UInteger)                     (* packet count *)
                                   (Option (UInteger16)) (EthAddr) (EthAddr) (* Eth vlan, source, dest *)
-                                  (UInteger16)                     (* Eth proto *)
-                                  (UInteger64)                     (* Eth payload *)
-                                  (UInteger16)                     (* Eth MTU *)
-                                  (InetAddr) (InetAddr)            (* IP source, dest *)
-                                  (UInteger8)                      (* IP proto *)
-                                  (UInteger64)                     (* IP payload *)
-                                  (UInteger16) (UInteger16)        (* Port source, dest *)
-                                  (UInteger64)                     (* L4 payload *))
+                                  (UInteger16)                   (* Eth proto *)
+                                  (UInteger)                     (* Eth payload *)
+                                  (UInteger16)                   (* Eth MTU *)
+                                  (InetAddr) (InetAddr)          (* IP source, dest *)
+                                  (UInteger8)                    (* IP proto *)
+                                  (UInteger)                     (* IP payload *)
+                                  (UInteger16) (UInteger16)      (* Port source, dest *)
+                                  (UInteger)                     (* L4 payload *))
     (* We hash on the source IP *)
     let hash_on_src (_ts1, _ts2, _count, _vlan, _mac_src, _mac_dst, _proto, _pld, _mtu, ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) =
         InetAddr.hash ip_src
@@ -91,11 +90,11 @@ struct
     let accum_pkts ((count, eth_pld, mtu, ip_pld, l4_pld) as v) = function
         | None -> v
         | Some (count', eth_pld', mtu', ip_pld', l4_pld') ->
-            Int64.add count count',
-            Int64.add eth_pld eth_pld',
+            count + count',
+            eth_pld + eth_pld',
             max mtu mtu',
-            Int64.add ip_pld ip_pld',
-            Int64.add l4_pld l4_pld'
+            ip_pld + ip_pld',
+            l4_pld + l4_pld'
 
     (* we look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
     let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name f fst merge =
@@ -153,7 +152,7 @@ let eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
         (EthAddr.to_string mac_src) in
     let fold = Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
     let extract (ts1, ts2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) =
-        (vlan, if by_src then mac_src else mac_dst), ts1, ts2, Int64.to_float (if what = PacketCount then count else mac_pld) in
+        (vlan, if by_src then mac_src else mac_dst), ts1, ts2, float_of_int (if what = PacketCount then count else mac_pld) in
     EthPld.plot_continuous ?max_graphs start stop step fold extract label_of_key
 
 module IPKey = (InetAddr) (* source/dest *)
@@ -164,7 +163,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
     let label_of_key = InetAddr.to_string in
     let fold = Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
     let extract (ts1, ts2, count, _, _, _, _, mac_pld, _, src, dst, _, _, _, _, _) =
-        (if by_src then src else dst), ts1, ts2, Int64.to_float (if what = PacketCount then count else mac_pld) in
+        (if by_src then src else dst), ts1, ts2, float_of_int (if what = PacketCount then count else mac_pld) in
     IPPld.plot_continuous ?max_graphs start stop step fold extract label_of_key
 
 (* FIXME: app should be a string, and we should also report various eth apps *)
@@ -183,7 +182,7 @@ let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
         else proto ^ "/" ^ serv in
     let fold = Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name in
     let extract (ts1, ts2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) =
-        (proto, min p1 p2), ts1, ts2, Int64.to_float (if what = PacketCount then count else mac_pld) in
+        (proto, min p1 p2), ts1, ts2, float_of_int (if what = PacketCount then count else mac_pld) in
     AppPld.plot_continuous ?max_graphs start stop step fold extract label_of_key
 
 (* Lod1: Accumulated over 10mins *)

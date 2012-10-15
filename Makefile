@@ -1,6 +1,7 @@
 top_srcdir = .
 PKG_NAME = mlrrd
 SOURCES  = \
+	serial.ml \
 	txtInput.ml \
 	binInput.ml \
 	output.ml \
@@ -24,8 +25,11 @@ SOURCES  = \
 	plot.ml \
 	traffic.ml
 
+C_SOURCES = ll_serial.c
+
 EXAMPLES_BYTE = \
-	dns.byte web.byte traffic_exe.byte \
+	dns.byte web.byte \
+	traffic_exe.byte runtest.byte \
 
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
@@ -34,7 +38,8 @@ REQUIRES = batteries batteries.pa_string.syntax bricabrac pfds bitstring bitstri
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc
-all: $(ARCHIVE) mlrrd.top examples www
+all: $(ARCHIVE) examples www
+#mlrrd.top
 
 include $(top_srcdir)/make.common
 
@@ -48,8 +53,8 @@ check: check.byte
 	@echo "Running check..."
 	@./check.byte || echo "FAILED"
 
-mlrrd.top: $(ARCHIVE)
-	$(OCAMLMKTOP) -o $@ $(SYNTAX) -package "findlib $(REQUIRES)" -linkpkg $(ARCHIVE)
+mlrrd.top: $(ARCHIVE) $(CLIB)
+	$(OCAMLMKTOP) -o $@ $(SYNTAX) -package "findlib $(REQUIRES)" -custom -linkpkg $(ARCHIVE) $(CLIB)
 
 # maketuple.opt does not depend on $(ARCHIVE)
 maketuple.opt: maketuple.cmx
