@@ -2,6 +2,7 @@
 
 type obuf
 type ibuf
+
 external make_obuf : string -> obuf = "obuf_open"
 external make_ibuf : string -> ibuf = "ibuf_open"
 external close_obuf : obuf -> unit = "obuf_close"

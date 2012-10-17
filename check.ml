@@ -73,6 +73,42 @@ let check_option () =
     assert (of_string "Some 1" = Some 1) ;
     assert (of_string "Some -42" = Some ~-42)
 
+let check_serial () =
+    let open Serial in
+    let fname = "test.check_serial" in
+    ignore_exceptions Unix.unlink fname ;
+    with_file_out fname (fun obuf ->
+        ser1 obuf true ;
+        ser8 obuf 42 ;
+        ser8 obuf ~-5 ;
+        ser16 obuf 10000 ;
+        ser32 obuf 123456l ;
+        ser64 obuf 123456789L ;
+        ser_varint obuf 123456 ;
+        ser_varint obuf 0 ;
+        ser_varint obuf 12 ;
+        ser_varint obuf ~-5 ;
+        ser_varint obuf ~-123456 ;
+        ser_string obuf "glop glop") ;
+    (* Check we append in the file *)
+    with_file_out fname (fun obuf ->
+        ser_string obuf "pas glop") ;
+    with_file_in fname (fun ibuf ->
+        assert (deser1 ibuf = true) ;
+        assert (deser8 ibuf = 42) ;
+        assert (deser8 ibuf = 251) ;
+        assert (deser16 ibuf = 10000) ;
+        assert (deser32 ibuf = 123456l) ;
+        assert (deser64 ibuf = 123456789L) ;
+        assert (deser_varint ibuf = 123456) ;
+        assert (deser_varint ibuf = 0) ;
+        assert (deser_varint ibuf = 12) ;
+        assert (deser_varint ibuf = ~-5) ;
+        assert (deser_varint ibuf = ~-123456) ;
+        assert (deser_string ibuf 9 = "glop glop") ;
+        assert (deser_string ibuf 8 = "pas glop")) ;
+    Unix.unlink fname
+
 let _ =
     check_datatools () ;
     check_ints () ;
@@ -80,4 +116,5 @@ let _ =
     check_mac () ;
     check_timestamp () ;
     check_option () ;
+    check_serial () ;
     print_string "Ok\n"

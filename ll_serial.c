@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -9,10 +10,10 @@
 #include <assert.h>
 #include <errno.h>
 #include <caml/mlvalues.h>
-#include <caml/fail.h>
 #include <caml/memory.h>
 #include <caml/custom.h>
 #include <caml/alloc.h>
+#include <caml/fail.h>
 #include "miscmacs.h"
 #include "cpp.h"
 
@@ -20,13 +21,25 @@
  * Tools
  */
 
+static void sys_error(char const *pref)
+{
+    CAMLparam0();
+    CAMLlocal1(str);
+    char msg[1024];
+    snprintf(msg, sizeof(msg), "%s: %s", pref, strerror(errno));
+    //fprintf(stderr, "!!%s!!\n", msg);
+    str = caml_copy_string(msg);
+    caml_raise_sys_error(str);
+    CAMLreturn0;
+}
+
 static void really_write(int fd, uint8_t *buf, size_t n)
 {
     while (n>0) {
         ssize_t err = write(fd, buf, n);
         if (err < 0) {
             if (errno == EINTR) continue;
-            caml_failwith(strerror(errno));
+            sys_error("write");
         }
         n -= err;
         buf += err;
@@ -40,7 +53,7 @@ static size_t really_read(int fd, uint8_t *buf, size_t n)
         ssize_t err = read(fd, buf, n);
         if (err < 0) {
             if (errno == EINTR) continue;
-            caml_failwith(strerror(errno));
+            sys_error("read");
         } else if (err == 0) {
             break;
         }
@@ -66,7 +79,7 @@ static void obuf_ctor(struct obuf *ob, char const *fname)
 {
     ob->fd = open(fname, O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC|O_LARGEFILE, 0644);
     if (ob->fd < 0) {
-        caml_failwith(strerror(errno));
+        sys_error("open");
     }
     ob->next = ob->buf;
 }
@@ -119,8 +132,10 @@ value obuf_open(value fname)
 
 void obuf_close(value custom)
 {
+    CAMLparam1(custom);
     struct obuf *ob = Data_custom_val(custom);
     obuf_dtor(ob);
+    CAMLreturn0;
 }
 
 /*
@@ -139,7 +154,9 @@ struct ibuf {
 static int ibuf_ctor(struct ibuf *ib, char const *fname)
 {
     ib->fd = open(fname, O_RDONLY|O_CLOEXEC|O_LARGEFILE|O_NOATIME, 0644);
-    if (ib->fd < 0) return -1;
+    if (ib->fd < 0) {
+        sys_error("open");
+    }
     ib->next = ib->stop = ib->start;
     ib->eof = 0;
     return 0;
@@ -166,12 +183,13 @@ static void ibuf_refill(struct ibuf *ib)
         ib->stop += r;
     }
     if (ib->stop == ib->start) {
-        caml_failwith("EOF");
+        caml_raise_end_of_file();
     }
 }
 
 static void ibuf_make_available(struct ibuf *ib, unsigned sz)
 {
+//    fprintf(stderr, "ibuf_make_available sz=%u\n", sz);
     if (ib->stop - ib->next >= (ptrdiff_t)sz) return;
     ibuf_refill(ib);
     assert(ib->stop - ib->next >= (ptrdiff_t)sz);
@@ -205,8 +223,10 @@ value ibuf_open(value fname)
 
 void ibuf_close(value custom)
 {
+    CAMLparam1(custom);
     struct ibuf *ib = Data_custom_val(custom);
     ibuf_dtor(ib);
+    CAMLreturn0;
 }
 
 /*
@@ -216,22 +236,25 @@ void ibuf_close(value custom)
 #define UNBOXED_READ(width) \
 value read##width(value custom) \
 { \
+    CAMLparam1(custom); \
     struct ibuf *ib = Data_custom_val(custom); \
     ibuf_make_available(ib, width/8); \
     uint##width##_t v; \
     memcpy(&v, ib->next, width/8); \
     ib->next += width/8; \
-    return Val_long(v); \
+    CAMLreturn(Val_long(v)); \
 }
 
 #define UNBOXED_WRITE(width) \
 void write##width(value custom, value v_) \
 { \
+    CAMLparam2(custom, v_); \
     struct obuf *ob = Data_custom_val(custom); \
     obuf_make_room(ob, width/8); \
     uint##width##_t v = Long_val(v_); /* Won't work on big endian */ \
     memcpy(ob->next, &v, width/8); \
     ob->next += width/8; \
+    CAMLreturn0; \
 }
 
 #define BOXED_READ(width) \
@@ -245,17 +268,19 @@ value read##width(value custom) \
     memcpy(&v, ib->next, width/8); \
     ib->next += width/8; \
     result = caml_copy_int##width(v); \
-    CAMLreturn (result); \
+    CAMLreturn(result); \
 }
 
 #define BOXED_WRITE(width) \
 void write##width(value custom, value v_) \
 { \
+    CAMLparam2(custom, v_); \
     struct obuf *ob = Data_custom_val(custom); \
     obuf_make_room(ob, width/8); \
     uint##width##_t v = Int##width##_val(v_); \
     memcpy(ob->next, &v, width/8); \
     ob->next += width/8; \
+    CAMLreturn0; \
 }
 
 UNBOXED_READ(8)
@@ -274,26 +299,31 @@ BOXED_WRITE(64)
 
 value read1(value custom)
 {
+    CAMLparam1(custom);
     struct ibuf *ib = Data_custom_val(custom);
     ibuf_make_available(ib, 1);
     uint8_t v = *ib->next++;
-    return Val_bool(v);
+    CAMLreturn(Val_bool(v));
 }
 
 void write1(value custom, value v)
 {
+    CAMLparam2(custom, v);
     struct obuf *ob = Data_custom_val(custom);
     obuf_make_room(ob, 1);
     *ob->next ++ = Bool_val(v);
+    CAMLreturn0;
 }
 
 value read_varint(value custom)
 {
+    CAMLparam1(custom);
     struct ibuf *ib = Data_custom_val(custom);
     unsigned long n = 0;
     while (1) {
         ibuf_make_available(ib, 1);
         uint8_t const b = *ib->next++;
+//        fprintf(stderr, "<varint septet 0x%x ... ", b);
         if (b < 128) {
             n |= b;
             break;
@@ -301,32 +331,43 @@ value read_varint(value custom)
             n |= b & 0x7fU;
             n <<= 7;
         }
+//        fprintf(stderr, "n = 0x%lx\n", n);
     }
+//    fprintf(stderr, "n+sign = 0x%lx\n", n);
     long const nn = n >> 1U; 
-    return Val_long(n & 1 ? -nn : nn);
+//    fprintf(stderr, "<varint n = 0x%lx\n", n & 1 ? -nn : nn);
+    CAMLreturn(Val_long(n & 1 ? -nn : nn));
 }
 
 void write_varint(value custom, value v_)
 {
+    CAMLparam2(custom, v_);
     struct obuf *ob = Data_custom_val(custom);
     obuf_make_room(ob, 1+sizeof(long int)); // at worst
     // store abs(v) lsl 1)+sign so that higher bits are 0
     long const v = Long_val(v_);
+//    fprintf(stderr, ">varint 0x%lx\n", v);
     unsigned long n = (labs(v) << 1U) + (v < 0);
+//    fprintf(stderr, ">varint with sign = 0x%lx\n", n);
     // We serialize higher septets first because then deserialization is faster
-    uint8_t vals[sizeof(n)];
+    uint8_t vals[(sizeof(n)*8+6)/7];  // we store septets not octets
     for (unsigned s = 0; s < NB_ELEMS(vals); s++) {
         if (n < 128) {
             // write higher septets first
-            *ob->next ++ = n | 128;
-            while (s>1) *ob->next ++ = vals[s--] | 128;
-            *ob->next ++ = vals[0];
+//            fprintf(stderr, ">varint septet 0x%x | 0x80/0\n", (uint8_t)(n & 0xff));
+            *ob->next ++ = n | (s ? 128:0);
+            while (s--) {
+                *ob->next ++ = vals[s] | (s ? 128:0);
+//                fprintf(stderr, ">varint septet 0x%x | 0x80/0\n", vals[s]);
+            }
             break;
         } else {
-            vals[s] = n;
+            vals[s] = n & 0x7f;
+//            fprintf(stderr, ">varint storing 0x%x\n", vals[s]);
             n >>= 7;
         }
     }
+    CAMLreturn0;
 }
 
 value read_string(value custom, value len_)
@@ -344,10 +385,12 @@ value read_string(value custom, value len_)
 
 void write_string(value custom, value s)
 {
+    CAMLparam2(custom, s);
     struct obuf *ob = Data_custom_val(custom);
     unsigned const len = caml_string_length(s);
     obuf_make_room(ob, len);
     memcpy(ob->next, String_val(s), len);
     ob->next += len;
+    CAMLreturn0;
 }
 
