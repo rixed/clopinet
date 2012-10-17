@@ -70,7 +70,7 @@ static size_t really_read(int fd, uint8_t *buf, size_t n)
 
 struct obuf {
     int fd;
-    uint8_t *next;
+    unsigned next;
 #   define OBUFLEN 16384
     uint8_t buf[OBUFLEN];
 };
@@ -81,23 +81,24 @@ static void obuf_ctor(struct obuf *ob, char const *fname)
     if (ob->fd < 0) {
         sys_error("open");
     }
-    ob->next = ob->buf;
+    ob->next = 0;
 }
 
 static void obuf_flush(struct obuf *ob)
 {
-    really_write(ob->fd, ob->buf, ob->next - ob->buf);
+    really_write(ob->fd, ob->buf, ob->next);
 }
 
 static void obuf_make_room(struct obuf *ob, unsigned sz)
 {
-    if (ob->next + sz <= ob->buf + OBUFLEN) return;
+    if (ob->next + sz <= OBUFLEN) return;
     obuf_flush(ob);
-    ob->next = ob->buf;
+    ob->next = 0;
 }
 
 static void obuf_dtor(struct obuf *ob)
 {
+//    fprintf(stderr, "Destruct obuf while fd=%d, buf=%p and next=%u\n", ob->fd, ob->buf, ob->next);
     if (ob->fd < 0) return;
     obuf_flush(ob);
     (void)close(ob->fd);
@@ -107,6 +108,7 @@ static void obuf_dtor(struct obuf *ob)
 static void obuf_finalize(value custom)
 {
     struct obuf *ob = Data_custom_val(custom);
+//    fprintf(stderr, "Finalize obuf while buf=%p and next=%u\n", ob->buf, ob->next);
     obuf_dtor(ob);
 }
 
@@ -143,12 +145,12 @@ void obuf_close(value custom)
  */
 
 struct ibuf {
-    uint8_t *next;
-    uint8_t *stop;
+    unsigned next;
+    unsigned stop;
     int fd;
     uint8_t eof:1;
 #   define IBUFLEN 16384
-    uint8_t start[IBUFLEN];
+    uint8_t buf[IBUFLEN];
 };
 
 static int ibuf_ctor(struct ibuf *ib, char const *fname)
@@ -157,7 +159,7 @@ static int ibuf_ctor(struct ibuf *ib, char const *fname)
     if (ib->fd < 0) {
         sys_error("open");
     }
-    ib->next = ib->stop = ib->start;
+    ib->next = ib->stop = 0;
     ib->eof = 0;
     return 0;
 }
@@ -172,17 +174,17 @@ static void ibuf_dtor(struct ibuf *ib)
 static void ibuf_refill(struct ibuf *ib)
 {
     // copy what's left at the beginning
-    memmove(ib->start, ib->next, ib->stop - ib->next);
-    ib->stop -= ib->next - ib->start;
-    ib->next = ib->start;
+    memmove(ib->buf, ib->buf + ib->next, ib->stop - ib->next);
+    ib->stop -= ib->next;
+    ib->next = 0;
     if (! ib->eof) {
         // fill with fd
-        size_t const sz = IBUFLEN - (ib->stop - ib->start);
-        size_t const r = really_read(ib->fd, ib->stop, sz);
+        size_t const sz = IBUFLEN - ib->stop;
+        size_t const r = really_read(ib->fd, ib->buf + ib->stop, sz);
         if (r < sz) ib->eof = 1;
         ib->stop += r;
     }
-    if (ib->stop == ib->start) {
+    if (ib->stop == 0) {
         caml_raise_end_of_file();
     }
 }
@@ -190,9 +192,9 @@ static void ibuf_refill(struct ibuf *ib)
 static void ibuf_make_available(struct ibuf *ib, unsigned sz)
 {
 //    fprintf(stderr, "ibuf_make_available sz=%u\n", sz);
-    if (ib->stop - ib->next >= (ptrdiff_t)sz) return;
+    if (ib->stop - ib->next >= sz) return;
     ibuf_refill(ib);
-    assert(ib->stop - ib->next >= (ptrdiff_t)sz);
+    assert(ib->stop - ib->next >= sz);
 }
 
 static void ibuf_finalize(value custom)
@@ -240,7 +242,7 @@ value read##width(value custom) \
     struct ibuf *ib = Data_custom_val(custom); \
     ibuf_make_available(ib, width/8); \
     uint##width##_t v; \
-    memcpy(&v, ib->next, width/8); \
+    memcpy(&v, ib->buf + ib->next, width/8); \
     ib->next += width/8; \
     CAMLreturn(Val_long(v)); \
 }
@@ -252,7 +254,7 @@ void write##width(value custom, value v_) \
     struct obuf *ob = Data_custom_val(custom); \
     obuf_make_room(ob, width/8); \
     uint##width##_t v = Long_val(v_); /* Won't work on big endian */ \
-    memcpy(ob->next, &v, width/8); \
+    memcpy(ob->buf + ob->next, &v, width/8); \
     ob->next += width/8; \
     CAMLreturn0; \
 }
@@ -265,7 +267,7 @@ value read##width(value custom) \
     struct ibuf *ib = Data_custom_val(custom); \
     ibuf_make_available(ib, width/8); \
     uint##width##_t v; \
-    memcpy(&v, ib->next, width/8); \
+    memcpy(&v, ib->buf + ib->next, width/8); \
     ib->next += width/8; \
     result = caml_copy_int##width(v); \
     CAMLreturn(result); \
@@ -278,7 +280,7 @@ void write##width(value custom, value v_) \
     struct obuf *ob = Data_custom_val(custom); \
     obuf_make_room(ob, width/8); \
     uint##width##_t v = Int##width##_val(v_); \
-    memcpy(ob->next, &v, width/8); \
+    memcpy(ob->buf + ob->next, &v, width/8); \
     ob->next += width/8; \
     CAMLreturn0; \
 }
@@ -302,7 +304,7 @@ value read1(value custom)
     CAMLparam1(custom);
     struct ibuf *ib = Data_custom_val(custom);
     ibuf_make_available(ib, 1);
-    uint8_t v = *ib->next++;
+    uint8_t v = ib->buf[ib->next++];
     CAMLreturn(Val_bool(v));
 }
 
@@ -311,7 +313,7 @@ void write1(value custom, value v)
     CAMLparam2(custom, v);
     struct obuf *ob = Data_custom_val(custom);
     obuf_make_room(ob, 1);
-    *ob->next ++ = Bool_val(v);
+    ob->buf[ob->next ++] = Bool_val(v);
     CAMLreturn0;
 }
 
@@ -322,7 +324,7 @@ value read_varint(value custom)
     unsigned long n = 0;
     while (1) {
         ibuf_make_available(ib, 1);
-        uint8_t const b = *ib->next++;
+        uint8_t const b = ib->buf[ib->next++];
 //        fprintf(stderr, "<varint septet 0x%x ... ", b);
         if (b < 128) {
             n |= b;
@@ -355,9 +357,9 @@ void write_varint(value custom, value v_)
         if (n < 128) {
             // write higher septets first
 //            fprintf(stderr, ">varint septet 0x%x | 0x80/0\n", (uint8_t)(n & 0xff));
-            *ob->next ++ = n | (s ? 128:0);
+            ob->buf[ob->next ++] = n | (s ? 128:0);
             while (s--) {
-                *ob->next ++ = vals[s] | (s ? 128:0);
+                ob->buf[ob->next ++] = vals[s] | (s ? 128:0);
 //                fprintf(stderr, ">varint septet 0x%x | 0x80/0\n", vals[s]);
             }
             break;
@@ -378,7 +380,7 @@ value read_string(value custom, value len_)
     struct ibuf *ib = Data_custom_val(custom);
     ibuf_make_available(ib, len);
     ret = caml_alloc_string(len);
-    memcpy(String_val(ret), ib->next, len);
+    memcpy(String_val(ret), ib->buf + ib->next, len);
     ib->next += len;
     CAMLreturn(ret);
 }
@@ -389,7 +391,7 @@ void write_string(value custom, value s)
     struct obuf *ob = Data_custom_val(custom);
     unsigned const len = caml_string_length(s);
     obuf_make_room(ob, len);
-    memcpy(ob->next, String_val(s), len);
+    memcpy(ob->buf + ob->next, String_val(s), len);
     ob->next += len;
     CAMLreturn0;
 }
