@@ -3,7 +3,6 @@ PKG_NAME = mlrrd
 SOURCES  = \
 	serial.ml \
 	txtInput.ml \
-	binInput.ml \
 	output.ml \
 	datatype.ml \
 	tuple2.ml \

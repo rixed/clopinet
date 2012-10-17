@@ -13,14 +13,6 @@ let main =
             let ic = File.open_in f in
             try forever IO.read_i64 ic
             with _ -> ignore (IO.close_in ic)), "read a whole file as int64s using batteries" ;
-        "-tblread_i64", String (fun f ->
-            let ic = BinInput.open_in f in
-            try forever Datatype.VarInt64.read ic
-            with _ -> ignore (BinInput.close ic)), "read a whole file as int64s" ;
-        "-tblread_int", String (fun f ->
-            let ic = BinInput.open_in f in
-            try forever Datatype.VarInt.read ic
-            with _ -> ignore (BinInput.close ic)), "read a whole file as ints" ;
         "-deser_i64", String (fun f ->
             let open Serial in
             let ic = make_ibuf f in
