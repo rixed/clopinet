@@ -46,6 +46,8 @@ include $(top_srcdir)/make.common
 opt: $(XARCHIVE)
 
 examples: $(ARCHIVE) $(XARCHIVE) $(EXAMPLES)
+$(EXAMPLES_BYTE): $(ARCHIVE) libmlrrd.a
+$(EXAMPLES_OPT): $(XARCHIVE) libmlrrd.a
 
 check.byte: $(ARCHIVE)
 check.opt: $(XARCHIVE)
