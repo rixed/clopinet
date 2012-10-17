@@ -68,6 +68,8 @@ static size_t really_read(int fd, uint8_t *buf, size_t n)
  * Buffered output
  */
 
+/* FIXME: lock opened obufs (cd dbfile.ml), or even better: flush at record boundary */
+
 struct obuf {
     int fd;
     unsigned next;

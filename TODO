@@ -1,11 +1,6 @@
 TODO stack
 ----------
 
-* Get rid of DbFile (ie. fd cache) and reduce number of // writes so that we 
-can keep that many open files (and reduce fragmentation?) While we are at it,
-dbtable hnum modulo should be prime and lightly below 1024 (default max opened 
-files)
-
 * DB for traffic is too big. Packet counts, payloads, etc, should be variable 
 ints (since they are usualy very small)
 

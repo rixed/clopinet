@@ -19,13 +19,14 @@ OBJECTS  = $(SOURCES:.ml=.cmo)
 XOBJECTS = $(OBJECTS:.cmo=.cmx)
 ARCHIVE  = $(PKG_NAME).cma
 XARCHIVE = $(ARCHIVE:.cma=.cmxa)
-CLIB     = lib$(PKG_NAME).a
+CLIBNAME = $(PKG_NAME)
+CLIB     = lib$(CLIBNAME).a
 $(CLIB): $(C_SOURCES:.c=.o)
 	$(AR) rcs $@ $^
 $(ARCHIVE): $(OBJECTS) $(CLIB)
-	$(OCAMLC)   -a -o $@ $(SYNTAX) -package "$(REQUIRES)" -custom -linkpkg $(OCAMLFLAGS) $(OBJECTS) $(CLIB)
+	$(OCAMLC)   -a -o $@ $(SYNTAX) -package "$(REQUIRES)" -custom -linkpkg $(OCAMLFLAGS) $(OBJECTS) -cclib -l$(CLIBNAME)
 $(XARCHIVE): $(XOBJECTS) $(CLIB)
-	$(OCAMLOPT) -a -o $@ $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) $(XOBJECTS) $(CLIB)
+	$(OCAMLOPT) -a -o $@ $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) $(XOBJECTS) -cclib -l$(CLIBNAME)
 install: $(ARCHIVE) $(XARCHIVE)
 	if test -f "$(XARCHIVE)" ; then extra="$(XARCHIVE) "`basename "$(XARCHIVE)" .cmxa`.a ; fi ; \
 	ocamlfind install "$(PKG_NAME)" *.cmi "$(ARCHIVE)" META $(CLIB) $$extra
@@ -38,10 +39,10 @@ endif
 .SUFFIXES: .mll .mly .ml .mli .cmo .cmi .cmx .opt .byte
 
 .cmo.byte:
-	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES)" $(ARCHIVE)  $(EXTRALIBS) -linkpkg $(OCAMLFLAGS) $(CLIB) $^
+	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES) mlrrd" $(EXTRALIBS) -linkpkg $(OCAMLFLAGS) $^
 
 .cmx.opt:
-	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" $(XARCHIVE) $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $(CLIB) $^
+	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES) mlrrd" $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $^
 
 .ml.cmo:
 	$(OCAMLC) $(SYNTAX) -package "$(REQUIRES)" $(OCAMLFLAGS) -c $<

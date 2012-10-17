@@ -1,12 +1,13 @@
 open Bricabrac
 (*
-   We are going to need a lot of file descriptors for writing.
+   We are going to need a lot of file descriptors for writing (both
+   because we hash each table and because we use an arbitraty number
+   of tables.
    So we'd rather share a large (but limited) set of them.
  *)
 
 let fds = Array.make 1000 None
 let free_fds = ref (LStream.range 0 (Array.length fds - 1) |> LStream.to_list)
-let perm = 0o644
 
 let dir tdir hnum =
     Printf.sprintf "%s/%d" tdir hnum
