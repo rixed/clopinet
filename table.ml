@@ -2,7 +2,7 @@ open Bricabrac
 open LargeFile
 
 let max_file_size = 10_000_000
-let max_hash_size = 2048
+let max_hash_size = 1009 (* which is prime *)
 let ncores = ref 1
 
 (* READING
