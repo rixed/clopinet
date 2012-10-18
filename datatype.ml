@@ -283,7 +283,7 @@ end
 module UInteger16 : NUMBER with type t = int =
 struct
     include Integer
-    let name = "int16"
+    let name = "uint16"
     let write = ser16
     let read = deser16
     let checked n = if n < 0 || n >= 65536 then raise Overflow else n
@@ -295,8 +295,8 @@ end
 
 module Integer16 : NUMBER with type t = int =
 struct
-    include Integer
-    let name = "uint16"
+    include UInteger16
+    let name = "int16"
     let read ic =
         let n = deser16 ic in
         if n < 32768 then n else n-65536
