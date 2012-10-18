@@ -3,6 +3,11 @@ open Datatype
 
 let sort_pt (x1, _) (x2, _) = compare x1 x2
 
+let hashtbl_update_with_default d h k f =
+    match Hashtbl.find_option h k with
+    | None -> Hashtbl.add h k d
+    | Some v -> Hashtbl.replace h k (f v)
+
 (* Reduce number of datasets to max_graphs.
  * Returns an array of (label, pts), bigger y max first (apart from
  * others, at the end) *)
@@ -64,16 +69,27 @@ let stacked_area datasets =
         Printf.printf "\n\n")
         datasets
 
+let log = File.open_out ~mode:[`create;`trunc] "/tmp/log"
 
-module TimeGraph (Record : DATATYPE) (Key : DATATYPE) =
+module DataSet (Record : DATATYPE) (Key : DATATYPE) =
 struct
     module Maplot = Finite_map_impl.Finite_map (struct
         type t = Key.t
         let compare = Key.compare
     end)
 
+    (* clip the given y (between t1 and t2) value according to specified time intervals *)
+    let clip_y tmin tmax t1 t2 y =
+        let t1, y =
+            if t1 >= tmin then t1, y
+            else tmin, y -. (Int64.to_float (Int64.div (Int64.sub tmin t1) (Int64.sub t2 t1))) in
+        let t2, y =
+            if t2 <= tmax then t2, y
+            else tmax, y -. (Int64.to_float (Int64.div (Int64.sub t2 tmax) (Int64.sub t2 t1))) in
+        t1, t2, y
+
     (* fold iterate over the database, while extract extract from a row the key, X start, X stop and Y value. *)
-    let plot_continuous ?(max_graphs=10) tmin tmax step fold extract label_of_key =
+    let per_time ?(max_graphs=10) tmin tmax step fold extract label_of_key =
         assert (step > 0L) ;
         (* Fetch min and max available time *)
         let row_of_time t = Int64.div (Int64.sub t tmin) step |> Int64.to_int in
@@ -96,12 +112,7 @@ struct
                 (* clip t1 and t2. beware that [t1;t2] is closed while [tmin;tmax[ is semi-closed *)
                 (* FIXME: use timestamps comparison function, sub, etc..? *)
                 assert (t1 < tmax && t2 >= tmin) ;
-                let t1, y =
-                    if t1 >= tmin then t1, y
-                    else tmin, y -. (Int64.to_float (Int64.div (Int64.sub tmin t1) (Int64.sub t2 t1))) in
-                let t2, y =
-                    if t2 <= tmax then t2, y
-                    else tmax, y -. (Int64.to_float (Int64.div (Int64.sub t2 tmax) (Int64.sub t2 t1))) in
+                let t1, t2, y = clip_y tmin tmax t1 t2 y in
                 let r1 = row_of_time t1
                 and r2 = row_of_time t2 in
                 (*
@@ -139,5 +150,32 @@ struct
 
         (* reduce number of datasets to max_graphs *)
         top_datasets max_graphs datasets nb_steps
+
+    (* Fold iterate over the database, while extract from a row the key and Y value.
+       All Y values with same key are summed. *)
+    let sum ?(max_graphs=10) tmin tmax fold extract label_of_key =
+        let m =
+            fold (fun r m ->
+                let k, t1, t2, y = extract r in
+                (* clip t1 and t2. beware that [t1;t2] is closed while [tmin;tmax[ is semi-closed *)
+                (* FIXME: use timestamps comparison function, sub, etc..? *)
+                assert (t1 < tmax && t2 >= tmin) ;
+                let _, _, y = clip_y tmin tmax t1 t2 y in
+                Maplot.update_with_default y m k ((+.) y))
+                Maplot.empty
+                (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
+                    Maplot.fold_left (fun m k a ->
+                        (* add k->a into m *)
+                        Maplot.update_with_default a m k ((+.) a))
+                        m1 m2) in
+        let dt = (Int64.sub tmax tmin |> Int64.to_float) *. 0.001 in
+        let datasets = Hashtbl.create 71 in
+        (* Build hashtables indexed by label (instead of map indexed by some key), and convert Y into Y per second. *)
+        Maplot.iter m (fun k a ->
+            let label = label_of_key k in
+            (* Note that several keys may map to the same label, thus these precautions *)
+            hashtbl_update_with_default a datasets label ((+.) a)) ;
+        (* Change unit in a second pass to avoid adding small floats to big ones *)
+        Hashtbl.map (fun _k y -> y /. dt) datasets
 
 end

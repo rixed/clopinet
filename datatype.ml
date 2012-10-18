@@ -546,7 +546,7 @@ end)
 module Timestamp =
 struct
     include Datatype_of (struct
-        include UInteger64
+        include UInteger64 (* for number of milliseconds *)
         let name = "timestamp"
         let write_txt oc t =
             UInteger64.write_txt oc (Int64.div t 1000L) ;

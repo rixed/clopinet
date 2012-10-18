@@ -36,7 +36,7 @@ struct
 
     let menu () =
         let html_of_entry e = tag "li" [ tag "a" ~attrs:["href","?action=main/"^e] [cdata e] ]
-        and menu_entries = ["traffic"; "DNS"; "Web"; "logout"] in
+        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "DNS"; "Web"; "logout"] in
         tag ~attrs:["class","menu"] "ul" (List.map html_of_entry menu_entries)
 
     (* add the menu *)
@@ -60,7 +60,7 @@ struct
                       th [ cdata "qtt" ] ] ::
                  all_rows) ]
 
-    let js_of_datasets time_step tmin datasets =
+    let js_of_timesets time_step tmin datasets =
         let datasets = List.rev datasets in (* for some reason the legend is reversed in the graph lib *)
         let nb_xs = List.hd datasets |> snd |> Array.length in
         let js =
@@ -84,6 +84,20 @@ struct
                 ) in
             print_row 0 tmin ;
             Printf.fprintf os " ]\n}\n" ;
+            IO.close_out os in
+        raw js
+
+    let js_of_keydata datasets what =
+        let js =
+            let os = IO.output_string () in
+            Printf.fprintf os "{\ncols: [{label: 'src', type: 'string'},{label: 'dst', type: 'string'},{label: '%s/sec', type: 'number'}],\nrows: %a\n"
+                what
+                (* display the rows *)
+                (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
+                               (fun oc (s, d) -> Printf.fprintf oc "{c:[{v:'%s'},{v:'%s'}" s d)
+                               (fun oc y -> Printf.fprintf oc "{v:%f}]}" y))
+                datasets ;
+            Printf.fprintf os " \n}\n" ;
             IO.close_out os in
         raw js
 end
@@ -202,6 +216,11 @@ struct
                                    let options = [| "src-mac";"dst-mac";"src-ip";"dst-ip";"apps" |] end)
         let name = "group by"
     end
+    module GroupBy2Field = struct
+        module Type = Enum (struct let name = "key"
+                                   let options = [| "mac";"ip";"apps" |] end)
+        let name = "group by"
+    end
     module PlotWhat = struct
         module Type = Enum (struct let name = "y"
                                    let options = [| "packets";"volume" |] end)
@@ -211,21 +230,37 @@ struct
         module Type = OptInteger (struct let min = 1 let max = 100 end)
         let name = "#series"
     end
-    module Traffic = RecordOf (ConsOf (FieldOf (StartField))
-                              (ConsOf (FieldOf (StopField))
-                              (ConsOf (FieldOf (VlanField))
-                              (ConsOf (FieldOf (MacSrcField))
-                              (ConsOf (FieldOf (MacDstField))
-                              (ConsOf (FieldOf (EthProtoField))
-                              (ConsOf (FieldOf (IpSrcField))
-                              (ConsOf (FieldOf (IpDstField))
-                              (ConsOf (FieldOf (IpProtoField))
-                              (ConsOf (FieldOf (TimeStepField))
-                              (ConsOf (FieldOf (TblNameField))
-                              (ConsOf (FieldOf (PlotWhat))
-                              (ConsOf (FieldOf (GroupByField))
-                              (ConsOf (FieldOf (MaxGraphsField))
-                                      (NulType)))))))))))))))
+    module Traffic = struct
+        module Bandwidth = RecordOf (ConsOf (FieldOf (StartField))
+                                    (ConsOf (FieldOf (StopField))
+                                    (ConsOf (FieldOf (VlanField))
+                                    (ConsOf (FieldOf (MacSrcField))
+                                    (ConsOf (FieldOf (MacDstField))
+                                    (ConsOf (FieldOf (EthProtoField))
+                                    (ConsOf (FieldOf (IpSrcField))
+                                    (ConsOf (FieldOf (IpDstField))
+                                    (ConsOf (FieldOf (IpProtoField))
+                                    (ConsOf (FieldOf (TimeStepField))
+                                    (ConsOf (FieldOf (TblNameField))
+                                    (ConsOf (FieldOf (PlotWhat))
+                                    (ConsOf (FieldOf (GroupByField))
+                                    (ConsOf (FieldOf (MaxGraphsField))
+                                            (NulType)))))))))))))))
+        module Peers = RecordOf (ConsOf (FieldOf (StartField))
+                                (ConsOf (FieldOf (StopField))
+                                (ConsOf (FieldOf (VlanField))
+                                (ConsOf (FieldOf (MacSrcField))
+                                (ConsOf (FieldOf (MacDstField))
+                                (ConsOf (FieldOf (EthProtoField))
+                                (ConsOf (FieldOf (IpSrcField))
+                                (ConsOf (FieldOf (IpDstField))
+                                (ConsOf (FieldOf (IpProtoField))
+                                (ConsOf (FieldOf (TblNameField))
+                                (ConsOf (FieldOf (PlotWhat))
+                                (ConsOf (FieldOf (GroupBy2Field))
+                                (ConsOf (FieldOf (MaxGraphsField))
+                                        (NulType))))))))))))))
+    end
 
 end
 
@@ -279,9 +314,9 @@ struct
         include Traffic
         let dbdir = dbdir^"/traffic"
         type search_type = Macs | Ips | App
-        let page args =
-            let filters = Forms.Traffic.from_args "filter" args in
-            let filters_form = form "main/traffic" (Forms.Traffic.edit "filter" filters) in
+        let bandwidth args =
+            let filters = Forms.Traffic.Bandwidth.from_args "filter" args in
+            let filters_form = form "main/traffic/bandwidth" (Forms.Traffic.Bandwidth.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))) ->
                     let time_step = Int64.of_int time_step
@@ -301,9 +336,8 @@ struct
                         [ View.chart_div ;
                           tag "script" ~attrs:["type","text/javascript"]
                             [ Raw "var data = new google.visualization.DataTable(" ;
-                              View.js_of_datasets time_step start datasets ;
+                              View.js_of_timesets time_step start datasets ;
                               Raw (");\n\
-console.log(data);\n\
 var options = {\n\
     title:'Traffic - "^what^" per secs',\n\
     width:'100%',\n\
@@ -317,8 +351,45 @@ chart.draw(data, options);\n") ] ]
                 | _ ->
                     [ cdata "Fill in the form to show the graph" ] in
             View.make_app_page
-                (h1 "Traffic" :: filters_form :: disp_graph)
+                (h1 "Bandwidth" :: filters_form :: disp_graph)
 
+        let peers args =
+            let filters = Forms.Traffic.Peers.from_args "filter" args in
+            let filters_form = form "main/traffic/peers" (Forms.Traffic.Peers.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))) ->
+                    let tblname = Forms.TblNames.options.(tblname)
+                    and what = if what = 0 then PacketCount else Volume in
+                    let datasets = match group_by with
+                        | 0 (* mac *) ->
+                            eth_plot_vol_tot start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
+                        | 1 (* ip *) ->
+                            ip_plot_vol_tot start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
+                        | _ (* apps *) ->
+                            app_plot_vol_tot start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname in
+                    if Hashtbl.is_empty datasets then
+                        [ cdata "No data" ]
+                    else
+                        let units = if what = PacketCount then "Packets" else "Bytes" in
+                        [ View.chart_div ;
+                          tag "script" ~attrs:["type","text/javascript"]
+                            [ Raw "var data = new google.visualization.DataTable(" ;
+                              View.js_of_keydata datasets units ;
+                              Raw (");\n\
+console.log(data);\n\
+var options = {\n\
+    width:'100%',\n\
+    height:600,\n\
+    showRowNumber:true,\n\
+    sortColumn:2,\n\
+    sortAscending:false\n\
+};\n\
+var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
+chart.draw(data, options);\n") ] ]
+                | _ ->
+                    [ cdata "Fill in the form to show the graph" ] in
+            View.make_app_page
+                (h1 "Peers" :: filters_form :: disp_graph)
     end
 
     let ensure_logged runner args =
@@ -343,7 +414,9 @@ let _ =
             Ctrl.ensure_logged Ctrl.main
         | ["main"; "logout"] ->
             Ctrl.logout
-        | ["main";"traffic"] ->
-            Ctrl.ensure_logged Ctrl.Traffic.page
+        | ["main";"traffic";"bandwidth"] ->
+            Ctrl.ensure_logged Ctrl.Traffic.bandwidth
+        | ["main";"traffic";"peers"] ->
+            Ctrl.ensure_logged Ctrl.Traffic.peers
         | _ -> Ctrl.Invalid.run)
 

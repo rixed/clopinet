@@ -1,9 +1,6 @@
 TODO stack
 ----------
 
-* DB for traffic is too big. Packet counts, payloads, etc, should be variable 
-ints (since they are usualy very small)
-
 * An Interval type
 
 * CGI: in traffic filters IPs should be a CIDR not InetAddr.
