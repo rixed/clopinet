@@ -89,7 +89,8 @@ let check_serial () =
         ser_varint obuf 12 ;
         ser_varint obuf ~-5 ;
         ser_varint obuf ~-123456 ;
-        ser_string obuf "glop glop") ;
+        ser_string obuf "glop glop" ;
+        Cidr.write obuf (Cidr.of_string "192.168.1.0/30")) ;
     (* Check we append in the file *)
     with_file_out fname (fun obuf ->
         ser_string obuf "pas glop") ;
@@ -106,6 +107,7 @@ let check_serial () =
         assert (deser_varint ibuf = ~-5) ;
         assert (deser_varint ibuf = ~-123456) ;
         assert (deser_string ibuf 9 = "glop glop") ;
+        assert (Cidr.read ibuf |> Cidr.to_string = "192.168.1.0/30") ;
         assert (deser_string ibuf 8 = "pas glop")) ;
     Unix.unlink fname
 

@@ -17,6 +17,9 @@
 #include "miscmacs.h"
 #include "cpp.h"
 
+//#define DEBUG_OBUF
+//#define DEBUG_IBUF
+
 /*
  * Tools
  */
@@ -27,7 +30,9 @@ static void sys_error(char const *pref)
     CAMLlocal1(str);
     char msg[1024];
     snprintf(msg, sizeof(msg), "%s: %s", pref, strerror(errno));
-    //fprintf(stderr, "!!%s!!\n", msg);
+#   if defined(DEBUG_IBUF) || defined(DEBUG_OBUF)
+    fprintf(stderr, "!!%s!!\n", msg);
+#   endif
     str = caml_copy_string(msg);
     caml_raise_sys_error(str);
     CAMLreturn0;
@@ -100,7 +105,9 @@ static void obuf_make_room(struct obuf *ob, unsigned sz)
 
 static void obuf_dtor(struct obuf *ob)
 {
-//    fprintf(stderr, "Destruct obuf while fd=%d, buf=%p and next=%u\n", ob->fd, ob->buf, ob->next);
+#   ifdef DEBUG_OBUF
+    fprintf(stderr, "Destruct obuf while fd=%d, buf=%p and next=%u\n", ob->fd, ob->buf, ob->next);
+#   endif
     if (ob->fd < 0) return;
     obuf_flush(ob);
     (void)close(ob->fd);
@@ -110,7 +117,9 @@ static void obuf_dtor(struct obuf *ob)
 static void obuf_finalize(value custom)
 {
     struct obuf *ob = Data_custom_val(custom);
-//    fprintf(stderr, "Finalize obuf while buf=%p and next=%u\n", ob->buf, ob->next);
+#   ifdef DEBUG_OBUF
+    fprintf(stderr, "Finalize obuf while buf=%p and next=%u\n", ob->buf, ob->next);
+#   endif
     obuf_dtor(ob);
 }
 
@@ -163,12 +172,18 @@ static int ibuf_ctor(struct ibuf *ib, char const *fname)
     }
     ib->next = ib->stop = 0;
     ib->eof = 0;
+#   ifdef DEBUG_IBUF
+    fprintf(stderr, "open %s -> %d\n", fname, ib->fd);
+#   endif
     return 0;
 }
 
 static void ibuf_dtor(struct ibuf *ib)
 {
     if (ib->fd < 0) return;
+#   ifdef DEBUG_IBUF
+    fprintf(stderr, "close %d\n", ib->fd);
+#   endif
     (void)close(ib->fd);
     ib->fd = -1;
 }
@@ -193,9 +208,11 @@ static void ibuf_refill(struct ibuf *ib)
 
 static void ibuf_make_available(struct ibuf *ib, unsigned sz)
 {
-//    fprintf(stderr, "ibuf_make_available sz=%u\n", sz);
     if (ib->stop - ib->next >= sz) return;
     ibuf_refill(ib);
+#   ifdef DEBUG_IBUF
+    fprintf(stderr, "fd %d, after ibuf_make_available for sz=%u: next=%u, stop=%u, eof=%s\n", ib->fd, sz, ib->next, ib->stop, ib->eof?"y":"n");
+#   endif
     assert(ib->stop - ib->next >= sz);
 }
 
@@ -291,13 +308,8 @@ UNBOXED_READ(8)
 UNBOXED_WRITE(8)
 UNBOXED_READ(16)
 UNBOXED_WRITE(16)
-#if SIZEOF_LONG > 4
-    UNBOXED_READ(32)
-    UNBOXED_WRITE(32)
-#else
-    BOXED_READ(32)
-    BOXED_WRITE(32)
-#endif
+BOXED_READ(32)
+BOXED_WRITE(32)
 BOXED_READ(64)
 BOXED_WRITE(64)
 
@@ -327,7 +339,9 @@ value read_varint(value custom)
     while (1) {
         ibuf_make_available(ib, 1);
         uint8_t const b = ib->buf[ib->next++];
-//        fprintf(stderr, "<varint septet 0x%x ... ", b);
+#       ifdef DEBUG_IBUF
+        fprintf(stderr, "<varint septet 0x%x ... ", b);
+#       endif
         if (b < 128) {
             n |= b;
             break;
@@ -335,11 +349,17 @@ value read_varint(value custom)
             n |= b & 0x7fU;
             n <<= 7;
         }
-//        fprintf(stderr, "n = 0x%lx\n", n);
+#       ifdef DEBUG_IBUF
+        fprintf(stderr, "n = 0x%lx\n", n);
+#       endif
     }
-//    fprintf(stderr, "n+sign = 0x%lx\n", n);
+#   ifdef DEBUG_IBUF
+    fprintf(stderr, "n+sign = 0x%lx\n", n);
+#   endif
     long const nn = n >> 1U; 
-//    fprintf(stderr, "<varint n = 0x%lx\n", n & 1 ? -nn : nn);
+#   ifdef DEBUG_IBUF
+    fprintf(stderr, "<varint n = 0x%lx\n", n & 1 ? -nn : nn);
+#   endif
     CAMLreturn(Val_long(n & 1 ? -nn : nn));
 }
 
@@ -350,24 +370,34 @@ void write_varint(value custom, value v_)
     obuf_make_room(ob, 1+sizeof(long int)); // at worst
     // store abs(v) lsl 1)+sign so that higher bits are 0
     long const v = Long_val(v_);
-//    fprintf(stderr, ">varint 0x%lx\n", v);
+#   ifdef DEBUG_OBUF
+    fprintf(stderr, ">varint 0x%lx\n", v);
+#   endif
     unsigned long n = (labs(v) << 1U) + (v < 0);
-//    fprintf(stderr, ">varint with sign = 0x%lx\n", n);
+#   ifdef DEBUG_OBUF
+    fprintf(stderr, ">varint with sign = 0x%lx\n", n);
+#   endif
     // We serialize higher septets first because then deserialization is faster
     uint8_t vals[(sizeof(n)*8+6)/7];  // we store septets not octets
     for (unsigned s = 0; s < NB_ELEMS(vals); s++) {
         if (n < 128) {
             // write higher septets first
-//            fprintf(stderr, ">varint septet 0x%x | 0x80/0\n", (uint8_t)(n & 0xff));
+#           ifdef DEBUG_OBUF
+            fprintf(stderr, ">varint septet 0x%x | 0x80/0\n", (uint8_t)(n & 0xff));
+#           endif
             ob->buf[ob->next ++] = n | (s ? 128:0);
             while (s--) {
                 ob->buf[ob->next ++] = vals[s] | (s ? 128:0);
-//                fprintf(stderr, ">varint septet 0x%x | 0x80/0\n", vals[s]);
+#               ifdef DEBUG_OBUF
+                fprintf(stderr, ">varint septet 0x%x | 0x80/0\n", vals[s]);
+#               endif
             }
             break;
         } else {
             vals[s] = n & 0x7f;
-//            fprintf(stderr, ">varint storing 0x%x\n", vals[s]);
+#           ifdef DEBUG_OBUF
+            fprintf(stderr, ">varint storing 0x%x\n", vals[s]);
+#           endif
             n >>= 7;
         }
     }
