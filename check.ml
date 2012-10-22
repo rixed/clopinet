@@ -91,6 +91,7 @@ let check_serial () =
         ser_varint obuf ~-123456 ;
         ser_string obuf "glop glop" ;
         Cidr.write obuf (Cidr.of_string "192.168.1.0/30") ;
+        EthAddr.write obuf (EthAddr.of_string "12:fe:34:56:00:0a") ;
         Integer16.write obuf 5) ;
     (* Check we append in the file *)
     with_file_out fname (fun obuf ->
@@ -107,10 +108,11 @@ let check_serial () =
         assert (deser_varint ibuf = 12) ;
         assert (deser_varint ibuf = ~-5) ;
         assert (deser_varint ibuf = ~-123456) ;
-        assert (deser_string ibuf 9 = "glop glop") ;
+        assert (deser_string ibuf = "glop glop") ;
         assert (Cidr.read ibuf |> Cidr.to_string = "192.168.1.0/30") ;
+        assert (EthAddr.read ibuf |> EthAddr.to_string = "12:fe:34:56:00:0a") ;
         assert (Integer16.read ibuf = 5) ;
-        assert (deser_string ibuf 8 = "pas glop")) ;
+        assert (deser_string ibuf = "pas glop")) ;
     Unix.unlink fname
 
 let _ =

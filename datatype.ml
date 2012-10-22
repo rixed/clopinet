@@ -160,13 +160,10 @@ Datatype_of (struct
     let compare = String.compare
     let hash = Hashtbl.hash
     let write oc t =
-        ser_varint oc (String.length t) ;
         ser_string oc t
     let write_txt = Output.string
     let read ic =
-        let len = deser_varint ic in
-        assert (len >= 0) ;
-        deser_string ic len
+        deser_string ic
     let read_txt ic =
         read_txt_until ic "\t\n"
 end)
@@ -509,10 +506,9 @@ Datatype_of (struct
         let c = int_of_char b5 - int_of_char a5 in if c <> 0 then c else
         int_of_char b6 - int_of_char a6
     let hash = Hashtbl.hash
-    let write oc (a,b,c,d,e,f) =
-        int_of_char a |> ser8 oc ; int_of_char b |> ser8 oc ;
-        int_of_char c |> ser8 oc ; int_of_char d |> ser8 oc ;
-        int_of_char e |> ser8 oc ; int_of_char f |> ser8 oc
+    let write oc t =
+        let (a : char array) = Obj.magic t in
+        ser_chars oc a
     let write_txt oc (a,b,c,d,e,f) =
         let byte n =
             let n = Char.code n in
@@ -523,10 +519,8 @@ Datatype_of (struct
         byte_sep c ; byte_sep d ;
         byte_sep e ; byte f
     let read ic =
-        let a = deser8 ic |> char_of_int in let b = deser8 ic |> char_of_int in
-        let c = deser8 ic |> char_of_int in let d = deser8 ic |> char_of_int in
-        let e = deser8 ic |> char_of_int in let f = deser8 ic |> char_of_int in
-        a,b,c,d,e,f
+        let a = deser_chars ic 6 in
+        Obj.magic a
     let read_txt ic =
         let byte () =
             let hi = TxtInput.hexdigit ic in

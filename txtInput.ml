@@ -70,8 +70,10 @@ let hexdigit t =
     let c = read t in
     if c >= '0' && c <= '9' then (
         Char.code c - Char.code '0'
-    ) else (
-        assert (c >= 'a' && c <= 'f') ;
+    ) else if c >= 'a' && c <= 'f' then (
         10 + Char.code c - Char.code 'a'
+    ) else (
+        assert (c >= 'A' && c <= 'F') ;
+        10 + Char.code c - Char.code 'A'
     )
 

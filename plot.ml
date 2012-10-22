@@ -69,8 +69,6 @@ let stacked_area datasets =
         Printf.printf "\n\n")
         datasets
 
-let log = File.open_out ~mode:[`create;`trunc] "/tmp/log"
-
 module DataSet (Record : DATATYPE) (Key : DATATYPE) =
 struct
     module Maplot = Finite_map_impl.Finite_map (struct
@@ -153,7 +151,9 @@ struct
 
     (* Fold iterate over the database, while extract from a row the key and Y value.
        All Y values with same key are summed. *)
+    (* FIXME: extract should be bundled with fold *)
     let sum ?(max_graphs=10) tmin tmax fold extract label_of_key =
+        ignore (max_graphs) ;
         let m =
             fold (fun r m ->
                 let k, t1, t2, y = extract r in
