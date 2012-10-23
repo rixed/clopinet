@@ -16,15 +16,18 @@ let read_meta tdir hnum snum aggr_reader =
     try Some (Serial.with_file_in fname aggr_reader)
     with Sys_error _ -> None
 
-let iter_file tdir hnum snum reader f =
-    let hnum = hnum mod max_hash_size in
-    let fname = Dbfile.path tdir hnum snum in
+let iter_fname fname reader f =
     Serial.with_file_in fname (fun ic ->
         (* TODO: Use posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL) *)
         try forever (fun () ->
             (* TODO: from time to time, call posix_fadvise(fd, 0, current_offset, POSIX_FADV_DONTNEED) *)
             f (reader ic)) ()
         with End_of_file -> ())
+
+let iter_file tdir hnum snum reader f =
+    let hnum = hnum mod max_hash_size in
+    let fname = Dbfile.path tdir hnum snum in
+    iter_fname fname reader f
 
 let iter_snums tdir hnum aggr_reader f =
     let hnum = hnum mod max_hash_size in

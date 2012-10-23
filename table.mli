@@ -7,6 +7,8 @@ val max_hash_size : int
 
 val ncores : int ref
 
+val iter_fname : string -> (Serial.ibuf -> 'a) -> ('a -> unit) -> unit
+
 val iter_file : string -> int -> int -> (Serial.ibuf -> 'a) -> ('a -> unit) -> unit
 
 (* f is called with snum and the optional meta data *)

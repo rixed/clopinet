@@ -52,6 +52,9 @@ struct
             hash_on_src write
             meta_aggr meta_read meta_write
 
+    let iter_fname fname f =
+        Table.iter_fname fname read f
+
     (* TODO: filters on ports *)
     let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name f =
         let tdir = table_name dbdir name in
