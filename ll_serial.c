@@ -90,9 +90,6 @@ static void obuf_ctor(struct obuf *ob, char const *fname)
 #   ifndef O_LARGEFILE
 #       define O_LARGEFILE 0
 #   endif
-#   ifndef O_NOATIME
-#       define O_NOATIME 0
-#   endif
     ob->fd = open(fname, O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC|O_LARGEFILE, 0644);
     if (ob->fd < 0) {
         sys_error("open");
@@ -175,8 +172,9 @@ struct ibuf {
 
 static int ibuf_ctor(struct ibuf *ib, char const *fname)
 {
-    ib->fd = open(fname, O_RDONLY|O_CLOEXEC|O_LARGEFILE|O_NOATIME, 0644);
+    ib->fd = open(fname, O_RDONLY|O_CLOEXEC|O_LARGEFILE);
     if (ib->fd < 0) {
+        fprintf(stderr, "Cannot open %s: %s\n", fname, strerror(errno));
         sys_error("open");
     }
     ib->next = ib->stop = 0;
