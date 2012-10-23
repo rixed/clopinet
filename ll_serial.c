@@ -435,8 +435,9 @@ value wrap_read_string(value custom)
     CAMLlocal1(ret);
     struct ibuf *ib = Data_custom_val(custom);
     unsigned len = read_varuint(ib);
+    ret = caml_alloc_string(len);   // warning: GC might now move custom!
+    ib = Data_custom_val(custom);
     ibuf_make_available(ib, len);
-    ret = caml_alloc_string(len);
     memcpy(String_val(ret), ib->buf + ib->next, len);
     ib->next += len;
     CAMLreturn(ret);
@@ -459,9 +460,9 @@ value wrap_read_chars(value custom, value len_)
 {
     CAMLparam2(custom, len_);
     CAMLlocal1(ret);
-    struct ibuf *ib = Data_custom_val(custom);
     unsigned len = Long_val(len_);
     ret = caml_alloc_tuple(len);
+    struct ibuf *ib = Data_custom_val(custom);
     ibuf_make_available(ib, len);
     for (unsigned i = 0; i < len; i ++) {
         Store_field(ret, i, Val_int(ib->buf[ib->next++]));
