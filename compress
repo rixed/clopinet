@@ -7,7 +7,7 @@ if test -z "$dbdir" ; then
 	exit 1
 fi
 
-find "$dbdir" -type f -name '[0-9]' |
+find "$dbdir" -type f -name '*[0-9]' |
 	while read p ; do
 		f=$(basename "$p")
 		d=$(dirname "$p")

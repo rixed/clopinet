@@ -10,7 +10,7 @@ override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -inline 50 -S
 override OCAMLFLAGS    += $(INCS) -w Ael -g -annot
 CAMLINCLUDE = $(shell ocamlfind printconf stdlib)
 override CPPFLAGS      += -I $(CAMLINCLUDE) -I . -D_GNU_SOURCE
-override CFLAGS        += -std=c99 -W -Wall
+override CFLAGS        += -O2 -std=c99 -W -Wall
 
 .PHONY: opt clean clean-spec install uninstall reinstall doc clear dep
 
