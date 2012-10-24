@@ -76,17 +76,22 @@ struct
                            check mac_src   (fun mac   -> EthAddr.equal mac mac_s) &&
                            check mac_dst   (fun mac   -> EthAddr.equal mac mac_d) &&
                            check eth_proto (fun proto -> proto = mac_prot) &&
-                           check ip_src    (fun ip    -> InetAddr.equal ip ip_s) &&
-                           check ip_dst    (fun ip    -> InetAddr.equal ip ip_d) &&
+                           check ip_src    (fun cidr  -> in_cidr ip_s cidr) &&
+                           check ip_dst    (fun cidr  -> in_cidr ip_d cidr) &&
                            check ip_proto  (fun proto -> proto = ip_prot) &&
                            check vlan      (fun vlan  -> vl = Some vlan) then   (* FIXME: we have no way to filter on unset vlan only *)
                            f x))) in
         match ip_src with
-        | Some ip ->
+        | Some cidr when subnet_size cidr < Table.max_hash_size ->
+            if !verbose then Printf.fprintf stderr "Using index\n" ;
             (* We have an index for this! Build the list of hnums *)
-            let hnum = InetAddr.hash ip mod Table.max_hash_size in
-            if !verbose then Printf.fprintf stderr "Using index %d\n" hnum ;
-            iter_hnum hnum
+            let visited = Hashtbl.create 977 in
+            iter_ips cidr (fun ip ->
+                let hnum = InetAddr.hash ip mod Table.max_hash_size in
+                if not (Hashtbl.mem visited hnum) then (
+                    Hashtbl.add visited hnum true ;
+                    iter_hnum hnum
+                ))
         | _ ->
             Table.iter_hnums tdir iter_hnum
 
@@ -121,8 +126,8 @@ struct
                                check mac_src   (fun mac   -> EthAddr.equal mac mac_s) &&
                                check mac_dst   (fun mac   -> EthAddr.equal mac mac_d) &&
                                check eth_proto (fun proto -> proto = mac_prot) &&
-                               check ip_src    (fun ip    -> InetAddr.equal ip ip_s) &&
-                               check ip_dst    (fun ip    -> InetAddr.equal ip ip_d) &&
+                               check ip_src    (fun cidr  -> in_cidr ip_s cidr) &&
+                               check ip_dst    (fun cidr  -> in_cidr ip_d cidr) &&
                                check ip_proto  (fun proto -> proto = ip_prot) &&
                                check vlan      (fun vlan  -> vl = Some vlan) then
                                f x prev
@@ -134,11 +139,18 @@ struct
                 res)
                 fst merge in
         match ip_src with
-        | Some ip ->
+        | Some cidr when subnet_size cidr < Table.max_hash_size ->
+            if !verbose then Printf.fprintf stderr "Using index\n" ;
             (* We have an index for this! Build the list of hnums *)
-            let hnum = InetAddr.hash ip mod Table.max_hash_size in
-            if !verbose then Printf.fprintf stderr "Using index %d\n" hnum ;
-            fold_hnum hnum fst
+            let visited = Hashtbl.create 977 in
+            fold_ips cidr (fun ip p ->
+                let hnum = InetAddr.hash ip mod Table.max_hash_size in
+                if Hashtbl.mem visited hnum then (
+                    p
+                ) else (
+                    Hashtbl.add visited hnum true ;
+                    fold_hnum hnum p
+                )) fst
         | _ ->
             Table.fold_hnums tdir fold_hnum fst merge
 end

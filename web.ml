@@ -37,7 +37,18 @@ module BoundsTS = Tuple2.Make (Timestamp) (Timestamp)
 
 module Web =
 struct
-    include Altern1 (Tuple12.Make (Option (Integer16)) (EthAddr) (Cidr) (EthAddr) (InetAddr) (Integer16) (Integer8) (Integer16) (Timestamp) (Distribution) (Text) (Text))
+    include Altern1 (Tuple12.Make (Option (Integer16))  (* VLAN *)
+                                  (EthAddr)             (* client MAC *)
+                                  (Cidr)                (* client IP *)
+                                  (EthAddr)             (* server MAC *)
+                                  (InetAddr)            (* server IP *)
+                                  (Integer16)           (* server port *)
+                                  (Integer8)            (* query method *)
+                                  (Integer16)           (* error code *)
+                                  (Timestamp)           (* start *)
+                                  (Distribution)        (* duration, aka count, min, max, avg, sigma (See distribumtion.ml) *)
+                                  (Text)                (* host *)
+                                  (Text)                (* URL *))
     (* We hash on the server IP *)
     let hash_on_srv (_vlan, _clte, _clt, _srve, srv, _srvp, _method, _err, _ts, _rt, _host, _url) =
         InetAddr.hash srv
@@ -53,7 +64,7 @@ struct
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual queries *)
-    let dump ?start ?stop ?client ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir name f =
+    let iter ?start ?stop ?client ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir name f =
         let tdir = table_name dbdir name in
         let starts_with e s =
             if String.length e > String.length s then false else
@@ -201,7 +212,7 @@ let main =
         "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
         "-verbose", Set verbose, "verbose" ;
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
-        "-dump", String (function tbname -> Web.(dump ?start:!start ?stop:!stop ?rt_min:!rt_min
+        "-dump", String (function tbname -> Web.(iter ?start:!start ?stop:!stop ?rt_min:!rt_min
                                                       ?client:!client ?server:!server ?peer:!peer
                                                       ?meth:!meth ?host:!host
                                                       ?url:!url ?status:!status !dbdir tbname

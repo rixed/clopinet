@@ -210,11 +210,11 @@ struct
         let name = "eth-proto"
     end
     module IpSrcField = struct
-        module Type = OptInputOfDatatype(InetAddr)
+        module Type = OptInputOfDatatype(Cidr)
         let name = "ip-src"
     end
     module IpDstField = struct
-        module Type = OptInputOfDatatype(InetAddr)
+        module Type = OptInputOfDatatype(Cidr)
         let name = "ip-dst"
     end
     module IpProtoField = struct

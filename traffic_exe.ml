@@ -26,7 +26,7 @@ let main =
         "-ip-proto", String (fun s -> ip_proto := Some (Integer16.of_string s)), "select only queries with this IP protocol" ;
         "-mac-src", String (fun s -> mac_src := Some (EthAddr.of_string s)), "limit to these sources" ;
         "-mac-dst", String (fun s -> mac_dst := Some (EthAddr.of_string s)), "limit to these dests" ;
-        "-ip-src", String (fun s -> ip_src := Some (InetAddr.of_string s)), "limit to these sources" ;
-        "-ip-dst", String (fun s -> ip_dst := Some (InetAddr.of_string s)), "limit to these dests" ]
+        "-ip-src", String (fun s -> ip_src := Some (Cidr.of_string s)), "limit to these sources" ;
+        "-ip-dst", String (fun s -> ip_dst := Some (Cidr.of_string s)), "limit to these dests" ]
         (fun x -> raise (Bad x))
         "Operate the traffic DB")

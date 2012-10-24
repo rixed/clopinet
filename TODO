@@ -3,8 +3,6 @@ TODO stack
 
 * An Interval type
 
-* CGI: in traffic filters IPs should be a CIDR not InetAddr.
-
 * It would be nice if any reasonably widespread date format were 
 understood by Timestamp.read_txt. Or provide a helper function (for better
 performances)
