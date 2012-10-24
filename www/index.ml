@@ -36,7 +36,7 @@ struct
 
     let menu () =
         let html_of_entry e = tag "li" [ tag "a" ~attrs:["href","?action=main/"^e] [cdata e] ]
-        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "DNS"; "Web"; "logout"] in
+        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "DNS"; "Web"; "logout"] in
         tag ~attrs:["class","menu"] "ul" (List.map html_of_entry menu_entries)
 
     (* add the menu *)
@@ -87,11 +87,25 @@ struct
             IO.close_out os in
         raw js
 
-    let js_of_keydata datasets what =
+    let js_of_single_keyed_data lab datasets what =
         let js =
             let os = IO.output_string () in
-            Printf.fprintf os "{\ncols: [{label: 'src', type: 'string'},{label: 'dst', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
-                what
+            Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
+                lab what
+                (* display the rows *)
+                (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
+                               (fun oc s -> Printf.fprintf oc "{c:[{v:'%s'}" s)
+                               (fun oc y -> Printf.fprintf oc "{v:%f}]}" y))
+                datasets ;
+            Printf.fprintf os " \n}\n" ;
+            IO.close_out os in
+        raw js
+
+    let js_of_double_keyed_data lab1 lab2 datasets what =
+        let js =
+            let os = IO.output_string () in
+            Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
+                lab1 lab2 what
                 (* display the rows *)
                 (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
                                (fun oc (s, d) -> Printf.fprintf oc "{c:[{v:'%s'},{v:'%s'}" s d)
@@ -224,9 +238,14 @@ struct
                                    let options = [| "src-mac";"dst-mac";"src-ip";"dst-ip";"apps" |] end)
         let name = "group by"
     end
-    module GroupBy2Field = struct
+    module GroupByPeerField = struct
         module Type = Enum (struct let name = "key"
-                                   let options = [| "mac";"ip";"apps" |] end)
+                                   let options = [| "mac";"ip" |] end)
+        let name = "group by"
+    end
+    module GroupByTopField = struct
+        module Type = Enum (struct let name = "key"
+                                   let options = [| "src-mac";"dst-mac";"mac (both)";"src-ip";"dst-ip";"ip (both)";"app" |] end)
         let name = "group by"
     end
     module PlotWhat = struct
@@ -265,9 +284,23 @@ struct
                                 (ConsOf (FieldOf (IpProtoField))
                                 (ConsOf (FieldOf (TblNameField))
                                 (ConsOf (FieldOf (PlotWhat))
-                                (ConsOf (FieldOf (GroupBy2Field))
+                                (ConsOf (FieldOf (GroupByPeerField))
                                 (ConsOf (FieldOf (MaxGraphsField))
                                         (NulType))))))))))))))
+        module Tops = RecordOf (ConsOf (FieldOf (OptStartField))
+                               (ConsOf (FieldOf (OptStopField))
+                               (ConsOf (FieldOf (VlanField))
+                               (ConsOf (FieldOf (MacSrcField))
+                               (ConsOf (FieldOf (MacDstField))
+                               (ConsOf (FieldOf (EthProtoField))
+                               (ConsOf (FieldOf (IpSrcField))
+                               (ConsOf (FieldOf (IpDstField))
+                               (ConsOf (FieldOf (IpProtoField))
+                               (ConsOf (FieldOf (TblNameField))
+                               (ConsOf (FieldOf (PlotWhat))
+                               (ConsOf (FieldOf (GroupByTopField))
+                               (ConsOf (FieldOf (MaxGraphsField))
+                                       (NulType))))))))))))))
     end
 
 end
@@ -371,10 +404,8 @@ chart.draw(data, options);\n") ] ]
                     let datasets = match group_by with
                         | 0 (* mac *) ->
                             eth_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
-                        | 1 (* ip *) ->
-                            ip_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
-                        | _ (* apps *) ->
-                            app_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname in
+                        | _ (* ip *) ->
+                            ip_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname in
                     if Hashtbl.is_empty datasets then
                         [ cdata "No data" ]
                     else
@@ -382,7 +413,7 @@ chart.draw(data, options);\n") ] ]
                         [ View.chart_div ;
                           tag "script" ~attrs:["type","text/javascript"]
                             [ Raw "var data = new google.visualization.DataTable(" ;
-                              View.js_of_keydata datasets units ;
+                              View.js_of_double_keyed_data "src" "dst" datasets units ;
                               Raw (");\n\
 console.log(data);\n\
 var options = {\n\
@@ -398,6 +429,52 @@ chart.draw(data, options);\n") ] ]
                     [ cdata "Fill in the form above" ] in
             View.make_app_page
                 (h1 "Peers" :: filters_form :: disp_graph)
+
+        let tops args =
+            let filters = Forms.Traffic.Tops.from_args "filter" args in
+            let filters_form = form "main/traffic/tops" (Forms.Traffic.Tops.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))) ->
+                    let tblname = Forms.TblNames.options.(tblname)
+                    and what = if what = 0 then PacketCount else Volume in
+                    let key, datasets = match group_by with
+                        | 0 (* src-mac *) ->
+                            "src mac", eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs true what dbdir tblname
+                        | 1 (* dst-mac *) ->
+                            "dst mac", eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs false what dbdir tblname
+                        | 2 (* mac (both) *) ->
+                            "mac (both)", eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
+                        | 3 (* src-ip *) ->
+                            "src IP", ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs true what dbdir tblname
+                        | 4 (* dst-ip *) ->
+                            "dst IP", ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs false what dbdir tblname
+                        | 5 (* ip (both) *) ->
+                            "IP (both)", ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
+                        | _ (* app *) ->
+                            "Port", app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname in
+
+                    if Hashtbl.is_empty datasets then
+                        [ cdata "No data" ]
+                    else
+                        let units = if what = PacketCount then "Packets" else "Bytes" in
+                        [ View.chart_div ;
+                          tag "script" ~attrs:["type","text/javascript"]
+                            [ Raw "var data = new google.visualization.DataTable(" ;
+                              View.js_of_single_keyed_data key datasets units ;
+                              Raw (");\n\
+console.log(data);\n\
+var options = {\n\
+    showRowNumber:true,\n\
+    sortColumn:1,\n\
+    sortAscending:false\n\
+};\n\
+var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
+chart.draw(data, options);\n") ] ]
+                | _ ->
+                    [ cdata "Fill in the form above" ] in
+            View.make_app_page
+                (h1 "Tops" :: filters_form :: disp_graph)
+
     end
 
     let ensure_logged runner args =
@@ -411,6 +488,7 @@ chart.draw(data, options);\n") ] ]
                 View.add_err "Bad login" ;
                 login args
             )
+
 end
 
 let _ =
@@ -426,5 +504,7 @@ let _ =
             Ctrl.ensure_logged Ctrl.Traffic.bandwidth
         | ["main";"traffic";"peers"] ->
             Ctrl.ensure_logged Ctrl.Traffic.peers
+        | ["main";"traffic";"tops"] ->
+            Ctrl.ensure_logged Ctrl.Traffic.tops
         | _ -> Ctrl.Invalid.run)
 
