@@ -6,6 +6,6 @@ make index.opt
 
 export REQUEST_METHOD="GET"
 export HTTP_COOKIE="password=secret; login=admin"
-export QUERY_STRING="action=main%2Ftraffic%2Fpeers&filter%2Fstart=&filter%2Fstop=&filter%2Fvlan=&filter%2Feth-src=&filter%2Feth-dest=&filter%2Feth-proto=&filter%2Fip-src=&filter%2Fip-dst=&filter%2Fip-proto=&filter%2Fdb-table=30secs&filter%2FY=volume&filter%2Fgroup+by=ip&filter%2F%23series=20"
+export QUERY_STRING="action=main%2Fweb%2Fresptime&filter%2Fstart=1323765980.000&filter%2Fstop=1323767200.000&filter%2Fvlan=&filter%2Feth-src=&filter%2Feth-dest=&filter%2Fip-src=&filter%2Fip-dst=&filter%2Ftime+step+(ms)=30000&filter%2Fdb-table=queries&filter%2Fgroup+by=dst-ip&filter%2F%23series=16&filter%2Fmin+trx="
 
 ./index.opt

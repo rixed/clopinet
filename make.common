@@ -72,7 +72,10 @@ clean: clean-spec
 ifdef C_SOURCES
 	$(CC) -M $(CPPFLAGS) $(C_SOURCES) >> $@
 endif
-dep: .depend
+
+dep:
+	@rm -f .depend
+	$(MAKE) .depend
 
 doc: $(SOURCES)
 	mkdir -p $@

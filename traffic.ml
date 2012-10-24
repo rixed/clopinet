@@ -55,46 +55,6 @@ struct
     let iter_fname fname f =
         Table.iter_fname fname read f
 
-    (* TODO: filters on ports *)
-    let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name f =
-        let tdir = table_name dbdir name in
-        let check vopt f = match vopt with
-            | None -> true
-            | Some v -> f v in
-        let iter_hnum hnum =
-            Table.iter_snums tdir hnum meta_read (fun snum bounds ->
-                let cmp = Timestamp.compare in
-                let scan_it = match bounds with
-                    | None -> true
-                    | Some (ts1, ts2) ->
-                        check start (fun start -> cmp ts2 start >= 0) &&
-                        check stop  (fun stop  -> cmp stop ts1 > 0) in
-                if scan_it then (
-                    Table.iter_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, _, _, _) as x) ->
-                        if check start     (fun start -> cmp ts2 start >= 0) &&
-                           check stop      (fun stop  -> cmp stop ts1 > 0) &&
-                           check mac_src   (fun mac   -> EthAddr.equal mac mac_s) &&
-                           check mac_dst   (fun mac   -> EthAddr.equal mac mac_d) &&
-                           check eth_proto (fun proto -> proto = mac_prot) &&
-                           check ip_src    (fun cidr  -> in_cidr ip_s cidr) &&
-                           check ip_dst    (fun cidr  -> in_cidr ip_d cidr) &&
-                           check ip_proto  (fun proto -> proto = ip_prot) &&
-                           check vlan      (fun vlan  -> vl = Some vlan) then   (* FIXME: we have no way to filter on unset vlan only *)
-                           f x))) in
-        match ip_src with
-        | Some cidr when subnet_size cidr < Table.max_hash_size ->
-            if !verbose then Printf.fprintf stderr "Using index\n" ;
-            (* We have an index for this! Build the list of hnums *)
-            let visited = Hashtbl.create 977 in
-            iter_ips cidr (fun ip ->
-                let hnum = InetAddr.hash ip mod Table.max_hash_size in
-                if not (Hashtbl.mem visited hnum) then (
-                    Hashtbl.add visited hnum true ;
-                    iter_hnum hnum
-                ))
-        | _ ->
-            Table.iter_hnums tdir iter_hnum
-
     let accum_pkts ((count, eth_pld, mtu, ip_pld, l4_pld) as v) = function
         | None -> v
         | Some (count', eth_pld', mtu', ip_pld', l4_pld') ->
@@ -104,8 +64,9 @@ struct
             ip_pld + ip_pld',
             l4_pld + l4_pld'
 
-    (* we look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
-    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name f fst merge =
+    (* TODO: filters on ports *)
+    (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
+    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name f fst copy merge =
         let tdir = table_name dbdir name in
         let check vopt f = match vopt with
             | None -> true
@@ -152,7 +113,12 @@ struct
                     fold_hnum hnum p
                 )) fst
         | _ ->
-            Table.fold_hnums tdir fold_hnum fst merge
+            Table.fold_hnums tdir fold_hnum fst copy merge
+
+    let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name f =
+        let dummy_merge _ _ = () in
+        fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name (fun x _ -> f x) () ignore dummy_merge
+
 end
 
 module EthKey = Tuple2.Make (Option (UInteger16)) (EthAddr) (* Eth vlan, source/dest *)
@@ -188,14 +154,14 @@ let eth_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?i
     let label_of_key (vlan, mac_src, mac_dst) =
         label_of_eth_key (vlan, mac_src),
         label_of_eth_key (vlan, mac_dst) in
-    let fold f i m =
+    let fold f i c m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name
             (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
                 let y = float_of_int (if what = PacketCount then count else mac_pld) in
                 let _, _, y = Plot.clip_y ?start ?stop t1 t2 y in
                 let k = vlan, mac_src, mac_dst in
                 f (k, y) p)
-            i m
+            i c m
         in
     assert (max_graphs > 1) ;
     Printf.fprintf stderr "Pass 1...\n%!" ;
@@ -215,14 +181,14 @@ let eth_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?i
 
 (* Returns traffic per pair of MACs *)
 let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?(max_graphs=20) by_src what dbdir name =
-    let fold f i m =
+    let fold f i c m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name
             (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
                 let y = float_of_int (if what = PacketCount then count else mac_pld) in
                 let _, _, y = Plot.clip_y ?start ?stop t1 t2 y in
                 let k = vlan, if by_src then mac_src else mac_dst in
                 f (k, y) p)
-            i m
+            i c m
         in
     assert (max_graphs > 1) ;
     let interm = EthPld.FindSignificant.pass1 fold (max_graphs-1) in
@@ -239,14 +205,14 @@ let eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_sr
     let label_of_key (vlan, mac_src, mac_dst) =
         label_of_eth_key (vlan, mac_src) ^"\\u2192"^
         EthAddr.to_string mac_dst in
-    let fold f i m =
+    let fold f i c m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name
             (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
                 let y = float_of_int (if what = PacketCount then count else mac_pld) in
                 let _, _, y = Plot.clip_y ?start ?stop t1 t2 y in
                 let k = vlan, mac_src, mac_dst in
                 f (k, y) p)
-            i m
+            i c m
         in
     assert (max_graphs > 1) ;
     let interm = EthPld2.FindSignificant.pass1 fold (max_graphs-1) in
@@ -285,14 +251,14 @@ let ip_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     let label_of_key (ip_src, ip_dst) =
         InetAddr.to_string ip_src,
         InetAddr.to_string ip_dst in
-    let fold f i m =
+    let fold f i c m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name
             (fun (t1, t2, count, _, _, _, _, mac_pld, _, src, dst, _, _, _, _, _) p ->
                 let y = float_of_int (if what = PacketCount then count else mac_pld) in
                 let _, _, y = Plot.clip_y ?start ?stop t1 t2 y in
                 let k = src, dst in
                 f (k, y) p)
-            i m
+            i c m
         in
     assert (max_graphs > 1) ;
     Printf.fprintf stderr "Pass 1...\n%!" ;
@@ -311,14 +277,14 @@ let ip_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     h
 
 let ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?(max_graphs=20) by_src what dbdir name =
-    let fold f i m =
+    let fold f i c m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name
             (fun (t1, t2, count, _, _, _, _, mac_pld, _, src, dst, _, _, _, _, _) p ->
                 let y = float_of_int (if what = PacketCount then count else mac_pld) in
                 let _, _, y = Plot.clip_y ?start ?stop t1 t2 y in
                 let k = if by_src then src else dst in
                 f (k, y) p)
-            i m
+            i c m
         in
     assert (max_graphs > 1) ;
     let interm = IPPld.FindSignificant.pass1 fold (max_graphs-1) in
@@ -334,14 +300,14 @@ let ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src
     let label_of_key (ip_src, ip_dst) =
         InetAddr.to_string ip_src ^"\\u2192"^
         InetAddr.to_string ip_dst in
-    let fold f i m =
+    let fold f i c m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name
             (fun (t1, t2, count, _, _, _, _, mac_pld, _, src, dst, _, _, _, _, _) p ->
                 let y = float_of_int (if what = PacketCount then count else mac_pld) in
                 let _, _, y = Plot.clip_y ?start ?stop t1 t2 y in
                 let k = src, dst in
                 f (k, y) p)
-            i m
+            i c m
         in
     assert (max_graphs > 1) ;
     let interm = IPPld2.FindSignificant.pass1 fold (max_graphs-1) in
@@ -374,14 +340,14 @@ let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     AppPld.per_time ?max_graphs start stop step fold extract label_of_app_key
 
 let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?(max_graphs=10) what dbdir name =
-    let fold f i m =
+    let fold f i c m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto dbdir name
             (fun (t1, t2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) p ->
                 let y = float_of_int (if what = PacketCount then count else mac_pld) in
                 let _, _, y = Plot.clip_y ?start ?stop t1 t2 y in
                 let k = (proto, min p1 p2) in
                 f (k, y) p)
-            i m
+            i c m
         in
     assert (max_graphs > 1) ;
     let interm = AppPld.FindSignificant.pass1 fold (max_graphs-1) in

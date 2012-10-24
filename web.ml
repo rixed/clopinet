@@ -64,7 +64,8 @@ struct
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual queries *)
-    let iter ?start ?stop ?client ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir name f =
+    (* Add min_count *)
+    let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min ?rt_max dbdir name f fst copy merge =
         let tdir = table_name dbdir name in
         let starts_with e s =
             if String.length e > String.length s then false else
@@ -80,42 +81,71 @@ struct
         let check vopt f = match vopt with
             | None -> true
             | Some v -> f v in
-        let iter_hnum hnum =
-            Table.iter_snums tdir hnum meta_read (fun snum bounds ->
+        let fold_hnum hnum fst =
+            Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let cmp = Timestamp.compare in
                 let scan_it = match bounds with
                     | None -> true
                     | Some (ts1, ts2) ->
                         check start (fun start -> not (cmp ts2 start < 0)) &&
                         check stop  (fun stop  -> not (cmp stop ts1 < 0)) in
-                if scan_it then (
-                    Table.iter_file tdir hnum snum read (fun ((_vlan, _clte, clt, _srve, srv, _srvp, met, err, ts, rt, h, u) as x) ->
-                        if check start  (fun start -> not (cmp ts start < 0)) &&
-                           check stop   (fun stop  -> not (cmp stop ts < 0)) &&
-                           check rt_min (fun rt_m  -> let _c, _mi,ma,_avg,_std = rt in ma > rt_m) &&
-                           check client (fun cidr  -> inter_cidr clt cidr) &&
-                           check server (fun cidr  -> in_cidr srv cidr) &&
-                           check peer   (fun cidr  -> in_cidr srv cidr || inter_cidr clt cidr) &&
-                           check meth   (fun meth  -> meth = met) &&
-                           check status (fun st    -> st = err) &&
-                           check host   (fun host  -> ends_with host h) &&
-                           check url    (fun url   -> starts_with url u) then
-                           f x))) in
+                let res =
+                    if scan_it then (
+                        Table.fold_file tdir hnum snum read (fun ((vl, clte, clt, srve, srv, _srvp, met, err, ts, rt, h, u) as x) prev ->
+                            if check start   (fun start -> not (cmp ts start < 0)) &&
+                               check stop    (fun stop  -> not (cmp stop ts < 0)) &&
+                               check rt_min  (fun rt_m  -> let _c, _mi,ma,_avg,_std = rt in ma > rt_m) &&
+                               check rt_max  (fun rt_m  -> let _c, mi,_ma,_avg,_std = rt in mi < rt_m) &&
+                               check client  (fun cidr  -> inter_cidr clt cidr) &&
+                               check server  (fun cidr  -> in_cidr srv cidr) &&
+                               check mac_clt (fun mac   -> EthAddr.equal mac clte) &&
+                               check mac_srv (fun mac   -> EthAddr.equal mac srve) &&
+                               check peer    (fun cidr  -> in_cidr srv cidr || inter_cidr clt cidr) &&
+                               check meth    (fun meth  -> meth = met) &&
+                               check status  (fun st    -> st = err) &&
+                               check host    (fun host  -> ends_with host h) &&
+                               check url     (fun url   -> starts_with url u) &&
+                               check vlan    (fun vlan  -> vl = Some vlan) then
+                               f x prev
+                            else prev)
+                            prev
+                    ) else (
+                        prev
+                    ) in
+                res)
+                fst merge in
         match server with
         | Some cidr when subnet_size cidr < Table.max_hash_size ->
             if !verbose then Printf.fprintf stderr "Using index\n" ;
             (* We have an index for this! Build the list of hnums *)
             let visited = Hashtbl.create 977 in
-            iter_ips cidr (fun ip ->
+            fold_ips cidr (fun ip p ->
                 let hnum = InetAddr.hash ip mod Table.max_hash_size in
-                if not (Hashtbl.mem visited hnum) then (
+                if Hashtbl.mem visited hnum then (
+                    p
+                ) else (
                     Hashtbl.add visited hnum true ;
-                    iter_hnum hnum
-                ))
+                    fold_hnum hnum p
+                )) fst
         | _ ->
-            Table.iter_hnums tdir iter_hnum
+            Table.fold_hnums tdir fold_hnum fst copy merge
 
+    let iter ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir name f =
+        let dummy_merge _ _ = () in
+        fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir name (fun x _ -> f x) () ignore dummy_merge
 end
+
+(* FIXME: we do not actualy use EthKey, since we do not use the Maplot in EthRT... *)
+module EthKey = Tuple2.Make (Option (UInteger16)) (EthAddr) (* Eth vlan, source/dest *)
+module EthRT = Plot.DataSet (Web) (EthKey)
+
+let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max step dbdir name =
+    let fold f i c m =
+        Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max dbdir name
+            (fun (_vlan, _mac_clt, _clt, _mac_srv, _srv, _srvp, _met, _err, ts, rt, _h, _u) p ->
+                f ts rt p)
+            i c m in
+    EthRT.per_date start stop step fold
 
 (* Lod1: degraded client, rounded query_date (to 1min), stripped url, distribution of resptimes *)
 (* Lod2: round timestamp to 10 mins *)
@@ -199,34 +229,4 @@ let load dbdir create fname =
                 Printf.fprintf stderr "Error at line %d\n" !lineno ;
                 raise e)) ()
         flush_all ()
-
-
-let main =
-    let dbdir = ref "./" and start = ref None and stop = ref None
-    and rt_min = ref None and url = ref None and status = ref None
-    and client = ref None and server = ref None and host = ref None
-    and peer = ref None and meth = ref None and create = ref false in
-    Arg.(parse [
-        "-dir", Set_string dbdir, "database directory (or './')" ;
-        "-create", Set create, "create db if it does not exist yet" ;
-        "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
-        "-verbose", Set verbose, "verbose" ;
-        "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
-        "-dump", String (function tbname -> Web.(iter ?start:!start ?stop:!stop ?rt_min:!rt_min
-                                                      ?client:!client ?server:!server ?peer:!peer
-                                                      ?meth:!meth ?host:!host
-                                                      ?url:!url ?status:!status !dbdir tbname
-                                                      (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
-        "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
-        "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
-        "-rt-min", String (fun s -> rt_min := Some (Float.of_string s)), "limit queries to resptimes greater than this" ;
-        "-url", String (fun s -> url := Some s), "limit queries to those which URL starts with this" ;
-        "-host", String (fun s -> host := Some s), "limit queries to those which host ends with this" ;
-        "-status", Int (fun i -> status := Some i), "select only queries with this status code" ;
-        "-method", Int (fun i -> meth := Some i), "select only queries with this method code" ;
-        "-client", String (fun s -> client := Some (Cidr.of_string s)), "limit to these clients" ;
-        "-server", String (fun s -> server := Some (Cidr.of_string s)), "limit to these servers" ;
-        "-peer", String (fun s -> peer := Some (Cidr.of_string s)), "limit to these clients or servers" ]
-        (fun x -> raise (Bad x))
-        "Operate the HTTP response times DB")
 

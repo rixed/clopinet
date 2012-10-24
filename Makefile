@@ -22,12 +22,14 @@ SOURCES  = \
 	dbfile.ml \
 	table.ml \
 	plot.ml \
-	traffic.ml
+	traffic.ml \
+	web.ml \
+	dns.ml
 
 C_SOURCES = ll_serial.c
 
 EXAMPLES_BYTE = \
-	dns.byte web.byte \
+	dns_exe.byte web_exe.byte \
 	traffic_exe.byte runtest.byte \
 
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)

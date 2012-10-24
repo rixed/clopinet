@@ -36,7 +36,7 @@ struct
 
     let menu () =
         let html_of_entry e = tag "li" [ tag "a" ~attrs:["href","?action=main/"^e] [cdata e] ]
-        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "DNS"; "Web"; "logout"] in
+        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "DNS/resptime"; "web/resptime"; "logout"] in
         tag ~attrs:["class","menu"] "ul" (List.map html_of_entry menu_entries)
 
     (* add the menu *)
@@ -87,6 +87,28 @@ struct
             IO.close_out os in
         raw js
 
+    let js_of_timedistr time_step tmin datasets =
+        let os = IO.output_string () in
+        Printf.fprintf os "{\n\
+    cols: [ {label:'Time',type:'datetime'},{label:'Min',type:'number'},{label:'Avg-\\u03C3',type:'number'},{label:'Avg',type:'number'},{label:'Avg+\\u03C3',type:'number'},{label:'Max',type:'number'} ],\n\
+    rows: [ " ;
+        (* Iter on all dates *)
+        let rec print_row r t =
+            if r < Array.length datasets then (
+                (match datasets.(r) with
+                    | None ->
+                        Printf.fprintf os "{c: [{v: new Date(%Ld)},{v:0},{v:0},{v:0},{v:0},{v:0}] },\n" t
+                    | Some ((_c, mi, ma, avg, _v) as d) ->
+                        let s = Distribution.std_dev d in
+                        Printf.fprintf os "{c: [{v: new Date(%Ld)},{v:%f},{v:%f},{v:%f},{v:%f},{v:%f}] },\n"
+                            t mi (max 0. (avg -. s)) avg (avg +. s) ma) ;
+                print_row (succ r) (Int64.add t time_step)
+            ) in
+        print_row 0 tmin ;
+        Printf.fprintf os " ]\n}\n" ;
+        let js = IO.close_out os in
+        raw js
+
     let js_of_single_keyed_data lab datasets what =
         let js =
             let os = IO.output_string () in
@@ -119,7 +141,7 @@ end
 module InputOfDatatype (D : DATATYPE) :
     TYPE with type t = D.t =
 struct
-    module String = Input.String (struct let min = 1 let max = max_int end)
+    module String = Input.String (struct let min = Some 1 let max = None end)
     type t = D.t
     let name = D.name
     let to_html v = [ cdata (html_of_user_value D.to_string v) ]
@@ -140,7 +162,7 @@ end
 module OptInputOfDatatype (D : DATATYPE) :
     TYPE with type t = D.t option =
 struct
-    module String = Input.String (struct let min = 0 let max = max_int end)
+    module String = Input.String (struct let min = Some 0 let max = None end)
     type t = D.t option
     let name = D.name
     let to_html v = [ cdata (html_of_user_value (function None -> "<i>unset</i>"
@@ -165,11 +187,11 @@ struct
     open Input
 
     module LoginField = struct
-        module Type = Input.String (struct let min = 1 let max = max_int end)
+        module Type = Input.String (struct let min = Some 1 let max = Some 100 end)
         let name = "name"
     end
     module PasswdField = struct
-        module Type = Input.Password (struct let min = 3 let max = max_int end)
+        module Type = Input.Password (struct let min = Some 3 let max = Some 100 end)
         let name = "password"
     end
     
@@ -222,16 +244,8 @@ struct
         let name = "ip-proto"
     end
     module TimeStepField = struct
-        module Type = Integer (struct let min = 1 let max = max_int end)
+        module Type = Integer (struct let min = Some 1 let max = None end)
         let name = "time step (ms)"
-    end
-    module TblNames = struct
-        let name = "db-tables"
-        let options = [| "30secs";"10mins";"1hour" |]
-    end
-    module TblNameField = struct
-        module Type = Enum (TblNames)
-        let name = "db-table"
     end
     module GroupByField = struct
         module Type = Enum (struct let name = "key"
@@ -254,10 +268,30 @@ struct
         let name = "Y"
     end
     module MaxGraphsField = struct
-        module Type = OptInteger (struct let min = 1 let max = 1000 end)
+        module Type = OptInteger (struct let min = Some 1 let max = Some 1000 end)
         let name = "#series"
     end
+    module TxMin = struct
+        module Type = OptInteger (struct let min = Some 1 let max = None end)
+        let name = "#tx min"
+    end
+    module MinRespTime = struct
+        module Type = OptFloat (struct let min = Some 0. let max = None end)
+        let name = "min resp time (s)"
+    end
+    module MaxRespTime = struct
+        module Type = OptFloat (struct let min = Some 0. let max = None end)
+        let name = "max resp time (s)"
+    end
     module Traffic = struct
+        module TblNames = struct
+            let name = "db-tables"
+            let options = [| "30secs";"10mins";"1hour" |]
+        end
+        module TblNameField = struct
+            module Type = Enum (TblNames)
+            let name = "db-table"
+        end
         module Bandwidth = RecordOf (ConsOf (FieldOf (StartField))
                                     (ConsOf (FieldOf (StopField))
                                     (ConsOf (FieldOf (VlanField))
@@ -273,6 +307,7 @@ struct
                                     (ConsOf (FieldOf (GroupByField))
                                     (ConsOf (FieldOf (MaxGraphsField))
                                             (NulType)))))))))))))))
+
         module Peers = RecordOf (ConsOf (FieldOf (OptStartField))
                                 (ConsOf (FieldOf (OptStopField))
                                 (ConsOf (FieldOf (VlanField))
@@ -287,6 +322,7 @@ struct
                                 (ConsOf (FieldOf (GroupByPeerField))
                                 (ConsOf (FieldOf (MaxGraphsField))
                                         (NulType))))))))))))))
+
         module Tops = RecordOf (ConsOf (FieldOf (OptStartField))
                                (ConsOf (FieldOf (OptStopField))
                                (ConsOf (FieldOf (VlanField))
@@ -301,6 +337,53 @@ struct
                                (ConsOf (FieldOf (GroupByTopField))
                                (ConsOf (FieldOf (MaxGraphsField))
                                        (NulType))))))))))))))
+    end
+
+    module Web = struct
+        module TblNames = struct
+            let name = "db-tables"
+            let options = [| "queries";"1min";"10mins";"1hour" |]
+        end
+        module TblNameField = struct
+            module Type = Enum (TblNames)
+            let name = "db-table"
+        end
+        module RespTime = RecordOf (ConsOf (FieldOf (StartField))
+                                   (ConsOf (FieldOf (StopField))
+                                   (ConsOf (FieldOf (VlanField))
+                                   (ConsOf (FieldOf (MacSrcField))
+                                   (ConsOf (FieldOf (MacDstField))
+                                   (ConsOf (FieldOf (IpSrcField))
+                                   (ConsOf (FieldOf (IpDstField))
+                                   (ConsOf (FieldOf (MinRespTime))
+                                   (ConsOf (FieldOf (MaxRespTime))
+                                   (ConsOf (FieldOf (TimeStepField))
+                                   (ConsOf (FieldOf (TblNameField))
+                                           (NulType))))))))))))
+    end
+
+    module Dns = struct
+        module TblNames = struct
+            let name = "db-tables"
+            let options = [| "queries";"1min";"10mins";"1hour" |]
+        end
+        module TblNameField = struct
+            module Type = Enum (TblNames)
+            let name = "db-table"
+        end
+        module RespTime = RecordOf (ConsOf (FieldOf (StartField))
+                                   (ConsOf (FieldOf (StopField))
+                                   (ConsOf (FieldOf (VlanField))
+                                   (ConsOf (FieldOf (MacSrcField))
+                                   (ConsOf (FieldOf (MacDstField))
+                                   (ConsOf (FieldOf (IpSrcField))
+                                   (ConsOf (FieldOf (IpDstField))
+                                   (ConsOf (FieldOf (TxMin))
+                                   (ConsOf (FieldOf (MinRespTime))
+                                   (ConsOf (FieldOf (MaxRespTime))
+                                   (ConsOf (FieldOf (TimeStepField))
+                                   (ConsOf (FieldOf (TblNameField))
+                                           (NulType)))))))))))))
     end
 
 end
@@ -349,19 +432,30 @@ struct
         Dispatch.add_cookie "password" "" ;
         View.make_app_page [ p [ cdata "You are now logged out" ] ]
 
+    let ensure_logged runner args =
+        match Hashtbl.find_option args "login",
+              Hashtbl.find_option args "password" with
+        | None, _ | _, None -> login args
+        | Some name, Some passwd ->
+            if auth name passwd <> None then (
+                runner args
+            ) else (
+                View.add_err "Bad login" ;
+                login args
+            )
+
     (* DB search pages *)
     module Traffic =
     struct
         include Traffic
         let dbdir = dbdir^"/traffic"
-        type search_type = Macs | Ips | App
         let bandwidth args =
             let filters = Forms.Traffic.Bandwidth.from_args "filter" args in
             let filters_form = form "main/traffic/bandwidth" (Forms.Traffic.Bandwidth.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))) ->
                     let time_step = Int64.of_int time_step
-                    and tblname = Forms.TblNames.options.(tblname)
+                    and tblname = Forms.Traffic.TblNames.options.(tblname)
                     and what = if what = 0 then PacketCount else Volume in
                     let datasets = match group_by with
                         | 0 (* src-mac *) | 1 (* dst-mac *) as sd ->
@@ -399,7 +493,7 @@ chart.draw(data, options);\n") ] ]
             let filters_form = form "main/traffic/peers" (Forms.Traffic.Peers.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))) ->
-                    let tblname = Forms.TblNames.options.(tblname)
+                    let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and what = if what = 0 then PacketCount else Volume in
                     let datasets = match group_by with
                         | 0 (* mac *) ->
@@ -435,7 +529,7 @@ chart.draw(data, options);\n") ] ]
             let filters_form = form "main/traffic/tops" (Forms.Traffic.Tops.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))) ->
-                    let tblname = Forms.TblNames.options.(tblname)
+                    let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and what = if what = 0 then PacketCount else Volume in
                     let key, datasets = match group_by with
                         | 0 (* src-mac *) ->
@@ -477,17 +571,93 @@ chart.draw(data, options);\n") ] ]
 
     end
 
-    let ensure_logged runner args =
-        match Hashtbl.find_option args "login",
-              Hashtbl.find_option args "password" with
-        | None, _ | _, None -> login args
-        | Some name, Some passwd ->
-            if auth name passwd <> None then (
-                runner args
-            ) else (
-                View.add_err "Bad login" ;
-                login args
-            )
+    module Web =
+    struct
+        include Web
+        let dbdir = dbdir^"/web"
+        let s2m x = x *. 1_000_000.
+        let resp_time args =
+            let filters = Forms.Web.RespTime.from_args "filter" args in
+            let filters_form = form "main/web/resptime" (Forms.Web.RespTime.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ())))))))))) ->
+                    let time_step = Int64.of_int time_step
+                    and tblname = Forms.Web.TblNames.options.(tblname) in
+                    let rt_min = BatOption.map s2m rt_min
+                    and rt_max = BatOption.map s2m rt_max in
+                    let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max time_step dbdir tblname in
+                    [ View.chart_div ;
+                      tag "script" ~attrs:["type","text/javascript"]
+                        [ Raw "var data = new google.visualization.DataTable(" ;
+                          View.js_of_timedistr time_step start datasets ;
+                          Raw (");\n\
+var options = {\n\
+    title:'Web - Average Response Time (sec)',\n\
+    width:'100%',\n\
+    height:600,\n\
+    hAxis:{format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
+    vAxis:{title: 'Response Time (sec)'},\n\
+    seriesType: 'line',\n\
+    series: {0: {type: 'area', areaOpacity:0, color:'#eee', lineWidth:0},\n\
+             1: {type: 'area', areaOpacity:0.1, color:'#ccc', lineWidth:0},\n\
+             2: {type: 'line', color:'#888'},\n\
+             3: {type: 'area', color:'#ccc', lineWidth:0},\n\
+             4: {type: 'area', color:'#eee', lineWidth:0}},\n\
+    isStacked: true,\n\
+    legend:{textStyle:{fontSize:9}}\n\
+};\n\
+var chart = new google.visualization.ComboChart(document.getElementById('chart_div'));\n\
+chart.draw(data, options);\n") ] ]
+                | _ ->
+                    [ cdata "Fill in the form above" ] in
+            View.make_app_page
+                (h1 "Web Response Time" :: filters_form :: disp_graph)
+
+    end
+
+    module Dns =
+    struct
+        include Dns
+        let dbdir = dbdir^"/dns"
+        let s2m x = x *. 1_000_000.
+        let resp_time args =
+            let filters = Forms.Dns.RespTime.from_args "filter" args in
+            let filters_form = form "main/DNS/resptime" (Forms.Dns.RespTime.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value tx_min, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ()))))))))))) ->
+                    let time_step = Int64.of_int time_step
+                    and tblname = Forms.Dns.TblNames.options.(tblname) in
+                    let rt_min = BatOption.map s2m rt_min
+                    and rt_max = BatOption.map s2m rt_max in
+                    let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
+                    [ View.chart_div ;
+                      tag "script" ~attrs:["type","text/javascript"]
+                        [ Raw "var data = new google.visualization.DataTable(" ;
+                          View.js_of_timedistr time_step start datasets ;
+                          Raw (");\n\
+var options = {\n\
+    title:'DNS - Average Response Time (sec)',\n\
+    width:'100%',\n\
+    height:600,\n\
+    hAxis:{format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
+    vAxis:{title: 'Response Time (sec)'},\n\
+    seriesType: 'line',\n\
+    series: {0: {type: 'area', areaOpacity:0, color:'#eee', lineWidth:0},\n\
+             1: {type: 'area', areaOpacity:0.1, color:'#ccc', lineWidth:0},\n\
+             2: {type: 'line', color:'#888'},\n\
+             3: {type: 'area', color:'#ccc', lineWidth:0},\n\
+             4: {type: 'area', color:'#eee', lineWidth:0}},\n\
+    isStacked: true,\n\
+    legend:{textStyle:{fontSize:9}}\n\
+};\n\
+var chart = new google.visualization.ComboChart(document.getElementById('chart_div'));\n\
+chart.draw(data, options);\n") ] ]
+                | _ ->
+                    [ cdata "Fill in the form above" ] in
+            View.make_app_page
+                (h1 "DNS Response Time" :: filters_form :: disp_graph)
+
+    end
 
 end
 
@@ -506,5 +676,9 @@ let _ =
             Ctrl.ensure_logged Ctrl.Traffic.peers
         | ["main";"traffic";"tops"] ->
             Ctrl.ensure_logged Ctrl.Traffic.tops
+        | ["main";"web";"resptime"] ->
+            Ctrl.ensure_logged Ctrl.Web.resp_time
+        | ["main";"DNS";"resptime"] ->
+            Ctrl.ensure_logged Ctrl.Dns.resp_time
         | _ -> Ctrl.Invalid.run)
 

@@ -90,6 +90,39 @@ struct
         let compare = Key.compare
     end)
 
+    (* [fold] iterate over some portion of the database, and call back with
+     * timestamp, a distribution, and the previous value.  We are going to
+     * accumulate the distribution for each time step, and return an array of
+     * distributions. *)
+    let per_date start stop step fold =
+        assert (step > 0L) ;
+        (* Fetch min and max available time *)
+        let row_of_time t = Int64.div (Int64.sub t start) step |> Int64.to_int
+        in let nb_steps = row_of_time stop |> succ in
+        let flat_dataset = Array.make nb_steps None in
+        (* accumulation of a distribution into a.(r) *)
+        let accum_distr a r d =
+            a.(r) <- Some (Distribution.combine d a.(r)) in
+        let result = fold (fun ts d a ->
+            if ts < start || ts >= stop then a else
+            let r = row_of_time ts in
+            accum_distr a r d ;
+            a)
+            flat_dataset
+            Array.copy
+            (fun a1 a2 -> (* merge array a2 into a1 *)
+                Array.iteri (fun r d -> match d with
+                    | Some d -> accum_distr a1 r d
+                    | None   -> ()) a2 ;
+                a1) in
+        (* Convert microseconds into seconds *)
+        let m2s m = m /. 1_000_000. in
+        let microseconds_to_seconds = function
+            | None -> None
+            | Some (c, mi,ma,a,v) ->
+                Some (c, m2s mi, m2s ma, m2s a, m2s (m2s v)) in
+        Array.map microseconds_to_seconds result
+
     (* fold iterate over the database, while extract extract from a row the key, X start, X stop and Y value. *)
     let per_time ?(max_graphs=10) start stop step fold extract label_of_key =
         assert (step > 0L) ;
@@ -131,6 +164,7 @@ struct
                     cumul_y m k r1 r2 y'
                 ))
                 Maplot.empty
+                identity
                 (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
                     Maplot.fold_left (fun m k a ->
                         (* add k->a into m *)
@@ -166,6 +200,7 @@ struct
                 let _, _, y = clip_y ?start ?stop t1 t2 y in
                 Maplot.update_with_default y m k ((+.) y))
                 Maplot.empty
+                identity
                 (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
                     Maplot.fold_left (fun m k a ->
                         (* add k->a into m *)
@@ -225,6 +260,7 @@ struct
                 (fun (k, v) (m, s) ->
                     update1 m s k v)
                 (Maplot.empty, 0)
+                identity
                 (fun (m1, s1) (m2, _s2) ->
                     (* Merge the small m2 into the big m1 *)
                     Maplot.fold_left (fun (m1, s1) k2 v2 ->
@@ -241,6 +277,7 @@ struct
                     try Maplot.update_exn m k ((+.) v), rest
                     with Not_found -> m, rest +. v)
                 (zeroed, 0.)
+                identity
                 (fun (m1, rest1) (m2, rest2) ->
                     (* Merge the small m2 into the big m1 *)
                     Maplot.fold_left (fun m1 k2 v2 ->

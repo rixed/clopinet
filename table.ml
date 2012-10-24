@@ -92,23 +92,24 @@ let fold_snums tdir hnum aggr_reader f start merge =
             Array.fold_right foldfile files start
     ) with Sys_error _ -> start (* no such directory, may happen in we haven't written anything yet *)
 
-let fold_hnums tdir f start merge =
-    try (
-        let res =
+let fold_hnums tdir f start copy merge =
+    let res =
+        try (
             Sys.readdir tdir |>
             Array.fold_left (fun prev name ->
-                try (f (int_of_string name) start) :: prev
+                try (f (int_of_string name) (copy start)) :: prev
                 with Failure _ -> prev)
-                [] in
-        List.fold_left merge start res
-    ) with Sys_error _ -> start
+                []
+        ) with Sys_error _ -> [] in
+    List.fold_left merge start res
 
-let fold tdir reader f start merge =
+let fold tdir reader f start copy merge =
     fold_hnums tdir (fun hnum res ->
         fold_snums tdir hnum ignore (fun snum _meta res' ->
             fold_file tdir hnum snum reader f res')
             res merge)
         start
+        copy
         merge
 
 (* WRITING
