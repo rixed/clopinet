@@ -90,7 +90,7 @@ struct
     let js_of_keydata datasets what =
         let js =
             let os = IO.output_string () in
-            Printf.fprintf os "{\ncols: [{label: 'src', type: 'string'},{label: 'dst', type: 'string'},{label: '%s/sec', type: 'number'}],\nrows: %a\n"
+            Printf.fprintf os "{\ncols: [{label: 'src', type: 'string'},{label: 'dst', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
                 what
                 (* display the rows *)
                 (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
@@ -171,6 +171,14 @@ struct
         module Type = InputOfDatatype(Timestamp)
         let name = "stop"
     end
+    module OptStartField = struct
+        module Type = OptInputOfDatatype(Timestamp)
+        let name = "start"
+    end
+    module OptStopField = struct
+        module Type = OptInputOfDatatype(Timestamp)
+        let name = "stop"
+    end
     module VlanField = struct
         module Type = OptInputOfDatatype(Integer16)
         let name = "vlan"
@@ -227,7 +235,7 @@ struct
         let name = "Y"
     end
     module MaxGraphsField = struct
-        module Type = OptInteger (struct let min = 1 let max = 100 end)
+        module Type = OptInteger (struct let min = 1 let max = 1000 end)
         let name = "#series"
     end
     module Traffic = struct
@@ -246,8 +254,8 @@ struct
                                     (ConsOf (FieldOf (GroupByField))
                                     (ConsOf (FieldOf (MaxGraphsField))
                                             (NulType)))))))))))))))
-        module Peers = RecordOf (ConsOf (FieldOf (StartField))
-                                (ConsOf (FieldOf (StopField))
+        module Peers = RecordOf (ConsOf (FieldOf (OptStartField))
+                                (ConsOf (FieldOf (OptStopField))
                                 (ConsOf (FieldOf (VlanField))
                                 (ConsOf (FieldOf (MacSrcField))
                                 (ConsOf (FieldOf (MacDstField))
@@ -339,7 +347,7 @@ struct
                               View.js_of_timesets time_step start datasets ;
                               Raw (");\n\
 var options = {\n\
-    title:'Traffic - "^what^" per secs',\n\
+    title:'Traffic - "^what^"/sec',\n\
     width:'100%',\n\
     height:600,\n\
     isStacked:true,\n\
@@ -349,7 +357,7 @@ var options = {\n\
 var chart = new google.visualization.AreaChart(document.getElementById('chart_div'));\n\
 chart.draw(data, options);\n") ] ]
                 | _ ->
-                    [ cdata "Fill in the form to show the graph" ] in
+                    [ cdata "Fill in the form above" ] in
             View.make_app_page
                 (h1 "Bandwidth" :: filters_form :: disp_graph)
 
@@ -362,11 +370,11 @@ chart.draw(data, options);\n") ] ]
                     and what = if what = 0 then PacketCount else Volume in
                     let datasets = match group_by with
                         | 0 (* mac *) ->
-                            eth_plot_vol_tot start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
+                            eth_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
                         | 1 (* ip *) ->
-                            ip_plot_vol_tot start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
+                            ip_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
                         | _ (* apps *) ->
-                            app_plot_vol_tot start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname in
+                            app_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname in
                     if Hashtbl.is_empty datasets then
                         [ cdata "No data" ]
                     else
@@ -387,7 +395,7 @@ var options = {\n\
 var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
 chart.draw(data, options);\n") ] ]
                 | _ ->
-                    [ cdata "Fill in the form to show the graph" ] in
+                    [ cdata "Fill in the form above" ] in
             View.make_app_page
                 (h1 "Peers" :: filters_form :: disp_graph)
     end

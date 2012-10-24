@@ -259,7 +259,7 @@ void ibuf_close(value custom)
 
 /*
  * Readers/Writers for primitive types
- */ 
+ */
 
 #define UNBOXED_READ(width) \
 value wrap_read##width(value custom) \
@@ -367,7 +367,7 @@ static unsigned long read_varuint(struct ibuf *ib)
 static long read_varint(struct ibuf *ib)
 {
     unsigned long const n = read_varuint(ib);
-    long const nn = n >> 1U; 
+    long const nn = n >> 1U;
 #   ifdef DEBUG_IBUF
     fprintf(stderr, "<varint n = 0x%lx\n", n & 1 ? -nn : nn);
 #   endif
