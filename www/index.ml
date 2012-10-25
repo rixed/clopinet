@@ -595,15 +595,16 @@ var options = {\n\
     title:'Web - Average Response Time (sec)',\n\
     width:'100%',\n\
     height:600,\n\
-    hAxis:{format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
-    vAxis:{title: 'Response Time (sec)'},\n\
+    hAxis: {format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
+    vAxes: [{title:'Response Time (sec)'},\n\
+            {title:'#Transaction', textStyle:{color:'#78a'}}],\n\
     seriesType: 'line',\n\
-    series: {0: {type: 'area', areaOpacity:0, color:'#eee', lineWidth:0},\n\
-             1: {type: 'area', areaOpacity:0.1, color:'#ccc', lineWidth:0},\n\
-             2: {type: 'line', color:'#888'},\n\
-             3: {type: 'area', color:'#ccc', lineWidth:0},\n\
-             4: {type: 'area', color:'#eee', lineWidth:0},\n\
-             5: {type: 'line', color:'#5cd', targetAxisIndex:1}},\n\
+    series: {0: {type:'area', areaOpacity:0, color:'#ccc', lineWidth:0},\n\
+             1: {type:'area', areaOpacity:0.1, color:'#aaa', lineWidth:0},\n\
+             2: {type:'line', color:'#888'},\n\
+             3: {type:'area', color:'#aaa', lineWidth:0},\n\
+             4: {type:'area', color:'#ccc', lineWidth:0},\n\
+             5: {type:'line', color:'#78a', targetAxisIndex:1}},\n\
     isStacked: true,\n\
     legend:{textStyle:{fontSize:9}}\n\
 };\n\
@@ -640,15 +641,16 @@ var options = {\n\
     title:'DNS - Average Response Time (sec)',\n\
     width:'100%',\n\
     height:600,\n\
-    hAxis:{format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
-    vAxis:{title: 'Response Time (sec)'},\n\
+    hAxis: {format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
+    vAxes: [{title:'Response Time (sec)'},\n\
+            {title:'#Transaction', textStyle:{color:'#78a'}}],\n\
     seriesType: 'line',\n\
-    series: {0: {type: 'area', areaOpacity:0, color:'#eee', lineWidth:0},\n\
-             1: {type: 'area', areaOpacity:0.1, color:'#ccc', lineWidth:0},\n\
-             2: {type: 'line', color:'#888'},\n\
-             3: {type: 'area', color:'#ccc', lineWidth:0},\n\
-             4: {type: 'area', color:'#eee', lineWidth:0},\n\
-             5: {type: 'line', color:'#5cd', targetAxisIndex:1}},\n\
+    series: {0: {type:'area', areaOpacity:0, color:'#ccc', lineWidth:0},\n\
+             1: {type:'area', areaOpacity:0.1, color:'#aaa', lineWidth:0},\n\
+             2: {type:'line', color:'#888'},\n\
+             3: {type:'area', color:'#aaa', lineWidth:0},\n\
+             4: {type:'area', color:'#ccc', lineWidth:0},\n\
+             5: {type:'line', color:'#78a', targetAxisIndex:1}},\n\
     isStacked: true,\n\
     legend:{textStyle:{fontSize:9}}\n\
 };\n\
