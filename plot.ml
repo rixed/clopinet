@@ -83,48 +83,48 @@ let clip_y ?start ?stop t1 t2 y =
         | None -> t2, y in
     t1, t2, y
 
-module DataSet (Record : DATATYPE) (Key : DATATYPE) =
+(* [fold] iterate over some portion of the database, and call back with
+ * timestamp, a distribution, and the previous value.  We are going to
+ * accumulate the distribution for each time step, and return an array of
+ * distributions. *)
+let per_date start stop step fold =
+    assert (step > 0L) ;
+    (* Fetch min and max available time *)
+    let row_of_time t = Int64.div (Int64.sub t start) step |> Int64.to_int
+    in let nb_steps = row_of_time stop |> succ in
+    let flat_dataset = Array.make nb_steps None in
+    (* accumulation of a distribution into a.(r) *)
+    let accum_distr a r d =
+        a.(r) <- Some (Distribution.combine d a.(r)) in
+    let result = fold (fun ts d a ->
+        if ts < start || ts >= stop then a else
+        let r = row_of_time ts in
+        accum_distr a r d ;
+        a)
+        flat_dataset
+        Array.copy
+        (fun a1 a2 -> (* merge array a2 into a1 *)
+            Array.iteri (fun r d -> match d with
+                | Some d -> accum_distr a1 r d
+                | None   -> ()) a2 ;
+            a1) in
+    (* Convert microseconds into seconds *)
+    let m2s m = m /. 1_000_000. in
+    let microseconds_to_seconds = function
+        | None -> None
+        | Some (c, mi,ma,a,v) ->
+            Some (c, m2s mi, m2s ma, m2s a, m2s (m2s v)) in
+    Array.map microseconds_to_seconds result
+
+module DataSet (Key : DATATYPE) =
 struct
     module Maplot = Finite_map_impl.Finite_map (struct
         type t = Key.t
         let compare = Key.compare
     end)
 
-    (* [fold] iterate over some portion of the database, and call back with
-     * timestamp, a distribution, and the previous value.  We are going to
-     * accumulate the distribution for each time step, and return an array of
-     * distributions. *)
-    let per_date start stop step fold =
-        assert (step > 0L) ;
-        (* Fetch min and max available time *)
-        let row_of_time t = Int64.div (Int64.sub t start) step |> Int64.to_int
-        in let nb_steps = row_of_time stop |> succ in
-        let flat_dataset = Array.make nb_steps None in
-        (* accumulation of a distribution into a.(r) *)
-        let accum_distr a r d =
-            a.(r) <- Some (Distribution.combine d a.(r)) in
-        let result = fold (fun ts d a ->
-            if ts < start || ts >= stop then a else
-            let r = row_of_time ts in
-            accum_distr a r d ;
-            a)
-            flat_dataset
-            Array.copy
-            (fun a1 a2 -> (* merge array a2 into a1 *)
-                Array.iteri (fun r d -> match d with
-                    | Some d -> accum_distr a1 r d
-                    | None   -> ()) a2 ;
-                a1) in
-        (* Convert microseconds into seconds *)
-        let m2s m = m /. 1_000_000. in
-        let microseconds_to_seconds = function
-            | None -> None
-            | Some (c, mi,ma,a,v) ->
-                Some (c, m2s mi, m2s ma, m2s a, m2s (m2s v)) in
-        Array.map microseconds_to_seconds result
-
-    (* fold iterate over the database, while extract extract from a row the key, X start, X stop and Y value. *)
-    let per_time ?(max_graphs=10) start stop step fold extract label_of_key =
+    (* fold iterate over the database, calling back with the key, X start, X stop and Y value. *)
+    let per_time ?(max_graphs=10) start stop step fold label_of_key =
         assert (step > 0L) ;
         (* Fetch min and max available time *)
         let row_of_time t = Int64.div (Int64.sub t start) step |> Int64.to_int in
@@ -142,8 +142,7 @@ struct
                     for x = r1 to r2 do a.(x) <- a.(x) +. y done ;
                     a) in
         let m =
-            fold (fun r m ->
-                let k, t1, t2, y = extract r in
+            fold (fun k t1 t2 y m ->
                 (* clip t1 and t2. beware that [t1;t2] is closed while [start;stop[ is semi-closed *)
                 (* FIXME: use timestamps comparison function, sub, etc..? *)
                 assert (t1 < stop && t2 >= start) ;
@@ -187,14 +186,12 @@ struct
         (* reduce number of datasets to max_graphs *)
         top_datasets max_graphs datasets nb_steps
 
-    (* Fold iterate over the database, while extract from a row the key and Y value.
+    (* Fold iterate over the database, calling back with the key and Y value.
        All Y values with same key are summed. *)
-    (* FIXME: extract should be bundled with fold *)
-    let sum ?(max_graphs=10) ?start ?stop fold extract label_of_key =
+    let sum ?(max_graphs=10) ?start ?stop fold label_of_key =
         ignore (max_graphs) ;
         let m =
-            fold (fun r m ->
-                let k, t1, t2, y = extract r in
+            fold (fun k t1 t2 y m ->
                 (* clip t1 and t2. beware that [t1;t2] is closed while [start;stop[ is semi-closed *)
                 (* FIXME: use timestamps comparison function, sub, etc..? *)
                 let _, _, y = clip_y ?start ?stop t1 t2 y in

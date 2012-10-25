@@ -124,17 +124,13 @@ struct
 
 end
 
-(* FIXME: we do not actualy use EthKey, since we do not use the Maplot in EthRT... *)
-module EthKey = Tuple2.Make (Option (UInteger16)) (EthAddr) (* Eth vlan, source/dest *)
-module EthRT = Plot.DataSet (Dns) (EthKey)
-
 let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min step dbdir name =
     let fold f i c m =
         Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min dbdir name
             (fun (_vlan, _mac_clt, _clt, _mac_srv, _srv, _err, ts, rt, _name) p ->
                 f ts rt p)
             i c m in
-    EthRT.per_date start stop step fold
+    Plot.per_date start stop step fold
 
 (* Lod1: degraded client, rounded query_date (to 1min), distribution of resptimes *)
 (* Lod2: round timestamp to 10 mins *)
