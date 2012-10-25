@@ -14,7 +14,7 @@ find "$dbdir" -type f -name '*[0-9]' |
 		ff=$((f+1))
 		if test -e "$d/$ff" || test -e "$d/$ff.gz" ; then
 			echo "Compressing $p"
-			gzip --no-name -9 $p
+			ionice -c 3 gzip --no-name -9 $p
 		fi
 	done
 

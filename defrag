@@ -9,7 +9,7 @@ fi
 
 find "$dbdir" -type f -name '*[0-9]' |
 	while read p ; do
-		cp $p $p.lin
-		mv -f $p.lin $p
+		ionice -c 3 cp $p $p.lin
+		ionice -c 3 mv -f $p.lin $p
 	done
 
