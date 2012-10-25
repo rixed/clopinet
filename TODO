@@ -1,6 +1,14 @@
 TODO stack
 ----------
 
+* A queries chart as a cloud of dots
+
+* Tables for tops (on every interresting values, both order)
+
+* A max packet size chart, as an histogram
+
+* An eth/ip connection graph (with the usual filters)
+
 * An Interval type
 
 * It would be nice if any reasonably widespread date format were 
@@ -24,28 +32,7 @@ display file and offset where the error occured))
 * Factorize DNS with WEB and ETH.
 
 
-* Should print help when no cmdline arg is given
-
-* A wrapper around Arg and Cgi to have either help/form or wrap the result
-  of dump/load/... into a csv/svg
-
-* SVG (and x11) version of dump command that performs one among several kind 
-  of plots with given columns
-
-* CGI version of dns.opt/web.opt (both Arg.parse or Cgi.parse_args, depending 
-  of envvars!)
-
-
-* More tests for the helper functions and the (de)serializers.
-
-
-* Parallelize writing (less obvious but less useful).
-
-For writing, either we allow anyone to append in any file, but then
-the meta data must be merged somehow (might not be possible with some
-aggregate function) ; or we allocate writers to some index value, the
-forked writer being responsible for the meta data and the serialization,
-but only a central writer performs the accumulations in the various Lods.
+* Fix multiple writer by flushing in O_APPEND after complete tuples
 
 
 * In the same spirit than locking, write a file with the textual 
@@ -62,12 +49,4 @@ the index handling (Dns0.dump is too complex wrt. index)
 
 * Dump should be able to send output to a pipe (ssh compressed tunnel) for
 distributed querying
-
-
-Reference for gnuplot:
-----------------------
-
-- http://gnuplot-surprising.blogspot.fr/
-- http://www.gnuplotting.org/
-- http://gnuplot-tricks.blogspot.fr/
 
