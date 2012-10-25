@@ -90,18 +90,18 @@ struct
     let js_of_timedistr time_step tmin datasets =
         let os = IO.output_string () in
         Printf.fprintf os "{\n\
-    cols: [ {label:'Time',type:'datetime'},{label:'Min',type:'number'},{label:'Avg-\\u03C3',type:'number'},{label:'Avg',type:'number'},{label:'Avg+\\u03C3',type:'number'},{label:'Max',type:'number'} ],\n\
+    cols: [ {label:'Time',type:'datetime'},{label:'Min',type:'number'},{label:'Avg-\\u03C3',type:'number'},{label:'Avg',type:'number'},{label:'Avg+\\u03C3',type:'number'},{label:'Max',type:'number'},{label:'#tx',type:'number'} ],\n\
     rows: [ " ;
         (* Iter on all dates *)
         let rec print_row r t =
             if r < Array.length datasets then (
                 (match datasets.(r) with
                     | None ->
-                        Printf.fprintf os "{c: [{v: new Date(%Ld)},{v:0},{v:0},{v:0},{v:0},{v:0}] },\n" t
-                    | Some ((_c, mi, ma, avg, _v) as d) ->
+                        Printf.fprintf os "{c: [{v: new Date(%Ld)},{v:0},{v:0},{v:0},{v:0},{v:0},{v:0}] },\n" t
+                    | Some ((c, mi, ma, avg, _v) as d) ->
                         let s = Distribution.std_dev d in
-                        Printf.fprintf os "{c: [{v: new Date(%Ld)},{v:%f},{v:%f},{v:%f},{v:%f},{v:%f}] },\n"
-                            t mi (max 0. (avg -. s)) avg (avg +. s) ma) ;
+                        Printf.fprintf os "{c: [{v: new Date(%Ld)},{v:%f},{v:%f},{v:%f},{v:%f},{v:%f},{v:%d}] },\n"
+                            t mi (max 0. (avg -. s)) avg (avg +. s) ma c) ;
                 print_row (succ r) (Int64.add t time_step)
             ) in
         print_row 0 tmin ;
@@ -602,7 +602,8 @@ var options = {\n\
              1: {type: 'area', areaOpacity:0.1, color:'#ccc', lineWidth:0},\n\
              2: {type: 'line', color:'#888'},\n\
              3: {type: 'area', color:'#ccc', lineWidth:0},\n\
-             4: {type: 'area', color:'#eee', lineWidth:0}},\n\
+             4: {type: 'area', color:'#eee', lineWidth:0},\n\
+             5: {type: 'line', color:'#5cd', targetAxisIndex:1}},\n\
     isStacked: true,\n\
     legend:{textStyle:{fontSize:9}}\n\
 };\n\
@@ -646,7 +647,8 @@ var options = {\n\
              1: {type: 'area', areaOpacity:0.1, color:'#ccc', lineWidth:0},\n\
              2: {type: 'line', color:'#888'},\n\
              3: {type: 'area', color:'#ccc', lineWidth:0},\n\
-             4: {type: 'area', color:'#eee', lineWidth:0}},\n\
+             4: {type: 'area', color:'#eee', lineWidth:0},\n\
+             5: {type: 'line', color:'#5cd', targetAxisIndex:1}},\n\
     isStacked: true,\n\
     legend:{textStyle:{fontSize:9}}\n\
 };\n\
