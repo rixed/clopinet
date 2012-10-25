@@ -136,6 +136,33 @@ struct
             Printf.fprintf os " \n}\n" ;
             IO.close_out os in
         raw js
+
+    let resp_times title time_step start datasets =
+        [ chart_div ;
+          tag "script" ~attrs:["type","text/javascript"]
+            [ Raw "var data = new google.visualization.DataTable(" ;
+              js_of_timedistr time_step start datasets ;
+              Raw (");\n\
+var options = {\n\
+    title:'"^title^"',\n\
+    width:'100%',\n\
+    height:600,\n\
+    hAxis: {format:'y-MM-dd HH:mm:ss.SSS', gridlines:{color:'#333'}, title:'Time'},\n\
+    vAxes: [{title:'Response Time (sec)'},\n\
+            {title:'#Transaction', textStyle:{color:'#78a'}}],\n\
+    seriesType: 'line',\n\
+    series: {0: {type:'area', color:'#aaa', areaOpacity:0, lineWidth:0},\n\
+             1: {type:'area', color:'#777', lineWidth:0},\n\
+             2: {type:'line', color:'#555'},\n\
+             3: {type:'area', color:'#777', lineWidth:0},\n\
+             4: {type:'area', color:'#aaa', lineWidth:0},\n\
+             5: {type:'line', color:'#78a', targetAxisIndex:1}},\n\
+    isStacked: true,\n\
+    legend:{textStyle:{fontSize:9}}\n\
+};\n\
+var chart = new google.visualization.ComboChart(document.getElementById('chart_div'));\n\
+chart.draw(data, options);\n") ] ]
+
 end
 
 module InputOfDatatype (D : DATATYPE) :
@@ -586,30 +613,7 @@ chart.draw(data, options);\n") ] ]
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max time_step dbdir tblname in
-                    [ View.chart_div ;
-                      tag "script" ~attrs:["type","text/javascript"]
-                        [ Raw "var data = new google.visualization.DataTable(" ;
-                          View.js_of_timedistr time_step start datasets ;
-                          Raw (");\n\
-var options = {\n\
-    title:'Web - Average Response Time (sec)',\n\
-    width:'100%',\n\
-    height:600,\n\
-    hAxis: {format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
-    vAxes: [{title:'Response Time (sec)'},\n\
-            {title:'#Transaction', textStyle:{color:'#78a'}}],\n\
-    seriesType: 'line',\n\
-    series: {0: {type:'area', color:'#aaa', areaOpacity:0, lineWidth:0},\n\
-             1: {type:'area', color:'#777', lineWidth:0},\n\
-             2: {type:'line', color:'#555'},\n\
-             3: {type:'area', color:'#777', lineWidth:0},\n\
-             4: {type:'area', color:'#aaa', lineWidth:0},\n\
-             5: {type:'line', color:'#78a', targetAxisIndex:1}},\n\
-    isStacked: true,\n\
-    legend:{textStyle:{fontSize:9}}\n\
-};\n\
-var chart = new google.visualization.ComboChart(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ] ]
+                    View.resp_times "Web - Average Response Time (sec)" time_step start datasets
                 | _ ->
                     [ cdata "Fill in the form above" ] in
             View.make_app_page
@@ -632,30 +636,7 @@ chart.draw(data, options);\n") ] ]
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
-                    [ View.chart_div ;
-                      tag "script" ~attrs:["type","text/javascript"]
-                        [ Raw "var data = new google.visualization.DataTable(" ;
-                          View.js_of_timedistr time_step start datasets ;
-                          Raw (");\n\
-var options = {\n\
-    title:'DNS - Average Response Time (sec)',\n\
-    width:'100%',\n\
-    height:600,\n\
-    hAxis: {format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
-    vAxes: [{title:'Response Time (sec)'},\n\
-            {title:'#Transaction', textStyle:{color:'#78a'}}],\n\
-    seriesType: 'line',\n\
-    series: {0: {type:'area', color:'#aaa', areaOpacity:0, lineWidth:0},\n\
-             1: {type:'area', color:'#777', lineWidth:0},\n\
-             2: {type:'line', color:'#555'},\n\
-             3: {type:'area', color:'#777', lineWidth:0},\n\
-             4: {type:'area', color:'#aaa', lineWidth:0},\n\
-             5: {type:'line', color:'#78a', targetAxisIndex:1}},\n\
-    isStacked: true,\n\
-    legend:{textStyle:{fontSize:9}}\n\
-};\n\
-var chart = new google.visualization.ComboChart(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ] ]
+                    View.resp_times "DNS - Average Response Time (sec)" time_step start datasets
                 | _ ->
                     [ cdata "Fill in the form above" ] in
             View.make_app_page

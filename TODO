@@ -11,10 +11,6 @@ TODO stack
 
 * An Interval type
 
-* It would be nice if any reasonably widespread date format were 
-understood by Timestamp.read_txt. Or provide a helper function (for better
-performances)
-
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
 
