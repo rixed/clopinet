@@ -548,7 +548,6 @@ struct
             Output.char oc '.' ;
             Output.string oc (Printf.sprintf "%03Ld" (Int64.rem t 1000L))
         let read_txt ic =
-            (* TODO: add other, friendlier, input formats *)
             let s = UInteger64.read_txt ic in
             let ms =
                 if peek_eof2nl ic = '.' then (
@@ -591,6 +590,8 @@ struct
 
     let seconds t = Int64.div t 1000L
     let milliseconds t = Int64.rem t 1000L
+    let of_unixfloat ts = Int64.of_float (1000. *. ts)
+    let to_unixfloat t = (Int64.to_float t) *. 0.001
 
     let zero = 0L
     let add = Int64.add
@@ -602,6 +603,64 @@ struct
         let i64 = Int64.of_int i in
         Int64.mul t i64
     let mul _ _ = failwith "Cannot mul timestamps!"
+
+    (* Helper to build a Timestamp.t from a user friendly string *)
+    exception Invalid_date
+    let of_datestring str =
+        let open Unix in
+        let full y mo d h mi s =
+            if y > 2100 || y < 2000 || mo < 1 || mo > 12 ||
+               d < 1 || d > 31 || h > 24 || mi > 60 || s > 60. then
+               raise Invalid_date ;
+            let s_f, s_i = modf s in
+            let tm = { tm_sec = int_of_float s_i ;
+                       tm_min = mi ; tm_hour = h ;
+                       tm_mday = d ; tm_mon = mo-1 ;
+                       tm_year = y - 1900 ;
+                       (* rest is ignored by mktime *)
+                       tm_wday = 0 ; tm_yday = 0 ; tm_isdst = false } in
+            let ts, _ = mktime tm in
+            of_unixfloat (ts +. s_f) in
+        let to_min   y mo d h mi = full y mo d h mi 0. in
+        let to_hour  y mo d h    = full y mo d h 0  0. in
+        let to_day   y mo d      = full y mo d 0 0  0. in
+        let to_month y mo        = full y mo 1 0 0  0. in
+        let to_year  y           = full y 1  1 0 0  0. in
+        let today_full h mi s =
+            let tm = localtime (time ()) in
+            full (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday h mi s in
+        let today_to_min  h mi = today_full h mi 0. in
+        let today_to_hour h    = today_full h 0 0. in
+        try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f" full
+        with End_of_file -> (
+            try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u" to_min
+            with End_of_file ->
+                try Scanf.sscanf str "%4u-%2u-%2u %2u" to_hour
+                with End_of_file ->
+                    try Scanf.sscanf str "%4u-%2u-%2u" to_day
+                    with End_of_file ->
+                        try Scanf.sscanf str "%4u-%2u" to_month
+                        with End_of_file ->
+                            Scanf.sscanf str "%4u" to_year)
+           | _ -> (
+               try Scanf.sscanf str "%2u:%2u:%f" today_full
+               with End_of_file ->
+                   try Scanf.sscanf str "%2u:%2u" today_to_min
+                   with End_of_file ->
+                       Scanf.sscanf str "%2u" today_to_hour
+           )
+
+    let of_string str =
+        try of_datestring str
+        with _ -> of_string str
+
+    let to_string t =
+        let open Unix in
+        let tm = localtime (to_unixfloat t) in
+        let s = (float_of_int tm.tm_sec) +. (milliseconds t |> Int64.to_float)*.0.001 in
+        Printf.sprintf "%04u-%02u-%02u %02u:%02u:%06.3f"
+            (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday
+            tm.tm_hour tm.tm_min s
 end
 
 let round_timestamp ?(ceil=false) n t =

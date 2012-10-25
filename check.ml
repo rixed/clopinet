@@ -50,6 +50,7 @@ let check_mac () =
 
 let check_timestamp () =
     let open Timestamp in
+    (* Low level conversions from number *)
     assert (of_string "123s 456ms"  = 123456L) ;
     assert (of_string "123 456ms"   = 123456L) ;
     assert (of_string "123s 456us"  = 123000L) ;
@@ -64,7 +65,13 @@ let check_timestamp () =
     assert (of_string "123.4569"    = 123457L) ;
     assert (of_string "123.1"       = 123100L) ;
     assert_exc (Failure "Cannot consume all input") of_string "-1" ;
-    assert_exc End_of_file of_string ""
+    assert_exc End_of_file of_string "" ;
+    (* User friendly date strings *)
+    assert (of_string "2012-10-25 11:23:02" = 1351156982000L) ;
+    assert (of_string "2012-10-25 11:23" = 1351156980000L) ;
+    assert (of_string "2012-10-25 11" = 1351155600000L) ;
+    assert (of_string "2012-10-25" = 1351116000000L) ;
+    assert (to_string 1351156980000L = "2012-10-25 11:23:00.000")
 
 module TestOption = Option (Integer8)
 let check_option () =
