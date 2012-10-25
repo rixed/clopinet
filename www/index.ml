@@ -189,7 +189,7 @@ end
 module OptInputOfDatatype (D : DATATYPE) :
     TYPE with type t = D.t option =
 struct
-    module String = Input.String (struct let min = Some 0 let max = None end)
+    module String = Input.OptString (struct let min = Some 0 let max = None end)
     type t = D.t option
     let name = D.name
     let to_html v = [ cdata (html_of_user_value (function None -> "<i>unset</i>"
@@ -201,10 +201,10 @@ struct
         err_msg_of v
     let from_args name args =
         match String.from_args name args with
-        | Error _ as x -> x
-        | Value s ->
+        | Error _ | Value None as x -> x
+        | Value (Some s) -> 
             (try Value (Some (D.of_string s))
-            with End_of_file -> if s = "" then Value None else Error ("Not enough data", s)
+            with End_of_file -> Error ("Not enough data", s)
                | Overflow    -> Error ("Integer overflow", s)
                | exn         -> Error (Printexc.to_string exn, s))
 end
@@ -375,6 +375,18 @@ struct
             module Type = Enum (TblNames)
             let name = "db-table"
         end
+        module HttpStatus = struct
+            module Type = OptInteger (struct let min = Some 100 let max = Some 999 end)
+            let name = "status"
+        end
+        module HttpHost = struct
+            module Type = OptString (struct let min = None let max = None end)
+            let name = "host"
+        end
+        module HttpURL = struct
+            module Type = OptString (struct let min = None let max = None end)
+            let name = "url"
+        end
         module RespTime = RecordOf (ConsOf (FieldOf (StartField))
                                    (ConsOf (FieldOf (StopField))
                                    (ConsOf (FieldOf (VlanField))
@@ -382,11 +394,14 @@ struct
                                    (ConsOf (FieldOf (MacDstField))
                                    (ConsOf (FieldOf (IpSrcField))
                                    (ConsOf (FieldOf (IpDstField))
+                                   (ConsOf (FieldOf (HttpStatus))
+                                   (ConsOf (FieldOf (HttpHost))
+                                   (ConsOf (FieldOf (HttpURL))
                                    (ConsOf (FieldOf (MinRespTime))
                                    (ConsOf (FieldOf (MaxRespTime))
                                    (ConsOf (FieldOf (TimeStepField))
                                    (ConsOf (FieldOf (TblNameField))
-                                           (NulType))))))))))))
+                                           (NulType)))))))))))))))
     end
 
     module Dns = struct
@@ -607,12 +622,12 @@ chart.draw(data, options);\n") ] ]
             let filters = Forms.Web.RespTime.from_args "filter" args in
             let filters_form = form "main/web/resptime" (Forms.Web.RespTime.edit "filter" filters) in
             let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ())))))))))) ->
+                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ()))))))))))))) ->
                     let time_step = Int64.of_int time_step
                     and tblname = Forms.Web.TblNames.options.(tblname) in
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max in
-                    let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max time_step dbdir tblname in
+                    let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
                     View.resp_times "Web - Average Response Time (sec)" time_step start datasets
                 | _ ->
                     [ cdata "Fill in the form above" ] in
