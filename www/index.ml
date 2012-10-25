@@ -599,11 +599,11 @@ var options = {\n\
     vAxes: [{title:'Response Time (sec)'},\n\
             {title:'#Transaction', textStyle:{color:'#78a'}}],\n\
     seriesType: 'line',\n\
-    series: {0: {type:'area', areaOpacity:0, color:'#ccc', lineWidth:0},\n\
-             1: {type:'area', areaOpacity:0.1, color:'#aaa', lineWidth:0},\n\
-             2: {type:'line', color:'#888'},\n\
-             3: {type:'area', color:'#aaa', lineWidth:0},\n\
-             4: {type:'area', color:'#ccc', lineWidth:0},\n\
+    series: {0: {type:'area', color:'#aaa', areaOpacity:0, lineWidth:0},\n\
+             1: {type:'area', color:'#777', lineWidth:0},\n\
+             2: {type:'line', color:'#555'},\n\
+             3: {type:'area', color:'#777', lineWidth:0},\n\
+             4: {type:'area', color:'#aaa', lineWidth:0},\n\
              5: {type:'line', color:'#78a', targetAxisIndex:1}},\n\
     isStacked: true,\n\
     legend:{textStyle:{fontSize:9}}\n\
@@ -645,11 +645,11 @@ var options = {\n\
     vAxes: [{title:'Response Time (sec)'},\n\
             {title:'#Transaction', textStyle:{color:'#78a'}}],\n\
     seriesType: 'line',\n\
-    series: {0: {type:'area', areaOpacity:0, color:'#ccc', lineWidth:0},\n\
-             1: {type:'area', areaOpacity:0.1, color:'#aaa', lineWidth:0},\n\
-             2: {type:'line', color:'#888'},\n\
-             3: {type:'area', color:'#aaa', lineWidth:0},\n\
-             4: {type:'area', color:'#ccc', lineWidth:0},\n\
+    series: {0: {type:'area', color:'#aaa', areaOpacity:0, lineWidth:0},\n\
+             1: {type:'area', color:'#777', lineWidth:0},\n\
+             2: {type:'line', color:'#555'},\n\
+             3: {type:'area', color:'#777', lineWidth:0},\n\
+             4: {type:'area', color:'#aaa', lineWidth:0},\n\
              5: {type:'line', color:'#78a', targetAxisIndex:1}},\n\
     isStacked: true,\n\
     legend:{textStyle:{fontSize:9}}\n\
