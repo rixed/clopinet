@@ -168,13 +168,7 @@ let eth_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?i
             i c m
         in
     assert (max_graphs > 1) ;
-    Printf.fprintf stderr "Pass 1...\n%!" ;
     let interm = EthPld2.FindSignificant.pass1 fold (max_graphs-1) in
-    Printf.fprintf stderr "interm:\n" ;
-    EthPld2.Maplot.iter interm (fun k v ->
-        let src, dst = label_of_key k in
-        Printf.fprintf stderr "%s->%s: %f\n" src dst v) ;
-    Printf.fprintf stderr "Pass 2...\n%!" ;
     let result, rest = EthPld2.FindSignificant.pass2 interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in
@@ -267,13 +261,7 @@ let ip_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
             i c m
         in
     assert (max_graphs > 1) ;
-    Printf.fprintf stderr "Pass 1...\n%!" ;
     let interm = IPPld2.FindSignificant.pass1 fold (max_graphs-1) in
-    Printf.fprintf stderr "interm:\n" ;
-    IPPld2.Maplot.iter interm (fun k v ->
-        let src, dst = label_of_key k in
-        Printf.fprintf stderr "%s->%s: %f\n" src dst v) ;
-    Printf.fprintf stderr "Pass 2...\n%!" ;
     let result, rest = IPPld2.FindSignificant.pass2 interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in

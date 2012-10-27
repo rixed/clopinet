@@ -60,7 +60,7 @@ struct
                       th [ cdata "qtt" ] ] ::
                  all_rows) ]
 
-    let js_of_timesets time_step tmin datasets =
+    let bandwidth_chart title time_step start datasets =
         let datasets = List.rev datasets in (* for some reason the legend is reversed in the graph lib *)
         let nb_xs = List.hd datasets |> snd |> Array.length in
         let js =
@@ -82,12 +82,73 @@ struct
                     Printf.fprintf os " ]},\n" ;
                     print_row (succ r) (Int64.add t time_step)
                 ) in
-            print_row 0 tmin ;
+            print_row 0 start ;
             Printf.fprintf os " ]\n}\n" ;
             IO.close_out os in
-        raw js
+        [ chart_div ;
+          tag "script" ~attrs:["type","text/javascript"]
+            [ raw ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
+var options = {\n\
+    title:'"^title^"',\n\
+    width:'100%',\n\
+    height:600,\n\
+    isStacked:true,\n\
+    hAxis:{format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
+    legend:{textStyle:{fontSize:9}}\n\
+};\n\
+var chart = new google.visualization.AreaChart(document.getElementById('chart_div'));\n\
+chart.draw(data, options);\n") ] ]
 
-    let js_of_timedistr time_step tmin datasets =
+    let top_chart lab datasets units =
+        let js =
+            let os = IO.output_string () in
+            Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
+                lab units 
+                (* display the rows *)
+                (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
+                               (fun oc s -> Printf.fprintf oc "{c:[{v:'%s'}" s)
+                               (fun oc y -> Printf.fprintf oc "{v:%f}]}" y))
+                datasets ;
+            Printf.fprintf os " \n}\n" ;
+            IO.close_out os in
+        [ chart_div ;
+          tag "script" ~attrs:["type","text/javascript"]
+            [ raw ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
+var options = {\n\
+    showRowNumber:true,\n\
+    sortColumn:1,\n\
+    sortAscending:false\n\
+};\n\
+var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
+chart.draw(data, options);\n") ] ]
+
+    let peers_chart lab1 lab2 datasets what =
+        let js =
+            let os = IO.output_string () in
+            Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
+                lab1 lab2 what
+                (* display the rows *)
+                (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
+                               (fun oc (s, d) -> Printf.fprintf oc "{c:[{v:'%s'},{v:'%s'}" s d)
+                               (fun oc y -> Printf.fprintf oc "{v:%f}]}" y))
+                datasets ;
+            Printf.fprintf os " \n}\n" ;
+            IO.close_out os in
+        [ chart_div ;
+          tag "script" ~attrs:["type","text/javascript"]
+            [ raw ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
+console.log(data);\n\
+var options = {\n\
+    width:'100%',\n\
+    height:600,\n\
+    showRowNumber:true,\n\
+    sortColumn:2,\n\
+    sortAscending:false\n\
+};\n\
+var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
+chart.draw(data, options);\n") ] ]
+
+    let resp_times_chart title time_step start datasets =
         let os = IO.output_string () in
         Printf.fprintf os "{\n\
     cols: [ {label:'Time',type:'datetime'},{label:'Min',type:'number'},{label:'Avg-\\u03C3',type:'number'},{label:'Avg',type:'number'},{label:'Avg+\\u03C3',type:'number'},{label:'Max',type:'number'},{label:'#tx',type:'number'} ],\n\
@@ -104,45 +165,12 @@ struct
                             t mi (max 0. (avg -. s)) avg (avg +. s) ma c) ;
                 print_row (succ r) (Int64.add t time_step)
             ) in
-        print_row 0 tmin ;
+        print_row 0 start ;
         Printf.fprintf os " ]\n}\n" ;
         let js = IO.close_out os in
-        raw js
-
-    let js_of_single_keyed_data lab datasets what =
-        let js =
-            let os = IO.output_string () in
-            Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
-                lab what
-                (* display the rows *)
-                (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
-                               (fun oc s -> Printf.fprintf oc "{c:[{v:'%s'}" s)
-                               (fun oc y -> Printf.fprintf oc "{v:%f}]}" y))
-                datasets ;
-            Printf.fprintf os " \n}\n" ;
-            IO.close_out os in
-        raw js
-
-    let js_of_double_keyed_data lab1 lab2 datasets what =
-        let js =
-            let os = IO.output_string () in
-            Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
-                lab1 lab2 what
-                (* display the rows *)
-                (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
-                               (fun oc (s, d) -> Printf.fprintf oc "{c:[{v:'%s'},{v:'%s'}" s d)
-                               (fun oc y -> Printf.fprintf oc "{v:%f}]}" y))
-                datasets ;
-            Printf.fprintf os " \n}\n" ;
-            IO.close_out os in
-        raw js
-
-    let resp_times title time_step start datasets =
         [ chart_div ;
           tag "script" ~attrs:["type","text/javascript"]
-            [ Raw "var data = new google.visualization.DataTable(" ;
-              js_of_timedistr time_step start datasets ;
-              Raw (");\n\
+            [ raw ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
 var options = {\n\
     title:'"^title^"',\n\
     width:'100%',\n\
@@ -215,100 +243,144 @@ struct
 
     module LoginField = struct
         module Type = Input.String (struct let min = Some 1 let max = Some 100 end)
-        let name = "name"
+        let display_name = "name"
+        let uniq_name = "name"
+        let persistant = false
     end
     module PasswdField = struct
         module Type = Input.Password (struct let min = Some 3 let max = Some 100 end)
-        let name = "password"
+        let display_name = "password"
+        let uniq_name = "password"
+        let persistant = false
     end
-    
+ 
     module Login = RecordOf (ConsOf (FieldOf (LoginField))
                             (ConsOf (FieldOf (PasswdField))
                                     (NulType)))
 
     module StartField = struct
         module Type = InputOfDatatype(Timestamp)
-        let name = "start"
+        let display_name = "start"
+        let uniq_name = "start"
+        let persistant = true
     end
     module StopField = struct
         module Type = InputOfDatatype(Timestamp)
-        let name = "stop"
+        let display_name = "stop"
+        let uniq_name = "stop"
+        let persistant = true
     end
     module OptStartField = struct
         module Type = OptInputOfDatatype(Timestamp)
-        let name = "start"
+        let display_name = "start"
+        let uniq_name = "start"
+        let persistant = true
     end
     module OptStopField = struct
         module Type = OptInputOfDatatype(Timestamp)
-        let name = "stop"
+        let display_name = "stop"
+        let uniq_name = "stop"
+        let persistant = true
     end
     module VlanField = struct
         module Type = OptInputOfDatatype(Integer16)
-        let name = "vlan"
+        let display_name = "vlan"
+        let uniq_name = "vlan"
+        let persistant = false
     end
     module MacSrcField = struct
         module Type = OptInputOfDatatype(EthAddr)
-        let name = "eth-src"
+        let display_name = "eth-src"
+        let uniq_name = "eth-src"
+        let persistant = false
     end
     module MacDstField = struct
         module Type = OptInputOfDatatype(EthAddr)
-        let name = "eth-dest"
+        let display_name = "eth-dest"
+        let uniq_name = "eth-dest"
+        let persistant = false
     end
     module EthProtoField = struct
         module Type = OptInputOfDatatype(Integer16)
-        let name = "eth-proto"
+        let display_name = "eth-proto"
+        let uniq_name = "eth-proto"
+        let persistant = false
     end
     module IpSrcField = struct
         module Type = OptInputOfDatatype(Cidr)
-        let name = "ip-src"
+        let display_name = "ip-src"
+        let uniq_name = "ip-src"
+        let persistant = false
     end
     module IpDstField = struct
         module Type = OptInputOfDatatype(Cidr)
-        let name = "ip-dst"
+        let display_name = "ip-dst"
+        let uniq_name = "ip-dst"
+        let persistant = false
     end
     module IpProtoField = struct
         module Type = OptInputOfDatatype(Integer8)
-        let name = "ip-proto"
+        let display_name = "ip-proto"
+        let uniq_name = "ip-proto"
+        let persistant = false
     end
     module TimeStepField = struct
         module Type = Integer (struct let min = Some 1 let max = None end)
-        let name = "time step (ms)"
+        let display_name = "time step (ms)"
+        let uniq_name = "tstep"
+        let persistant = true
     end
     module GroupByField = struct
         module Type = Enum (struct let name = "key"
                                    let options = [| "src-mac";"dst-mac";"src-ip";"dst-ip";"apps" |] end)
-        let name = "group by"
+        let display_name = "group by"
+        let uniq_name = "groupby"
+        let persistant = false
     end
     module GroupByPeerField = struct
         module Type = Enum (struct let name = "key"
                                    let options = [| "mac";"ip" |] end)
-        let name = "group by"
+        let display_name = "group by"
+        let uniq_name = "groupby"
+        let persistant = false
     end
     module GroupByTopField = struct
         module Type = Enum (struct let name = "key"
                                    let options = [| "src-mac";"dst-mac";"mac (both)";"src-ip";"dst-ip";"ip (both)";"app" |] end)
-        let name = "group by"
+        let display_name = "group by"
+        let uniq_name = "groupby"
+        let persistant = false
     end
     module PlotWhat = struct
         module Type = Enum (struct let name = "y"
-                                   let options = [| "packets";"volume" |] end)
-        let name = "Y"
+                                   let options = [| "volume";"packets" |] end)
+        let display_name = "Y"
+        let uniq_name = "Y"
+        let persistant = false
     end
     module MaxGraphsField = struct
         module Type = OptInteger (struct let min = Some 1 let max = Some 1000 end)
-        let name = "#series"
+        let display_name = "#series"
+        let uniq_name = "series"
+        let persistant = false
     end
     module TxMin = struct
         module Type = OptInteger (struct let min = Some 1 let max = None end)
-        let name = "#tx min"
+        let display_name = "#tx min"
+        let uniq_name = "txmin"
+        let persistant = false
     end
     module MinRespTime = struct
         module Type = OptFloat (struct let min = Some 0. let max = None end)
-        let name = "min resp time (s)"
+        let display_name = "min resp time (s)"
+        let uniq_name = "minrt"
+        let persistant = false
     end
     module MaxRespTime = struct
         module Type = OptFloat (struct let min = Some 0. let max = None end)
-        let name = "max resp time (s)"
+        let display_name = "max resp time (s)"
+        let uniq_name = "maxrt"
+        let persistant = false
     end
     module Traffic = struct
         module TblNames = struct
@@ -317,7 +389,9 @@ struct
         end
         module TblNameField = struct
             module Type = Enum (TblNames)
-            let name = "db-table"
+            let display_name = "db-table"
+            let uniq_name = "db-table"
+            let persistant = false
         end
         module Bandwidth = RecordOf (ConsOf (FieldOf (StartField))
                                     (ConsOf (FieldOf (StopField))
@@ -364,6 +438,7 @@ struct
                                (ConsOf (FieldOf (GroupByTopField))
                                (ConsOf (FieldOf (MaxGraphsField))
                                        (NulType))))))))))))))
+
     end
 
     module Web = struct
@@ -373,19 +448,27 @@ struct
         end
         module TblNameField = struct
             module Type = Enum (TblNames)
-            let name = "db-table"
+            let display_name = "db-table"
+            let uniq_name = "db-table"
+            let persistant = false
         end
         module HttpStatus = struct
             module Type = OptInteger (struct let min = Some 100 let max = Some 999 end)
-            let name = "status"
+            let display_name = "status"
+            let uniq_name = "status"
+            let persistant = false
         end
         module HttpHost = struct
             module Type = OptString (struct let min = None let max = None end)
-            let name = "host"
+            let display_name = "host"
+            let uniq_name = "host"
+            let persistant = false
         end
         module HttpURL = struct
             module Type = OptString (struct let min = None let max = None end)
-            let name = "url"
+            let display_name = "url"
+            let uniq_name = "url"
+            let persistant = false
         end
         module RespTime = RecordOf (ConsOf (FieldOf (StartField))
                                    (ConsOf (FieldOf (StopField))
@@ -411,7 +494,9 @@ struct
         end
         module TblNameField = struct
             module Type = Enum (TblNames)
-            let name = "db-table"
+            let display_name = "db-table"
+            let uniq_name = "db-table"
+            let persistant = false
         end
         module RespTime = RecordOf (ConsOf (FieldOf (StartField))
                                    (ConsOf (FieldOf (StopField))
@@ -498,7 +583,7 @@ struct
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value time_step, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))) ->
                     let time_step = Int64.of_int time_step
                     and tblname = Forms.Traffic.TblNames.options.(tblname)
-                    and what = if what = 0 then PacketCount else Volume in
+                    and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
                         | 0 (* src-mac *) | 1 (* dst-mac *) as sd ->
                             eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs (sd = 0) what time_step dbdir tblname
@@ -510,21 +595,7 @@ struct
                         [ cdata "No data" ]
                     else
                         let what = if what = PacketCount then "Packets" else "Bytes" in
-                        [ View.chart_div ;
-                          tag "script" ~attrs:["type","text/javascript"]
-                            [ Raw "var data = new google.visualization.DataTable(" ;
-                              View.js_of_timesets time_step start datasets ;
-                              Raw (");\n\
-var options = {\n\
-    title:'Traffic - "^what^"/sec',\n\
-    width:'100%',\n\
-    height:600,\n\
-    isStacked:true,\n\
-    hAxis:{format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
-    legend:{textStyle:{fontSize:9}}\n\
-};\n\
-var chart = new google.visualization.AreaChart(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ] ]
+                        View.bandwidth_chart ("Traffic - "^what^"/sec") time_step start datasets
                 | _ ->
                     [ cdata "Fill in the form above" ] in
             View.make_app_page
@@ -536,7 +607,7 @@ chart.draw(data, options);\n") ] ]
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
-                    and what = if what = 0 then PacketCount else Volume in
+                    and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
                         | 0 (* mac *) ->
                             eth_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
@@ -546,21 +617,7 @@ chart.draw(data, options);\n") ] ]
                         [ cdata "No data" ]
                     else
                         let units = if what = PacketCount then "Packets" else "Bytes" in
-                        [ View.chart_div ;
-                          tag "script" ~attrs:["type","text/javascript"]
-                            [ Raw "var data = new google.visualization.DataTable(" ;
-                              View.js_of_double_keyed_data "src" "dst" datasets units ;
-                              Raw (");\n\
-console.log(data);\n\
-var options = {\n\
-    width:'100%',\n\
-    height:600,\n\
-    showRowNumber:true,\n\
-    sortColumn:2,\n\
-    sortAscending:false\n\
-};\n\
-var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ] ]
+                        View.peers_chart "src" "dst" datasets units
                 | _ ->
                     [ cdata "Fill in the form above" ] in
             View.make_app_page
@@ -572,7 +629,7 @@ chart.draw(data, options);\n") ] ]
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
-                    and what = if what = 0 then PacketCount else Volume in
+                    and what = if what = 0 then Volume else PacketCount in
                     let key, datasets = match group_by with
                         | 0 (* src-mac *) ->
                             "src mac", eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs true what dbdir tblname
@@ -593,19 +650,7 @@ chart.draw(data, options);\n") ] ]
                         [ cdata "No data" ]
                     else
                         let units = if what = PacketCount then "Packets" else "Bytes" in
-                        [ View.chart_div ;
-                          tag "script" ~attrs:["type","text/javascript"]
-                            [ Raw "var data = new google.visualization.DataTable(" ;
-                              View.js_of_single_keyed_data key datasets units ;
-                              Raw (");\n\
-console.log(data);\n\
-var options = {\n\
-    showRowNumber:true,\n\
-    sortColumn:1,\n\
-    sortAscending:false\n\
-};\n\
-var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ] ]
+                        View.top_chart key datasets units
                 | _ ->
                     [ cdata "Fill in the form above" ] in
             View.make_app_page
@@ -628,7 +673,7 @@ chart.draw(data, options);\n") ] ]
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
-                    View.resp_times "Web - Average Response Time (sec)" time_step start datasets
+                    View.resp_times_chart "Web - Average Response Time (sec)" time_step start datasets
                 | _ ->
                     [ cdata "Fill in the form above" ] in
             View.make_app_page
@@ -651,7 +696,7 @@ chart.draw(data, options);\n") ] ]
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
-                    View.resp_times "DNS - Average Response Time (sec)" time_step start datasets
+                    View.resp_times_chart "DNS - Average Response Time (sec)" time_step start datasets
                 | _ ->
                     [ cdata "Fill in the form above" ] in
             View.make_app_page

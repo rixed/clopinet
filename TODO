@@ -1,6 +1,11 @@
 TODO stack
 ----------
 
+* Peers : pour chaque A,B sélectionné dans la première passe, calculer
+ensuite le traffic exacte entre A et B et aussi le traffic total 
+entrant/sortant de A et de B, et afficher ainsi pour tout host le traffic
+"autre".
+
 * A queries chart as a cloud of dots
 
 * Tables for tops (on every interresting values, both order)
