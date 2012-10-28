@@ -1,0 +1,51 @@
+MLRRD: essais d'utilisation d'une DB spécifique plane à plusieurs LoD.
+
+1) Archi de la base
+
+optimisation du seqscan : fragmentation, parallelisation, cache
+(posix_advise).
+
+pas d'upgrade, chaque enregistrement comporte sa version (+ garantie 
+d'exhaustivité du pattern matching)
+
+pas de contrainte d'insérer dans l'ordre chronologique (meme si plus efficace
+car temps utilisé en meta en général) - ideal pour le mode distribué, mais il 
+y a mieux.
+
+possibilité de distribuer les seqscans sur plusieurs pollers.
+
+grande facilité pour effacer (rm) ou compresser (mv ds autre partition)
+l'historique.
+
+pas de construction d'aggrégats au fur et à mesure (cette monstruosité)
+mais insertion simultanée dans tous les LoD, avec pour avantage de tout
+simplifier (on peut meme supprimer un LoD intermédiaire si on veut) et
+la base ne se floute pas toute seule avec le temps ! Le tout pour une
+taille évidement négligeable, vu que le recouvrement de deux LoD est
+la taille de lod n dans les lod n+1,2,etc.
+
+Evidemment plus robuste vis à vis de la corruption de données qu'une
+base relationelle (réparable en shell, au pire en supprimant le fichiers
+qui pose pb).
+
+pb: enregistrements de taille variable car plus simple, stress du GC 
+générationnel car besoin de créer énormément d'objs immédiatement oubliés.
+Pas de typage du contenu sérialisé (besoin du checker dynamiquement qu'on
+ne se trompe pas de fichier).
+
+Inconvénient majeur : on a que deux indexs (plutot un index et un 
+accélérateur). On ne peut donc rechercher des entrées selon un critère
+quelconque qu'au prix d'un scan complet. Il faut donc prévoir initialement
+tous les cas d'usage présent _et_à_venir_. C'est probablement la raison pour 
+laquelle il a semblé plus prudent de partir sur une base relationelle.
+
+2) Utilisation en monitoring
+
+Possibilité d'utiliser autant de filtres que l'on souhaite gratuitement 
+(puisqu'on part du postulat qu'on scannera toutes les données, alors que pour 
+une base relationnelle on cherche en permanence un échapatoire à ce 
+comportement "dégradé").
+
+3) Utilisation en troubleshooting
+
+
