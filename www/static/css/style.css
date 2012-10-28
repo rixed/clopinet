@@ -1,4 +1,39 @@
-/*div#chart_div {
-    width: 95%;
-    min-height: 600px;
-}*/
+* {
+	margin: 0;
+	padding: 0;
+}
+
+a {
+	color: blue;
+	outline: none;
+	text-decoration: underline;
+}
+a:hover {
+	text-decoration: none;
+}
+
+/* Layout */
+
+ul#menu {
+    display: block;
+}
+
+div#notifs {
+    display: block;
+}
+
+div#page form {
+	display: block;
+	float: left;
+}
+
+div#chart_div {
+	overflow: auto;
+}
+
+/* Forms */
+
+form th {
+	text-align: right;
+	font-variant: bold;
+}

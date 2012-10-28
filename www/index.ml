@@ -37,7 +37,7 @@ struct
     let menu () =
         let html_of_entry e = tag "li" [ tag "a" ~attrs:["href","?action=main/"^e] [cdata e] ]
         and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "DNS/resptime"; "web/resptime"; "logout"] in
-        tag ~attrs:["class","menu"] "ul" (List.map html_of_entry menu_entries)
+        tag ~attrs:["id","menu"] "ul" (List.map html_of_entry menu_entries)
 
     (* add the menu *)
     let make_app_page content =
@@ -173,7 +173,7 @@ chart.draw(data, options);\n") ] ]
             [ raw ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
 var options = {\n\
     title:'"^title^"',\n\
-    width:'100%',\n\
+    /*width:'100%',*/\n\
     height:600,\n\
     hAxis: {format:'y-MM-dd HH:mm:ss.SSS', gridlines:{color:'#333'}, title:'Time'},\n\
     vAxes: [{title:'Response Time (sec)'},\n\
