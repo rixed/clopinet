@@ -12,7 +12,7 @@ let maketuple n =
     foreach (fun i -> printf " (T%d: DATATYPE)" i) ;
     printf " :\n    DATATYPE with type t = " ;
     foreach (fun i -> if i > 0 then printf " * " ; printf "T%d.t" i) ;
-    printf " =\nDatatype_of (struct\n    type t = " ;
+    printf " =\nstruct\n    module Tuple%d_base = struct\n    type t = " n ;
     foreach (fun i -> if i > 0 then printf " * " ; printf "T%d.t" i) ;
     printf "\n\n" ;
     let parms c =
@@ -26,6 +26,7 @@ let maketuple n =
     printf "    let hash = Hashtbl.hash\n" ;
     printf "    let name = " ;
     foreach (fun i -> if i > 0 then printf "^\"*\"^" ; printf "T%d.name" i) ;
+    printf "\n" ;
     printf "    let write oc (%s) =\n" (parms 't') ;
     foreach (fun i -> printf "        " ; if i > 0 then printf "; " ; printf "T%d.write oc t%d\n" i i) ;
     printf "    let write_txt oc (%s) =\n" (parms 't') ;
@@ -38,7 +39,10 @@ let maketuple n =
         if i > 0 then printf "        let sep = TxtInput.read ic in assert (sep = '\t') ;\n" ;
         printf "        let t%d = T%d.read_txt ic in\n" i i) ;
     printf "        %s\n" (parms 't') ;
-    printf "end)\n"
+    printf "    end\n" ;
+    printf "    include Tuple%d_base\n" n ;
+    printf "    include Datatype_of(Tuple%d_base)" n ;
+    printf "end\n"
 
 let main =
     if Array.length Sys.argv != 2 then (

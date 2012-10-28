@@ -30,9 +30,6 @@ body)
 display file and offset where the error occured))
 
 
-* Factorize DNS with WEB and ETH.
-
-
 * Fix multiple writer by flushing in O_APPEND after complete tuples
 
 

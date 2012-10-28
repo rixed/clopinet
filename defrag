@@ -7,9 +7,11 @@ if test -z "$dbdir" ; then
 	exit 1
 fi
 
-find "$dbdir" -type f -name '*[0-9]' |
-	while read p ; do
-		ionice -c 3 cp $p $p.lin
-		ionice -c 3 mv -f $p.lin $p
-	done
+if test -e "$dbdir""_" ; then
+	echo "file $dbdir""_ already exist"
+	exit 1
+fi
 
+ionice -c 3 cp -r "$dbdir" "$dbdir""_"
+ionice -c 3 rm -rf "$dbdir"
+mv "$dbdir""_" "$dbdir"

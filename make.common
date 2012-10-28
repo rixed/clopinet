@@ -1,4 +1,4 @@
-# vim:syntax=make
+# vim:filetype=make
 OCAMLC     = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlc -thread -rectypes
 OCAMLOPT   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlopt -thread -rectypes
 OCAMLLEX   = ocamllex
@@ -6,7 +6,7 @@ OCAMLYACC  = ocamlyacc
 OCAMLDEP   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldep
 OCAMLDOC   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldoc -html -colorize-code -thread -all-params
 OCAMLMKTOP = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlmktop -thread -g -rectypes
-override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -inline 50 -S
+override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -inline 9 -S
 override OCAMLFLAGS    += $(INCS) -w Ael -g -annot
 CAMLINCLUDE = $(shell ocamlfind printconf stdlib)
 override CPPFLAGS      += -I $(CAMLINCLUDE) -I . -D_GNU_SOURCE

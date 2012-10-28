@@ -49,6 +49,32 @@ struct
                                   (Distribution)        (* duration, aka count, min, max, avg, sigma (See distribumtion.ml) *)
                                   (Text)                (* host *)
                                   (Text)                (* URL *))
+    (* We'd rather have an inlined reader *)
+    let read ic =
+        let tuple12_read ic =
+            let t0 =
+                let o = Serial.deser8 ic in
+                if o <> 0 then (
+                    assert (o = 1) ;
+                    Some (UInteger16.read ic)
+                ) else None in
+            let t1 = EthAddr.read ic in
+            let t2 = Cidr.read ic in
+            let t3 = EthAddr.read ic in
+            let t4 = InetAddr.read ic in
+            let t5 = Integer16.read ic in
+            let t6 = Integer8.read ic in
+            let t7 = Integer16.read ic in
+            let t8 = Timestamp.read ic in
+            let t9 = Distribution.read ic in
+            let t10 = Text.read ic in
+            let t11 = Text.read ic in
+            t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11 in
+        let v = Serial.deser8 ic in
+        if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
+        assert (v = 0) ;
+        tuple12_read ic
+
     (* We hash on the server IP *)
     let hash_on_srv (_vlan, _clte, _clt, _srve, srv, _srvp, _method, _err, _ts, _rt, _host, _url) =
         InetAddr.hash srv

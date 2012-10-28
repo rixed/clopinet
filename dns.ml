@@ -44,6 +44,29 @@ struct
                                  (Timestamp)            (* timestamp *)
                                  (Distribution)         (* resp time *)
                                  (Text)                 (* query name *))
+    (* We'd rather have an inlined reader *)
+    let read ic : t =
+        let tuple9_read ic =
+            let t0 =
+                let o = Serial.deser8 ic in
+                if o <> 0 then (
+                    assert (o = 1) ;
+                    Some (UInteger16.read ic)
+                ) else None in
+            let t1 = EthAddr.read ic in
+            let t2 = Cidr.read ic in
+            let t3 = EthAddr.read ic in
+            let t4 = InetAddr.read ic in
+            let t5 = Integer8.read ic in
+            let t6 = Timestamp.read ic in
+            let t7 = Distribution.read ic in
+            let t8 = Text.read ic in
+            t0,t1,t2,t3,t4,t5,t6,t7,t8 in
+        let v = Serial.deser8 ic in
+        if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
+        assert (v = 0) ;
+        tuple9_read ic
+
     (* We hash on the server IP *)
     let hash_on_srv (_vlan, _clte, _clt, _srve, srv, _err, _ts, _rt, _name) =
         InetAddr.hash srv

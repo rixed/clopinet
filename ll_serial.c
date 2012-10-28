@@ -78,7 +78,7 @@ static size_t really_read(int fd, uint8_t *buf, size_t n)
 struct obuf {
     int fd;
     unsigned next;
-#   define OBUFLEN 16384
+#   define OBUFLEN 8192 //16384
     uint8_t buf[OBUFLEN];
 };
 
@@ -166,7 +166,7 @@ struct ibuf {
     unsigned stop;
     int fd;
     uint8_t eof:1;
-#   define IBUFLEN 16384
+#   define IBUFLEN 8192 //16384
     uint8_t buf[IBUFLEN];
 };
 
@@ -213,7 +213,7 @@ static void ibuf_refill(struct ibuf *ib)
     }
 }
 
-static void ibuf_make_available(struct ibuf *ib, unsigned sz)
+static inline void ibuf_make_available(struct ibuf *ib, unsigned sz)
 {
     if (ib->stop - ib->next >= sz) return;
     ibuf_refill(ib);

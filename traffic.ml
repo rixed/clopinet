@@ -37,6 +37,36 @@ struct
                                   (UInteger)                     (* IP payload *)
                                   (UInteger16) (UInteger16)      (* Port source, dest *)
                                   (UInteger)                     (* L4 payload *))
+    (* We'd rather have an inlined reader: *)
+    let read ic =
+        let tuple16_read ic =
+            let t0 = Timestamp.read ic in
+            let t1 = Timestamp.read ic in
+            let t2 = UInteger.read ic in
+            let t3 =
+                let o = Serial.deser8 ic in
+                if o <> 0 then (
+                    assert (o = 1) ;
+                    Some (UInteger16.read ic)
+                ) else None in
+            let t4 = EthAddr.read ic in
+            let t5 = EthAddr.read ic in
+            let t6 = UInteger16.read ic in
+            let t7 = UInteger.read ic in
+            let t8 = UInteger16.read ic in
+            let t9 = InetAddr.read ic in
+            let t10 = InetAddr.read ic in
+            let t11 = UInteger8.read ic in
+            let t12 = UInteger.read ic in
+            let t13 = UInteger16.read ic in
+            let t14 = UInteger16.read ic in
+            let t15 = UInteger.read ic in
+            t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15 in
+        let v = Serial.deser8 ic in
+        if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
+        assert (v = 0) ;
+        tuple16_read ic
+
     (* We hash on the source IP *)
     let hash_on_src (_ts1, _ts2, _count, _vlan, _mac_src, _mac_dst, _proto, _pld, _mtu, ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) =
         InetAddr.hash ip_src
