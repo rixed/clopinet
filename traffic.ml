@@ -112,6 +112,7 @@ struct
                 let res =
                     if scan_it then (
                         Table.fold_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, _, _, _) as x) prev ->
+                            (* ocamlopt won't inline check function here, which hurts! *)
                             if check start     (fun start -> cmp ts2 start >= 0) &&
                                check stop      (fun stop  -> cmp stop ts1 > 0) &&
                                check mac_src   (fun mac   -> EthAddr.equal mac mac_s) &&

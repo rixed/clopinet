@@ -270,18 +270,6 @@ struct
         let uniq_name = "stop"
         let persistant = true
     end
-    module OptStartField = struct
-        module Type = OptInputOfDatatype(Timestamp)
-        let display_name = "start"
-        let uniq_name = "start"
-        let persistant = true
-    end
-    module OptStopField = struct
-        module Type = OptInputOfDatatype(Timestamp)
-        let display_name = "stop"
-        let uniq_name = "stop"
-        let persistant = true
-    end
     module VlanField = struct
         module Type = OptInputOfDatatype(Integer16)
         let display_name = "vlan"
@@ -409,8 +397,8 @@ struct
                                     (ConsOf (FieldOf (MaxGraphsField))
                                             (NulType)))))))))))))))
 
-        module Peers = RecordOf (ConsOf (FieldOf (OptStartField))
-                                (ConsOf (FieldOf (OptStopField))
+        module Peers = RecordOf (ConsOf (FieldOf (StartField))
+                                (ConsOf (FieldOf (StopField))
                                 (ConsOf (FieldOf (VlanField))
                                 (ConsOf (FieldOf (MacSrcField))
                                 (ConsOf (FieldOf (MacDstField))
@@ -424,8 +412,8 @@ struct
                                 (ConsOf (FieldOf (MaxGraphsField))
                                         (NulType))))))))))))))
 
-        module Tops = RecordOf (ConsOf (FieldOf (OptStartField))
-                               (ConsOf (FieldOf (OptStopField))
+        module Tops = RecordOf (ConsOf (FieldOf (StartField))
+                               (ConsOf (FieldOf (StopField))
                                (ConsOf (FieldOf (VlanField))
                                (ConsOf (FieldOf (MacSrcField))
                                (ConsOf (FieldOf (MacDstField))
@@ -610,9 +598,9 @@ struct
                     and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
                         | 0 (* mac *) ->
-                            eth_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
+                            eth_plot_vol_tot2 ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
                         | _ (* ip *) ->
-                            ip_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname in
+                            ip_plot_vol_tot2 ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname in
                     if Hashtbl.is_empty datasets then
                         [ cdata "No data" ]
                     else
@@ -632,19 +620,19 @@ struct
                     and what = if what = 0 then Volume else PacketCount in
                     let key, datasets = match group_by with
                         | 0 (* src-mac *) ->
-                            "src mac", eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs true what dbdir tblname
+                            "src mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs true what dbdir tblname
                         | 1 (* dst-mac *) ->
-                            "dst mac", eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs false what dbdir tblname
+                            "dst mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs false what dbdir tblname
                         | 2 (* mac (both) *) ->
-                            "mac (both)", eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
+                            "mac (both)", eth_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
                         | 3 (* src-ip *) ->
-                            "src IP", ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs true what dbdir tblname
+                            "src IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs true what dbdir tblname
                         | 4 (* dst-ip *) ->
-                            "dst IP", ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs false what dbdir tblname
+                            "dst IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs false what dbdir tblname
                         | 5 (* ip (both) *) ->
-                            "IP (both)", ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
+                            "IP (both)", ip_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname
                         | _ (* app *) ->
-                            "Port", app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname in
+                            "Port", app_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?max_graphs what dbdir tblname in
 
                     if Hashtbl.is_empty datasets then
                         [ cdata "No data" ]
