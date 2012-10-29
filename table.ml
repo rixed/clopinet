@@ -11,10 +11,13 @@ let ncores = ref 1
 *)
 
 (* The meta file, which accompany every dbfile, stores the aggregation result *)
-let read_meta tdir hnum snum aggr_reader =
-    let fname = Dbfile.path tdir hnum snum ^ ".meta" in
+let read_meta_fname fname aggr_reader =
     try Some (Serial.with_file_in fname aggr_reader)
     with Sys_error _ -> None
+
+let read_meta tdir hnum snum aggr_reader =
+    let fname = Dbfile.path tdir hnum snum ^ ".meta" in
+    read_meta_fname fname aggr_reader
 
 let iter_fname fname reader f =
     Serial.with_file_in fname (fun ic ->
@@ -125,7 +128,8 @@ let fold tdir reader f start copy merge =
 type 'b h_cache =
           { mutable max_snum : int ;
                 mutable file : int option ;
-                mutable aggr : 'b option }
+                mutable aggr : 'b option ;
+     mutable last_checkpoint : float }
 
 type ('a, 'b) t =
                        { dir : string ;
@@ -170,7 +174,8 @@ let create_h_cache t hnum =
     let max_snum = get_max_snum dir in
     { max_snum ;
       file = None ;
-      aggr = read_meta t.dir hnum max_snum t.aggr_reader }
+      aggr = read_meta t.dir hnum max_snum t.aggr_reader ;
+      last_checkpoint = Unix.time () }
 
 let create dir hash val_writer aggregator aggr_reader aggr_writer =
     { dir ; hash ;
@@ -195,6 +200,14 @@ let append t x =
         if fsize t.dir hnum h_cache.max_snum >= max_file_size then (
             save_meta t hnum h_cache ;
             rotate t hnum h_cache
+        ) else (
+            let now = Unix.time () in
+            if now > h_cache.last_checkpoint +. 10. then (
+                (* save the meta file once in a while so that readers can have
+                 * up to date description of last snum *)
+                h_cache.last_checkpoint <- now ;
+                save_meta t hnum h_cache
+            )
         )
     ) ;
     let file, oc = Dbfile.get ?prev:h_cache.file t.dir hnum h_cache.max_snum in

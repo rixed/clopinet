@@ -1,6 +1,8 @@
 
 (** {2} Reading *)
 
+val read_meta_fname : string -> (Serial.ibuf -> 'a) -> 'a option
+
 val max_file_size : int
 
 val max_hash_size : int

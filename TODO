@@ -16,6 +16,9 @@ entrant/sortant de A et de B, et afficher ainsi pour tout host le traffic
 
 * An Interval type
 
+* In all time charts where the selected period spans no more than 10 days,
+display in chart background the night times with a sligh dark-blue bgcolor.
+
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
 
