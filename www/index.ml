@@ -45,6 +45,12 @@ struct
         and head = [ title "MlRRD" ; link_css "static/css/style.css" ] @ chart_head in
         html head body
 
+    let make_graph_page title form graph =
+        let content =
+            [ h1 title ;
+              table [ tr [ td [form] ; td ~attrs:["width","100%"] graph ] ] ] in
+        make_app_page content
+
     let table_of_datasets datasets =
         let all_rows =
             Hashtbl.fold (fun label pts doc ->
@@ -587,8 +593,7 @@ struct
                         View.bandwidth_chart ("Traffic - "^what^"/sec") time_step start datasets
                 | _ ->
                     [ cdata "Fill in the form above" ] in
-            View.make_app_page
-                (h1 "Bandwidth" :: filters_form :: disp_graph)
+            View.make_graph_page "Bandwidth" filters_form disp_graph
 
         let peers args =
             let filters = Forms.Traffic.Peers.from_args "filter" args in
@@ -609,8 +614,7 @@ struct
                         View.peers_chart "src" "dst" datasets units
                 | _ ->
                     [ cdata "Fill in the form above" ] in
-            View.make_app_page
-                (h1 "Peers" :: filters_form :: disp_graph)
+            View.make_graph_page "Peers" filters_form disp_graph
 
         let tops args =
             let filters = Forms.Traffic.Tops.from_args "filter" args in
@@ -642,8 +646,7 @@ struct
                         View.top_chart key datasets units
                 | _ ->
                     [ cdata "Fill in the form above" ] in
-            View.make_app_page
-                (h1 "Tops" :: filters_form :: disp_graph)
+            View.make_graph_page "Tops" filters_form disp_graph
 
     end
 
@@ -665,8 +668,7 @@ struct
                     View.resp_times_chart "Web - Average Response Time (sec)" time_step start datasets
                 | _ ->
                     [ cdata "Fill in the form above" ] in
-            View.make_app_page
-                (h1 "Web Response Time" :: filters_form :: disp_graph)
+            View.make_graph_page "Web Response Time" filters_form disp_graph
 
     end
 
@@ -688,8 +690,7 @@ struct
                     View.resp_times_chart "DNS - Average Response Time (sec)" time_step start datasets
                 | _ ->
                     [ cdata "Fill in the form above" ] in
-            View.make_app_page
-                (h1 "DNS Response Time" :: filters_form :: disp_graph)
+            View.make_graph_page "DNS Response Time" filters_form disp_graph
 
     end
 

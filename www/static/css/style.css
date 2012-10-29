@@ -14,22 +14,7 @@ a:hover {
 
 /* Layout */
 
-ul#menu {
-    display: block;
-}
-
-div#notifs {
-    display: block;
-}
-
-div#page form {
-	display: block;
-	float: left;
-}
-
-div#chart_div {
-	overflow: auto;
-}
+/* Layout is now a table. */
 
 /* Forms */
 
