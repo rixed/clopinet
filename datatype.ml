@@ -569,13 +569,9 @@ struct
     include Datatype_of(EthAddr_base)
 end
 
-module Timestamp_base = struct
+module Timestamp = struct
     include UInteger64 (* for number of milliseconds *)
     let name = "timestamp"
-    let write_txt oc t =
-        UInteger64.write_txt oc (Int64.div t 1000L) ;
-        Output.char oc '.' ;
-        Output.string oc (Printf.sprintf "%03Ld" (Int64.rem t 1000L))
     let read_txt ic =
         let s = UInteger64.read_txt ic in
         let ms =
@@ -615,11 +611,6 @@ module Timestamp_base = struct
             ) in
         Int64.add (Int64.mul s 1000L)
                   (Int64.of_int ms)
-end
-module Timestamp =
-struct
-    include Timestamp_base
-    include Datatype_of(Timestamp_base)
 
     let seconds t = Int64.div t 1000L
     let milliseconds t = Int64.rem t 1000L
@@ -695,6 +686,10 @@ struct
         Printf.sprintf "%04u-%02u-%02u %02u:%02u:%06.3f"
             (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday
             tm.tm_hour tm.tm_min s
+
+    let write_txt oc t =
+        let str = to_string t in
+        Output.string oc str
 end
 
 let round_timestamp ?(ceil=false) n t =

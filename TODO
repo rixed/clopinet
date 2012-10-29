@@ -1,6 +1,10 @@
 TODO stack
 ----------
 
+* Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr.
+
+* Top DNS: VLAN = 0 ??
+
 * Ajouter un check sur stop > start
 
 * Peers : pour chaque A,B sélectionné dans la première passe, calculer

@@ -36,7 +36,7 @@ struct
 
     let menu () =
         let html_of_entry e = tag "li" [ tag "a" ~attrs:["href","?action=main/"^e] [cdata e] ]
-        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "DNS/resptime"; "web/resptime"; "logout"] in
+        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "DNS/resptime"; "DNS/top"; "web/resptime"; "logout"] in
         tag ~attrs:["id","menu"] "ul" (List.map html_of_entry menu_entries)
 
     (* add the menu *)
@@ -65,6 +65,18 @@ struct
         [ table (tr [ th [ cdata "time" ] ;
                       th [ cdata "qtt" ] ] ::
                  all_rows) ]
+
+    let tops_table tops heads vals_of_top =
+        let all_rows =
+            Array.fold_left (fun rows top ->
+                match top with None -> rows
+                             | Some top ->
+                                  let vals = vals_of_top top in
+                                  tr (List.map (fun v -> td [ raw v ]) vals) :: rows)
+                [] tops |>
+            List.rev in
+        let heads = tr (List.map (fun v -> th [ raw v ]) heads) in
+        [ table (heads :: all_rows) ]
 
     let bandwidth_chart title time_step start datasets =
         let datasets = List.rev datasets in (* for some reason the legend is reversed in the graph lib *)
@@ -198,6 +210,11 @@ var options = {\n\
 var chart = new google.visualization.ComboChart(document.getElementById('chart_div'));\n\
 chart.draw(data, options);\n") ] ]
 
+    (* Misc *)
+
+    let string_of_vlan = function
+        | None -> ""
+        | Some v -> string_of_int v
 end
 
 module InputOfDatatype (D : DATATYPE) :
@@ -502,6 +519,28 @@ struct
             let uniq_name = "db-table"
             let persistant = false
         end
+        module SortOrders = struct
+            let name = "selection"
+            let options = [| "min";"max" |]
+        end
+        module SortOrder = struct
+            module Type = Enum (SortOrders)
+            let display_name = "Selection"
+            let uniq_name = "sort-order"
+            let persistant = false
+        end
+        module Error = struct
+            module Type = OptInteger (struct let min = Some 0 let max = Some 255 end)
+            let display_name = "Error code"
+            let uniq_name = "err-code"
+            let persistant = false
+        end
+        module QueryName = struct
+            module Type = OptString (struct let min = None let max = None end)
+            let display_name = "Query Name"
+            let uniq_name = "qname"
+            let persistant = false
+        end
         module RespTime = RecordOf (ConsOf (FieldOf (StartField))
                                    (ConsOf (FieldOf (StopField))
                                    (ConsOf (FieldOf (VlanField))
@@ -515,6 +554,21 @@ struct
                                    (ConsOf (FieldOf (TimeStepField))
                                    (ConsOf (FieldOf (TblNameField))
                                            (NulType)))))))))))))
+
+        module Top = RecordOf (ConsOf (FieldOf (StartField))
+                              (ConsOf (FieldOf (StopField))
+                              (ConsOf (FieldOf (VlanField))
+                              (ConsOf (FieldOf (MacSrcField))
+                              (ConsOf (FieldOf (MacDstField))
+                              (ConsOf (FieldOf (IpSrcField))
+                              (ConsOf (FieldOf (IpDstField))
+                              (ConsOf (FieldOf (MinRespTime))
+                              (ConsOf (FieldOf (MaxRespTime))
+                              (ConsOf (FieldOf (Error))
+                              (ConsOf (FieldOf (QueryName))
+                              (ConsOf (FieldOf (MaxGraphsField))
+                              (ConsOf (FieldOf (SortOrder))
+                                      (NulType))))))))))))))
     end
 
 end
@@ -600,8 +654,7 @@ struct
                     else
                         let what = if what = PacketCount then "Packets" else "Bytes" in
                         View.bandwidth_chart ("Traffic - "^what^"/sec") time_step start datasets
-                | _ ->
-                    [ cdata "Fill in the form above" ] in
+                | _ -> [] in
             View.make_graph_page "Bandwidth" filters_form disp_graph
 
         let peers args =
@@ -621,8 +674,7 @@ struct
                     else
                         let units = if what = PacketCount then "Packets" else "Bytes" in
                         View.peers_chart "src" "dst" datasets units
-                | _ ->
-                    [ cdata "Fill in the form above" ] in
+                | _ -> [] in
             View.make_graph_page "Peers" filters_form disp_graph
 
         let tops args =
@@ -653,8 +705,7 @@ struct
                     else
                         let units = if what = PacketCount then "Packets" else "Bytes" in
                         View.top_chart key datasets units
-                | _ ->
-                    [ cdata "Fill in the form above" ] in
+                | _ -> [] in
             View.make_graph_page "Tops" filters_form disp_graph
 
     end
@@ -675,8 +726,7 @@ struct
                     and rt_max = BatOption.map s2m rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
                     View.resp_times_chart "Web - Average Response Time (sec)" time_step start datasets
-                | _ ->
-                    [ cdata "Fill in the form above" ] in
+                | _ -> [] in
             View.make_graph_page "Web Response Time" filters_form disp_graph
 
     end
@@ -686,6 +736,38 @@ struct
         include Dns
         let dbdir = dbdir^"/dns"
         let s2m x = x *. 1_000_000.
+
+        let top args =
+            let filters = Forms.Dns.Top.from_args "filter" args in
+            let filters_form = form "main/DNS/top" (Forms.Dns.Top.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value error, (Value qname, (Value n, (Value sort_order, ())))))))))))) ->
+                    let rt_min = BatOption.map s2m rt_min
+                    and rt_max = BatOption.map s2m rt_max
+                    and n = BatOption.default 30 n
+                    and sort_order = match sort_order with 0 -> Asc | _ -> Desc in
+                    let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir n sort_order in
+                    let field_display_names =
+                        [ "VLAN" ;
+                          "Client MAC" ; "Client IP" ;
+                          "Server MAC" ; "Server IP" ;
+                          "Error Code" ; "timestamp" ;
+                          "Response Time (us)" ; "Query Name" ] in
+                    View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, err, ts, (_, _, _, rt, _), name) ->
+                        [ View.string_of_vlan vlan ;
+                          EthAddr.to_string eclt ;
+                          Cidr.to_string clt ;
+                          EthAddr.to_string esrv ;
+                          InetAddr.to_string srv ;
+                          string_of_int err ;
+                          Timestamp.to_string ts ;
+                          string_of_float rt ;
+                          name ])
+                | _ -> [] in
+            View.make_graph_page "DNS Top Requests" filters_form disp_graph
+
+            
+
         let resp_time args =
             let filters = Forms.Dns.RespTime.from_args "filter" args in
             let filters_form = form "main/DNS/resptime" (Forms.Dns.RespTime.edit "filter" filters) in
@@ -697,8 +779,7 @@ struct
                     and rt_max = BatOption.map s2m rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
                     View.resp_times_chart "DNS - Average Response Time (sec)" time_step start datasets
-                | _ ->
-                    [ cdata "Fill in the form above" ] in
+                | _ -> [] in
             View.make_graph_page "DNS Response Time" filters_form disp_graph
 
     end
@@ -724,5 +805,7 @@ let _ =
             Ctrl.ensure_logged Ctrl.Web.resp_time
         | ["main";"DNS";"resptime"] ->
             Ctrl.ensure_logged Ctrl.Dns.resp_time
+        | ["main";"DNS";"top"] ->
+            Ctrl.ensure_logged Ctrl.Dns.top
         | _ -> Ctrl.Invalid.run)
 

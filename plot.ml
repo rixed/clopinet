@@ -116,8 +116,44 @@ let per_date start stop step fold =
             Some (c, m2s mi, m2s ma, m2s a, m2s (m2s v)) in
     Array.map microseconds_to_seconds result
 
-(*let top_table n sort_order cmp fold =
-*)
+let top_table n cmp fold =
+    let init_value () = Array.create n None in
+    let is_smaller v = function
+        | None -> true
+        | Some v' -> cmp v v' < 0 in
+    let merge_tops t1 t2 =
+        let ret = init_value () in
+        let rec m s1 s2 d =
+            if d < n then (
+                match t1.(s1) with
+                | None ->
+                    ret.(d) <- t2.(s2) ;
+                    m s1 (succ s2) (succ d)
+                | Some v1 as x ->
+                    if is_smaller v1 t2.(s2) then (
+                        ret.(d) <- x ;
+                        m (succ s1) s2 (succ d)
+                    ) else (
+                        ret.(d) <- t2.(s2) ;
+                        m s1 (succ s2) (succ d)
+                    )
+            ) in
+        m 0 0 0 ;
+        ret in
+    let add_value v tops =
+        if is_smaller v tops.(n-1) then (
+            (* look for first top not smaller than v *)
+            let rec look_bigger i =
+                if is_smaller v tops.(i) then i else look_bigger (succ i) in
+            let insert_pos = look_bigger 0 in
+            (* make room in tops array *)
+            Array.blit tops insert_pos tops (succ insert_pos) (n-1 - insert_pos) ;
+            (* insert v *)
+            tops.(insert_pos) <- Some v
+        ) ;
+        tops in
+    fold add_value init_value merge_tops
+
  
 module DataSet (Key : DATATYPE) =
 struct
