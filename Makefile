@@ -57,7 +57,9 @@ check: check.byte
 	@./check.byte || echo "FAILED"
 
 mlrrd.top: $(ARCHIVE) $(CLIB)
-	$(OCAMLMKTOP) -o $@ $(SYNTAX) -package "findlib $(REQUIRES)" -custom -linkpkg $(ARCHIVE) $(CLIB)
+	# for some reason we must give here -ccopt -L. in order for ocamlmktop to find libmlrrd.a
+	# passing this through -passopt is not particularly elegant.
+	$(OCAMLMKTOP) -o $@ $(SYNTAX) -package "findlib $(REQUIRES)" -custom -linkpkg -passopt -ccopt -passopt -L. $(ARCHIVE)
 
 # maketuple.opt does not depend on $(ARCHIVE)
 maketuple.opt: maketuple.cmx
