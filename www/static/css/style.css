@@ -21,4 +21,5 @@ a:hover {
 form th {
 	text-align: right;
 	font-variant: bold;
+	white-space: nowrap;
 }
