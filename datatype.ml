@@ -638,13 +638,13 @@ struct
     let mul _ _ = failwith "Cannot mul timestamps!"
 
     (* Helper to build a Timestamp.t from a user friendly string *)
-    exception Invalid_date
+    exception Invalid_date of (int * int * int * int * int * float)
     let of_datestring str =
         let open Unix in
         let full y mo d h mi s =
             if y > 2100 || y < 2000 || mo < 1 || mo > 12 ||
                d < 1 || d > 31 || h > 24 || mi > 60 || s > 60. then
-               raise Invalid_date ;
+               raise (Invalid_date (y, mo, d, h, mi, s)) ;
             let s_f, s_i = modf s in
             let tm = { tm_sec = int_of_float s_i ;
                        tm_min = mi ; tm_hour = h ;
@@ -664,24 +664,25 @@ struct
             full (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday h mi s in
         let today_to_min  h mi = today_full h mi 0. in
         let today_to_hour h    = today_full h 0 0. in
-        try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f" full
-        with End_of_file -> (
-            try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u" to_min
-            with End_of_file ->
-                try Scanf.sscanf str "%4u-%2u-%2u %2u" to_hour
+        try (
+            try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f" full
+            with End_of_file -> (
+                try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u" to_min
                 with End_of_file ->
-                    try Scanf.sscanf str "%4u-%2u-%2u" to_day
+                    try Scanf.sscanf str "%4u-%2u-%2u %2u" to_hour
                     with End_of_file ->
-                        try Scanf.sscanf str "%4u-%2u" to_month
+                        try Scanf.sscanf str "%4u-%2u-%2u" to_day
                         with End_of_file ->
-                            Scanf.sscanf str "%4u" to_year)
-           | _ -> (
-               try Scanf.sscanf str "%2u:%2u:%f" today_full
-               with End_of_file ->
-                   try Scanf.sscanf str "%2u:%2u" today_to_min
-                   with End_of_file ->
-                       Scanf.sscanf str "%2u" today_to_hour
-           )
+                            try Scanf.sscanf str "%4u-%2u" to_month
+                            with End_of_file ->
+                                Scanf.sscanf str "%4u" to_year)
+        ) with _ -> (
+            try Scanf.sscanf str "%2u:%2u:%f" today_full
+            with End_of_file ->
+                try Scanf.sscanf str "%2u:%2u" today_to_min
+                with End_of_file ->
+                    Scanf.sscanf str "%2u" today_to_hour
+        )
 
     let of_string str : t =
         try of_datestring str
