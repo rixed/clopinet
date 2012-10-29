@@ -1,11 +1,7 @@
 TODO stack
 ----------
 
-* BP: pouvoir filtrer par port
-
 * Ajouter un check sur stop > start
-
-* IP proto devrait être une selectbox
 
 * Peers : pour chaque A,B sélectionné dans la première passe, calculer
 ensuite le traffic exacte entre A et B et aussi le traffic total 
@@ -56,4 +52,7 @@ the index handling (Dns0.dump is too complex wrt. index)
 
 * Dump should be able to send output to a pipe (ssh compressed tunnel) for
 distributed querying
+
+
+* IP proto devrait être une selectbox
 
