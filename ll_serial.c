@@ -82,7 +82,7 @@ struct obuf {
     uint8_t buf[OBUFLEN];
 };
 
-static void obuf_ctor(struct obuf *ob, char const *fname)
+static void obuf_ctor(struct obuf *ob, char const *fname, bool trunc)
 {
 #   ifndef O_CLOEXEC
 #       define O_CLOEXEC 0
@@ -90,7 +90,7 @@ static void obuf_ctor(struct obuf *ob, char const *fname)
 #   ifndef O_LARGEFILE
 #       define O_LARGEFILE 0
 #   endif
-    ob->fd = open(fname, O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC|O_LARGEFILE, 0644);
+    ob->fd = open(fname, O_WRONLY|O_CREAT|O_CLOEXEC|O_LARGEFILE|(trunc ? O_TRUNC:O_APPEND), 0644);
     if (ob->fd < 0) {
         sys_error("open");
     }
@@ -139,13 +139,13 @@ static struct custom_operations obuf_ops = {
     .deserialize = custom_deserialize_default,
 };
 
-value obuf_open(value fname)
+value obuf_open(value fname, value trunc)
 {
-    CAMLparam1(fname);
+    CAMLparam2(fname, trunc);
     CAMLlocal1(custom);
     custom = caml_alloc_custom(&obuf_ops, sizeof(struct obuf), 0, 1);
     struct obuf *ob = Data_custom_val(custom);
-    obuf_ctor(ob, String_val(fname));
+    obuf_ctor(ob, String_val(fname), Bool_val(trunc));
     CAMLreturn(custom);
 }
 

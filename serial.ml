@@ -3,7 +3,7 @@
 type obuf
 type ibuf
 
-external make_obuf : string -> obuf = "obuf_open"
+external make_obuf : string -> bool -> obuf = "obuf_open"
 external make_ibuf : string -> ibuf = "ibuf_open"
 external close_obuf : obuf -> unit = "obuf_close"
 external close_ibuf : ibuf -> unit = "ibuf_close"
@@ -28,7 +28,7 @@ let with_file_in fname f =
     let ibuf = make_ibuf fname in
     BatPervasives.with_dispose ~dispose:close_ibuf f ibuf
 
-let with_file_out fname f =
-    let obuf = make_obuf fname in
+let with_file_out ?(trunc=false) fname f =
+    let obuf = make_obuf fname trunc in
     BatPervasives.with_dispose ~dispose:close_obuf f obuf
 

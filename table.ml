@@ -144,9 +144,8 @@ let save_meta t hnum h_cache =
     match h_cache.aggr with
     | Some aggr ->
         let fname = Dbfile.path t.dir hnum h_cache.max_snum ^ ".meta" in
-        Serial.with_file_out fname (fun oc ->
-            t.aggr_writer oc aggr) ;
-        h_cache.aggr <- None
+        Serial.with_file_out fname ~trunc:true (fun oc ->
+            t.aggr_writer oc aggr)
     | None -> ()
 
 let get_max_snum dir =
@@ -166,7 +165,8 @@ let fsize tdir hnum snum =
 
 let rotate t hnum h_cache =
     Dbfile.close ?prev:h_cache.file t.dir hnum h_cache.max_snum ;
-    h_cache.max_snum <- h_cache.max_snum + 1
+    h_cache.max_snum <- h_cache.max_snum + 1 ;
+    h_cache.aggr <- None
 
 let create_h_cache t hnum =
     let dir = Dbfile.dir t.dir hnum in
@@ -200,20 +200,20 @@ let append t x =
         if fsize t.dir hnum h_cache.max_snum >= max_file_size then (
             save_meta t hnum h_cache ;
             rotate t hnum h_cache
-        ) else (
-            let now = Unix.time () in
-            if now > h_cache.last_checkpoint +. 10. then (
-                (* save the meta file once in a while so that readers can have
-                 * up to date description of last snum *)
-                h_cache.last_checkpoint <- now ;
-                save_meta t hnum h_cache
-            )
         )
     ) ;
     let file, oc = Dbfile.get ?prev:h_cache.file t.dir hnum h_cache.max_snum in
     h_cache.file <- Some file ;
     t.val_writer oc x ;
-    h_cache.aggr <- Some (t.aggregator x h_cache.aggr)
+    h_cache.aggr <- Some (t.aggregator x h_cache.aggr) ;
+    (* Save the meta file once in a while so that readers can have
+     * up to date description of last snum *)
+    let now = Unix.time () in
+    if now > h_cache.last_checkpoint +. 10. then (
+        h_cache.last_checkpoint <- now ;
+        save_meta t hnum h_cache
+    )
+
 
 let close t =
     Array.iteri (fun hnum h_opt -> match h_opt with
