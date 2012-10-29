@@ -91,7 +91,7 @@ struct
 
     (* Function to query the Lod0, ie select a set of individual queries *)
     (* Add min_count *)
-    let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min ?rt_max dbdir name f fst copy merge =
+    let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min ?rt_max dbdir name f make_fst merge =
         let tdir = table_name dbdir name in
         let starts_with e s =
             if String.length e > String.length s then false else
@@ -145,28 +145,29 @@ struct
             if !verbose then Printf.fprintf stderr "Using index\n" ;
             (* We have an index for this! Build the list of hnums *)
             let visited = Hashtbl.create 977 in
-            fold_ips cidr (fun ip p ->
+            let hnums = fold_ips cidr (fun ip p ->
                 let hnum = InetAddr.hash ip mod Table.max_hash_size in
                 if Hashtbl.mem visited hnum then (
                     p
                 ) else (
                     Hashtbl.add visited hnum true ;
-                    fold_hnum hnum p
-                )) fst
+                    hnum :: p
+                )) [] in
+            Table.fold_some_hnums hnums fold_hnum make_fst merge
         | _ ->
-            Table.fold_hnums tdir fold_hnum fst copy merge
+            Table.fold_hnums tdir fold_hnum make_fst merge
 
     let iter ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir name f =
         let dummy_merge _ _ = () in
-        fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir name (fun x _ -> f x) () ignore dummy_merge
+        fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir name (fun x _ -> f x) ignore dummy_merge
 end
 
 let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max step dbdir name =
-    let fold f i c m =
+    let fold f i m =
         Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max dbdir name
             (fun (_vlan, _mac_clt, _clt, _mac_srv, _srv, _srvp, _met, _err, ts, rt, _h, _u) p ->
                 f ts rt p)
-            i c m in
+            i m in
     Plot.per_date start stop step fold
 
 (* Lod1: degraded client, rounded query_date (to 1min), stripped url, distribution of resptimes *)

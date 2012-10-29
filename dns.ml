@@ -82,7 +82,7 @@ struct
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual queries *)
-    let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?error ?qname ?rt_min ?rt_max ?tx_min dbdir name f fst copy merge =
+    let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?error ?qname ?rt_min ?rt_max ?tx_min dbdir name f make_fst merge =
         let tdir = table_name dbdir name in
         let ends_with e s =
             let eo = String.length e - 1 and so = String.length s - 1 in
@@ -130,30 +130,40 @@ struct
             if !verbose then Printf.fprintf stderr "Using index\n" ;
             (* We have an index for this! Build the list of hnums *)
             let visited = Hashtbl.create 977 in
-            fold_ips cidr (fun ip p ->
+            let hnums = fold_ips cidr (fun ip p ->
                 let hnum = InetAddr.hash ip mod Table.max_hash_size in
                 if Hashtbl.mem visited hnum then (
                     p
                 ) else (
                     Hashtbl.add visited hnum true ;
-                    fold_hnum hnum p
-                )) fst
+                    hnum :: p
+            )) [] in
+            Table.fold_some_hnums hnums fold_hnum make_fst merge
         | _ ->
-            Table.fold_hnums tdir fold_hnum fst copy merge
+            Table.fold_hnums tdir fold_hnum make_fst merge
 
     let iter ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?error ?qname ?rt_min ?tx_min dbdir name f =
         let dummy_merge _ _ = () in
-        fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?error ?qname ?rt_min ?tx_min dbdir name (fun x _ -> f x) () ignore dummy_merge
+        fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?error ?qname ?rt_min ?tx_min dbdir name (fun x _ -> f x) ignore dummy_merge
 
 end
 
 let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min step dbdir name =
-    let fold f i c m =
+    let fold f i m =
         Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min dbdir name
             (fun (_vlan, _mac_clt, _clt, _mac_srv, _srv, _err, ts, rt, _name) p ->
                 f ts rt p)
-            i c m in
+            i m in
     Plot.per_date start stop step fold
+
+(*type sort_order = Asc | Desc
+let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?err_code ?name  dbdir n sort_order =
+    let fold = Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max dbdir "queries" in
+    let cmp (_vl1, _eclt1, _clt1, _esrv1, _srv1, _err1, _ts1, (_, _, _, rt1, _), _nm1)
+            (_vl2, _eclt2, _clt2, _esrv2, _srv2, _err2, _ts2, (_, _, _, rt2, _), _nm2) =
+        Float.compare rt1 rt2 in
+    Plot.top_table n sort_order cmp fold
+*)
 
 (* Lod1: degraded client, rounded query_date (to 1min), distribution of resptimes *)
 (* Lod2: round timestamp to 10 mins *)
