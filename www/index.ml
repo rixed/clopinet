@@ -92,6 +92,7 @@ var options = {\n\
     title:'"^title^"',\n\
     width:'100%',\n\
     height:600,\n\
+    lineWidth:1,\n\
     isStacked:true,\n\
     hAxis:{format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
     legend:{textStyle:{fontSize:9}}\n\
@@ -137,7 +138,6 @@ chart.draw(data, options);\n") ] ]
         [ chart_div ;
           tag "script" ~attrs:["type","text/javascript"]
             [ raw ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
-console.log(data);\n\
 var options = {\n\
     width:'100%',\n\
     height:600,\n\
@@ -175,6 +175,7 @@ var options = {\n\
     title:'"^title^"',\n\
     /*width:'100%',*/\n\
     height:600,\n\
+    lineWidth:1,\n\
     hAxis: {format:'y-MM-dd HH:mm:ss.SSS', gridlines:{color:'#333'}, title:'Time'},\n\
     vAxes: [{title:'Response Time (sec)'},\n\
             {title:'#Transaction', textStyle:{color:'#78a'}}],\n\

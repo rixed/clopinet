@@ -90,8 +90,9 @@ let clip_y ?start ?stop t1 t2 y =
 let per_date start stop step fold =
     assert (step > 0L) ;
     (* Fetch min and max available time *)
-    let row_of_time t = Int64.div (Int64.sub t start) step |> Int64.to_int
-    in let nb_steps = row_of_time stop |> succ in
+    let row_of_time t = Int64.div (Int64.sub t start) step |> Int64.to_int in
+    let nb_steps = row_of_time stop |> succ in
+    assert (nb_steps > 0) ;
     let flat_dataset = Array.make nb_steps None in
     (* accumulation of a distribution into a.(r) *)
     let accum_distr a r d =
@@ -129,6 +130,7 @@ struct
         (* Fetch min and max available time *)
         let row_of_time t = Int64.div (Int64.sub t start) step |> Int64.to_int in
         let nb_steps = row_of_time stop |> succ in
+        assert (nb_steps > 0) ;
         (* Now prepare the datasets as a map of Key.t to array of Y *)
         let flat_dataset () = Array.make nb_steps 0. in
         let cumul_y m k r1 r2 y =

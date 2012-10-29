@@ -1,6 +1,12 @@
 TODO stack
 ----------
 
+* BP: pouvoir filtrer par port
+
+* Ajouter un check sur stop > start
+
+* IP proto devrait être une selectbox
+
 * Peers : pour chaque A,B sélectionné dans la première passe, calculer
 ensuite le traffic exacte entre A et B et aussi le traffic total 
 entrant/sortant de A et de B, et afficher ainsi pour tout host le traffic
