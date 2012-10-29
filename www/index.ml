@@ -285,37 +285,37 @@ struct
     end
     module MacSrcField = struct
         module Type = OptInputOfDatatype(EthAddr)
-        let display_name = "eth-src"
+        let display_name = "Eth src"
         let uniq_name = "eth-src"
         let persistant = false
     end
     module MacDstField = struct
         module Type = OptInputOfDatatype(EthAddr)
-        let display_name = "eth-dest"
+        let display_name = "Eth dest"
         let uniq_name = "eth-dest"
         let persistant = false
     end
     module EthProtoField = struct
         module Type = OptInputOfDatatype(Integer16)
-        let display_name = "eth-proto"
+        let display_name = "Eth proto"
         let uniq_name = "eth-proto"
         let persistant = false
     end
     module IpSrcField = struct
         module Type = OptInputOfDatatype(Cidr)
-        let display_name = "ip-src"
+        let display_name = "IP src"
         let uniq_name = "ip-src"
         let persistant = false
     end
     module IpDstField = struct
         module Type = OptInputOfDatatype(Cidr)
-        let display_name = "ip-dst"
+        let display_name = "IP dst"
         let uniq_name = "ip-dst"
         let persistant = false
     end
     module IpProtoField = struct
         module Type = OptInputOfDatatype(Integer8)
-        let display_name = "ip-proto"
+        let display_name = "IP proto"
         let uniq_name = "ip-proto"
         let persistant = false
     end
@@ -355,7 +355,7 @@ struct
     module PlotWhat = struct
         module Type = Enum (struct let name = "y"
                                    let options = [| "volume";"packets" |] end)
-        let display_name = "Y"
+        let display_name = "value"
         let uniq_name = "Y"
         let persistant = false
     end
@@ -390,7 +390,7 @@ struct
         end
         module TblNameField = struct
             module Type = Enum (TblNames)
-            let display_name = "db-table"
+            let display_name = "DB table"
             let uniq_name = "db-table"
             let persistant = false
         end
@@ -452,7 +452,7 @@ struct
         end
         module TblNameField = struct
             module Type = Enum (TblNames)
-            let display_name = "db-table"
+            let display_name = "DB table"
             let uniq_name = "db-table"
             let persistant = false
         end
@@ -470,7 +470,7 @@ struct
         end
         module HttpURL = struct
             module Type = OptString (struct let min = None let max = None end)
-            let display_name = "url"
+            let display_name = "URL"
             let uniq_name = "url"
             let persistant = false
         end
@@ -498,7 +498,7 @@ struct
         end
         module TblNameField = struct
             module Type = Enum (TblNames)
-            let display_name = "db-table"
+            let display_name = "DB table"
             let uniq_name = "db-table"
             let persistant = false
         end
