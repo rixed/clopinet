@@ -18,7 +18,14 @@ let main =
                                                           ?ip_src:!ip_src ?ip_dst:!ip_dst !dbdir tbname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
         "-dumpf", String (function fname -> Traffic.(iter_fname fname
-                                                                (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this file" ;
+                                                          (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this file" ;
+        "-meta", String (function fname -> Traffic.(with_meta fname
+                                                          (fun (start, stop) ->
+                                                                Printf.printf "%s - %s\n"
+                                                                    (Timestamp.to_string start)
+                                                                    (Timestamp.to_string stop)))),
+                                                            "dump this meta file" ;
+                                             
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-vlan", String (fun s -> vlan := Some (Integer16.of_string s)), "limit queries to this VLAN" ;

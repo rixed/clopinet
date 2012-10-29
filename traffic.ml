@@ -85,6 +85,11 @@ struct
     let iter_fname fname f =
         Table.iter_fname fname read f
 
+    let with_meta fname f =
+        match Table.read_meta_fname fname meta_read with
+        | Some meta -> f meta
+        | None -> ()
+
     let accum_pkts ((count, eth_pld, mtu, ip_pld, l4_pld) as v) = function
         | None -> v
         | Some (count', eth_pld', mtu', ip_pld', l4_pld') ->
