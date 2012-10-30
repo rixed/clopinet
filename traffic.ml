@@ -5,17 +5,6 @@ open Datatype
 
 let verbose = ref false
 
-(* We need a function to tell us when to flush accumulated data. This can be any
-   function, here is just a trivial example based on data size: *)
-let once_every n =
-    let count = ref 0 in
-    fun _k _v ->
-        incr count ;
-        if !count >= n then (
-            count := 0 ;
-            true
-        ) else false
-
 (* this one never flush *)
 let never_flush _k _v = false
 
@@ -414,14 +403,14 @@ let load dbdir create fname =
 
     let table2 = Traffic.table dbdir "1hour" in
     let accum2, flush2 =
-        Aggregator.accum (once_every 100_000) Traffic.accum_pkts
+        Aggregator.(accum (now_and_then (2. *. 3600.))) Traffic.accum_pkts
             [ fun (start, stop, vlan, mac_src, mac_dst, mac_proto, ip_src, ip_dst, ip_proto, l4_src, l4_dst) (count, eth_pld, mtu, ip_pld, l4_pld) ->
                 Table.append table2
                     (start, stop, count, vlan, mac_src, mac_dst, mac_proto, eth_pld, mtu, ip_src, ip_dst, ip_proto, ip_pld, l4_src, l4_dst, l4_pld) ] in
 
     let table1 = Traffic.table dbdir "10mins" in
     let accum1, flush1 =
-        Aggregator.accum (once_every 100_000) Traffic.accum_pkts
+        Aggregator.(accum (now_and_then (2. *. 600.))) Traffic.accum_pkts
             [ fun (start, stop, vlan, mac_src, mac_dst, mac_proto, ip_src, ip_dst, ip_proto, l4_src, l4_dst) (count, eth_pld, mtu, ip_pld, l4_pld) ->
                 Table.append table1
                     (start, stop, count, vlan, mac_src, mac_dst, mac_proto, eth_pld, mtu, ip_src, ip_dst, ip_proto, ip_pld, l4_src, l4_dst, l4_pld) ;

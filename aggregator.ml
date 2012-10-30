@@ -73,3 +73,23 @@ let mins n (<<<) s =
 
 let maxs n (>>) s = mins n (inv (>>)) s
 
+(* Returns true once every n seconds. *)
+let now_and_then d =
+    let start = ref (Unix.time ()) in
+    fun _k _v ->
+        let now = Unix.time () in
+        if now -. !start >= d then (
+            start := now ;
+            true
+        ) else false
+
+(* Returns true once in n calls *)
+let once_every n =
+    let count = ref 0 in
+    fun _k _v ->
+        incr count ;
+        if !count >= n then (
+            count := 0 ;
+            true
+        ) else false
+

@@ -9,17 +9,6 @@ let subnets =
     List.map (fun (s, w) -> Unix.inet_addr_of_string s, w)
         [ "0.0.0.0", 2 ; "64.0.0.0", 2 ; "128.0.0.0", 2 ; "192.0.0.0", 2 ]
 
-(* We need a function to tell us when to flush accumulated data. This can be any
-   function, here is just a trivial example based on data size: *)
-let once_every n =
-    let count = ref 0 in
-    fun _k _v ->
-        incr count ;
-        if !count >= n then (
-            count := 0 ;
-            true
-        ) else false
-
 (* another example: flush as soon as the passed value changes (according to the eq function,
    which if free to compare only a given field of x... *)
 let when_change eq =
@@ -197,14 +186,14 @@ let load dbdir create fname =
 
     let table3 = Web.table dbdir "1hour" in
     let accum3, flush3 =
-        Aggregator.accum (once_every 10_000)
+        Aggregator.(accum (now_and_then (2. *. 3600.)))
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
                               Table.append table3 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ] in
 
     let table2 = Web.table dbdir "10mins" in
     let accum2, flush2 =
-        Aggregator.accum (once_every 10_000)
+        Aggregator.(accum (now_and_then (2. *. 600.)))
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
                               Table.append table2 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
@@ -213,7 +202,7 @@ let load dbdir create fname =
 
     let table1 = Web.table dbdir "1min" in
     let accum1, flush1 =
-        Aggregator.accum (once_every 10_000)
+        Aggregator.(accum (now_and_then 60.))
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
                               Table.append table1 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
