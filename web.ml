@@ -97,7 +97,7 @@ struct
 
     (* Function to query the Lod0, ie select a set of individual queries *)
     (* Add min_count *)
-    let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min ?rt_max dbdir name f make_fst merge =
+    let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?methd ?status ?host ?url ?rt_min ?rt_max dbdir name f make_fst merge =
         let tdir = table_name dbdir name in
         let starts_with e s =
             if String.length e > String.length s then false else
@@ -133,7 +133,7 @@ struct
                                check mac_clt (fun mac   -> EthAddr.equal mac clte) &&
                                check mac_srv (fun mac   -> EthAddr.equal mac srve) &&
                                check peer    (fun cidr  -> in_cidr srv cidr || inter_cidr clt cidr) &&
-                               check meth    (fun meth  -> meth = met) &&
+                               check methd   (fun methd -> methd = met) &&
                                check status  (fun st    -> st = err) &&
                                check host    (fun host  -> ends_with host h) &&
                                check url     (fun url   -> starts_with url u) &&
@@ -163,22 +163,22 @@ struct
         | _ ->
             Table.fold_hnums tdir fold_hnum make_fst merge
 
-    let iter ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir name f =
+    let iter ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?methd ?status ?host ?url ?rt_min dbdir name f =
         let dummy_merge _ _ = () in
-        fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?meth ?status ?host ?url ?rt_min dbdir name (fun x _ -> f x) ignore dummy_merge
+        fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?methd ?status ?host ?url ?rt_min dbdir name (fun x _ -> f x) ignore dummy_merge
 end
 
-let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max step dbdir name =
+let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max step dbdir name =
     let fold f i m =
-        Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max dbdir name
+        Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir name
             (fun (_vlan, _mac_clt, _clt, _mac_srv, _srv, _srvp, _met, _err, ts, rt, _h, _u) p ->
                 f ts rt p)
             i m in
     Plot.per_date start stop step fold
 
 type sort_order = Asc | Desc
-let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order =
-    let fold = Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max dbdir "queries" in
+let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order =
+    let fold = Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir "queries" in
     let cmp_asc (_vl1, _ec1, _c1, _es1, _s1, _p1, _mt1, _er1, _ts1, (_, _, _, rt1, _), _h1, _u1)
                 (_vl2, _ec2, _c2, _es2, _s2, _p2, _mt2, _er2, _ts2, (_, _, _, rt2, _), _h2, _u2) =
         Float.compare rt1 rt2 in

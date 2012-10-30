@@ -502,6 +502,12 @@ struct
             let uniq_name = "url"
             let persistant = false
         end
+        module HttpMethod = struct
+            module Type = OptEnum (struct let name = "method" let options = Web.http_methods end)
+            let display_name = "method"
+            let uniq_name = "method"
+            let persistant = false
+        end
 
         (* TODO: Add HttpMethod *)
         module RespTime = RecordOf (ConsOf (FieldOf (StartField))
@@ -511,6 +517,7 @@ struct
                                    (ConsOf (FieldOf (MacDstField))
                                    (ConsOf (FieldOf (IpSrcField))
                                    (ConsOf (FieldOf (IpDstField))
+                                   (ConsOf (FieldOf (HttpMethod))
                                    (ConsOf (FieldOf (HttpStatus))
                                    (ConsOf (FieldOf (HttpHost))
                                    (ConsOf (FieldOf (HttpURL))
@@ -518,7 +525,7 @@ struct
                                    (ConsOf (FieldOf (MaxRespTime))
                                    (ConsOf (FieldOf (TimeStepField))
                                    (ConsOf (FieldOf (TblNameField))
-                                           (NulType)))))))))))))))
+                                           (NulType))))))))))))))))
 
         (* TODO: Add HttpMethod *)
         module Top = RecordOf (ConsOf (FieldOf (StartField))
@@ -528,6 +535,7 @@ struct
                               (ConsOf (FieldOf (MacDstField))
                               (ConsOf (FieldOf (IpSrcField))
                               (ConsOf (FieldOf (IpDstField))
+                              (ConsOf (FieldOf (HttpMethod))
                               (ConsOf (FieldOf (HttpStatus))
                               (ConsOf (FieldOf (HttpHost))
                               (ConsOf (FieldOf (HttpURL))
@@ -535,7 +543,7 @@ struct
                               (ConsOf (FieldOf (MaxRespTime))
                               (ConsOf (FieldOf (MaxGraphsField))
                               (ConsOf (FieldOf (SortOrder))
-                                      (NulType)))))))))))))))
+                                      (NulType))))))))))))))))
 
     end
 
@@ -745,12 +753,12 @@ struct
             let filters = Forms.Web.Top.from_args "filter" args in
             let filters_form = form "main/web/top" (Forms.Web.Top.edit "filter" filters) in
             let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value n, (Value sort_order, ()))))))))))))) ->
+                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value n, (Value sort_order, ())))))))))))))) ->
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max
                     and n = BatOption.default 30 n
                     and sort_order = match sort_order with 0 -> Asc | _ -> Desc in
-                    let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
+                    let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
                     let field_display_names =
                         [ "VLAN" ;
                           "Client MAC" ; "Client IP" ;
@@ -777,12 +785,12 @@ struct
             let filters = Forms.Web.RespTime.from_args "filter" args in
             let filters_form = form "main/web/resptime" (Forms.Web.RespTime.edit "filter" filters) in
             let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ()))))))))))))) ->
+                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ())))))))))))))) ->
                     let time_step = Int64.of_int time_step
                     and tblname = Forms.Web.TblNames.options.(tblname) in
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max in
-                    let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
+                    let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
                     View.resp_times_chart "Web - Average Response Time (sec)" time_step start datasets
                 | _ -> [] in
             View.make_graph_page "Web Response Time" filters_form disp_graph
