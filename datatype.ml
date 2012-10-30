@@ -630,33 +630,37 @@ module Timestamp = struct
 
     (* Helper to build a Timestamp.t from a user friendly string *)
     exception Invalid_date of (int * int * int * int * int * float)
+    exception Invalid_unit of char
+
+    let of_tm y mo d h mi s =
+        let open Unix in
+        if y > 2100 || y < 2000 || mo < 1 || mo > 12 ||
+           d < 1 || d > 31 || h > 24 || mi > 60 || s > 60. then
+           raise (Invalid_date (y, mo, d, h, mi, s)) ;
+        let s_f, s_i = modf s in
+        let tm = { tm_sec = int_of_float s_i ;
+                   tm_min = mi ; tm_hour = h ;
+                   tm_mday = d ; tm_mon = mo-1 ;
+                   tm_year = y - 1900 ;
+                   (* rest is ignored by mktime *)
+                   tm_wday = 0 ; tm_yday = 0 ; tm_isdst = false } in
+        let ts, _ = mktime tm in
+        of_unixfloat (ts +. s_f)
+
     let of_datestring str =
         let open Unix in
-        let full y mo d h mi s =
-            if y > 2100 || y < 2000 || mo < 1 || mo > 12 ||
-               d < 1 || d > 31 || h > 24 || mi > 60 || s > 60. then
-               raise (Invalid_date (y, mo, d, h, mi, s)) ;
-            let s_f, s_i = modf s in
-            let tm = { tm_sec = int_of_float s_i ;
-                       tm_min = mi ; tm_hour = h ;
-                       tm_mday = d ; tm_mon = mo-1 ;
-                       tm_year = y - 1900 ;
-                       (* rest is ignored by mktime *)
-                       tm_wday = 0 ; tm_yday = 0 ; tm_isdst = false } in
-            let ts, _ = mktime tm in
-            of_unixfloat (ts +. s_f) in
-        let to_min   y mo d h mi = full y mo d h mi 0. in
-        let to_hour  y mo d h    = full y mo d h 0  0. in
-        let to_day   y mo d      = full y mo d 0 0  0. in
-        let to_month y mo        = full y mo 1 0 0  0. in
-        let to_year  y           = full y 1  1 0 0  0. in
+        let to_min   y mo d h mi = of_tm y mo d h mi 0. in
+        let to_hour  y mo d h    = of_tm y mo d h 0  0. in
+        let to_day   y mo d      = of_tm y mo d 0 0  0. in
+        let to_month y mo        = of_tm y mo 1 0 0  0. in
+        let to_year  y           = of_tm y 1  1 0 0  0. in
         let today_full h mi s =
             let tm = localtime (time ()) in
-            full (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday h mi s in
+            of_tm (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday h mi s in
         let today_to_min  h mi = today_full h mi 0. in
         let today_to_hour h    = today_full h 0 0. in
         try (
-            try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f" full
+            try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f" of_tm
             with End_of_file -> (
                 try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u" to_min
                 with End_of_file ->
@@ -675,9 +679,29 @@ module Timestamp = struct
                     Scanf.sscanf str "%2u" today_to_hour
         )
 
+    let of_interval str =
+        let open Unix in
+        let rel_to_now s i u =
+            let now = localtime (time ()) in
+            let i = if s = "-" then ~-i else i in
+            let u = Char.lowercase u in
+            if u <> 'y' && u <> 'm' && u <> 'd' &&
+               u <> 'h' && u <> 'n' && u <> 's' then
+                raise (Invalid_unit u) ;
+            of_tm (now.tm_year + 1900 + if u = 'y' then i else 0)
+                  (now.tm_mon  +    1 + if u = 'm' then i else 0)
+                  (now.tm_mday        + if u = 'd' then i else 0)
+                  (now.tm_hour        + if u = 'h' then i else 0)
+                  (now.tm_min         + if u = 'n' then i else 0)
+                 ((now.tm_sec         + if u = 's' then i else 0) |> float_of_int)
+            in
+        Scanf.sscanf str "%1[+-]%u %c" rel_to_now
+
     let of_string str : t =
         try of_datestring str
-        with _ -> of_string str
+        with _ ->
+            try of_interval str
+            with _ -> of_string str
 
     let to_string (t : t) =
         let open Unix in

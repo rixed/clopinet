@@ -3,6 +3,9 @@ TODO stack
 
 * Why no http HEAD methods ?
 
+* Timestamp read as relative date should be kept that way (ie. Timestamp
+should be Abs of ts | Rel of float.
+
 * Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr *or*
   make all these available from cmd line
 
@@ -15,8 +18,6 @@ entrant/sortant de A et de B, et afficher ainsi pour tout host le traffic
 
 * A queries chart as a cloud of dots
 
-* Tables for tops (on every interresting values, both order)
-
 * A max packet size chart, as an histogram
 
 * An eth/ip connection graph (with the usual filters)
@@ -25,6 +26,7 @@ entrant/sortant de A et de B, et afficher ainsi pour tout host le traffic
 
 * In all time charts where the selected period spans no more than 10 days,
 display in chart background the night times with a sligh dark-blue bgcolor.
+Same spirit: add a vertical bar at current time.
 
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
