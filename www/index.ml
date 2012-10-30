@@ -349,8 +349,10 @@ struct
         let persistant = true
     end
     module GroupByField = struct
-        module Type = Enum (struct let name = "key"
-                                   let options = [| "src-mac";"dst-mac";"src-ip";"dst-ip";"apps" |] end)
+        module Type = Enum (struct
+            let name = "key"
+            let options = [| "port";"src-mac";"dst-mac";"src-ip";"dst-ip" |]
+        end)
         let display_name = "group by"
         let uniq_name = "groupby"
         let persistant = false
@@ -363,8 +365,10 @@ struct
         let persistant = false
     end
     module GroupByTopField = struct
-        module Type = Enum (struct let name = "key"
-                                   let options = [| "src-mac";"dst-mac";"mac (both)";"src-ip";"dst-ip";"ip (both)";"app" |] end)
+        module Type = Enum (struct
+            let name = "key"
+            let options = [| "port";"src-mac";"dst-mac";"mac (both)";"src-ip";"dst-ip";"ip (both)" |]
+        end)
         let display_name = "group by"
         let uniq_name = "groupby"
         let persistant = false
@@ -672,9 +676,9 @@ struct
                     and tblname = Forms.Traffic.TblNames.options.(tblname)
                     and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
-                        | 0 (* src-mac *) | 1 (* dst-mac *) as sd ->
+                        | 1 (* src-mac *) | 2 (* dst-mac *) as sd ->
                             eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs (sd = 0) what time_step dbdir tblname
-                        | 2 (* src-ip *) | 3 (* dst-ip *) as sd ->
+                        | 3 (* src-ip *) | 4 (* dst-ip *) as sd ->
                             ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs (sd = 2) what time_step dbdir tblname
                         | _ (* default, apps *) ->
                             app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what time_step dbdir tblname in
@@ -714,17 +718,17 @@ struct
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and what = if what = 0 then Volume else PacketCount in
                     let key, datasets = match group_by with
-                        | 0 (* src-mac *) ->
+                        | 1 (* src-mac *) ->
                             "src mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs true what dbdir tblname
-                        | 1 (* dst-mac *) ->
+                        | 2 (* dst-mac *) ->
                             "dst mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs false what dbdir tblname
-                        | 2 (* mac (both) *) ->
+                        | 3 (* mac (both) *) ->
                             "mac (both)", eth_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what dbdir tblname
-                        | 3 (* src-ip *) ->
+                        | 4 (* src-ip *) ->
                             "src IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs true what dbdir tblname
-                        | 4 (* dst-ip *) ->
+                        | 5 (* dst-ip *) ->
                             "dst IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs false what dbdir tblname
-                        | 5 (* ip (both) *) ->
+                        | 6 (* ip (both) *) ->
                             "IP (both)", ip_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what dbdir tblname
                         | _ (* app *) ->
                             "Port", app_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what dbdir tblname in
