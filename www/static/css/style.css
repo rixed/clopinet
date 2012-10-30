@@ -23,3 +23,41 @@ form th {
 	font-variant: bold;
 	white-space: nowrap;
 }
+
+/* Result tables */
+
+table {
+    border-collapse: collapse;
+}
+td, th {
+	vertical-align: top;
+}
+
+table.tops td, table.tops th {
+    border: 1px solid #888;
+	padding: 0em 1em 0em 1em;
+}
+table.tops th {
+    text-align: center;
+	vertical-align: bottom;
+	font-size: smaller;
+}
+table.tops td {
+	border-width: 0px 1px 0px 1px;
+	white-space: nowrap;
+    text-align: right;
+	font-size: smaller;
+}
+table.tops {
+	border-bottom: 2px solid #444;
+}
+table.tops tr:first-child td {
+	border-top: 2px solid #444;
+}
+table.tops tr:hover {
+	background-color: #abe;
+}
+
+table.tops tr {
+	height: 0.5em;
+}

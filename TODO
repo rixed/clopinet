@@ -1,7 +1,11 @@
 TODO stack
 ----------
 
-* Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr.
+* C'est Plot.top_table qui devrait se préoccuper de asc/desc (et défiir 
+sort_order)
+
+* Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr *or*
+  make all these available from cmd line
 
 * Top DNS: VLAN = 0 ??
 

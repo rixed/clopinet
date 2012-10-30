@@ -30,6 +30,12 @@ let when_change eq =
         | _ -> prev := Some (k, v) ; true
 
 
+(* Convert from junkie's integer to strings *)
+let http_methods = [| "GET"; "HEAD"; "POST"; "CONNECT"; "PUT";
+                      "OPTIONS"; "TRACE"; "DELETE" |]
+let string_of_method = Array.get http_methods
+
+
 (* Lod0: the full request record: client, server, method (int), status-code, ts, rt, host, url *)
 
 module Bounds64 = Tuple2.Make (Integer64) (Integer64)
@@ -169,6 +175,15 @@ let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?h
                 f ts rt p)
             i m in
     Plot.per_date start stop step fold
+
+type sort_order = Asc | Desc
+let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order =
+    let fold = Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max dbdir "queries" in
+    let cmp_asc (_vl1, _ec1, _c1, _es1, _s1, _p1, _mt1, _er1, _ts1, (_, _, _, rt1, _), _h1, _u1)
+                (_vl2, _ec2, _c2, _es2, _s2, _p2, _mt2, _er2, _ts2, (_, _, _, rt2, _), _h2, _u2) =
+        Float.compare rt1 rt2 in
+    let cmp_desc r1 r2 = ~- (cmp_asc r1 r2) in
+    Plot.top_table n (match sort_order with Asc -> cmp_asc | Desc -> cmp_desc) fold
 
 (* Lod1: degraded client, rounded query_date (to 1min), stripped url, distribution of resptimes *)
 (* Lod2: round timestamp to 10 mins *)

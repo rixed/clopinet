@@ -36,7 +36,7 @@ struct
 
     let menu () =
         let html_of_entry e = tag "li" [ tag "a" ~attrs:["href","?action=main/"^e] [cdata e] ]
-        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "DNS/resptime"; "DNS/top"; "web/resptime"; "logout"] in
+        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "DNS/resptime"; "DNS/top"; "web/resptime"; "web/top"; "logout"] in
         tag ~attrs:["id","menu"] "ul" (List.map html_of_entry menu_entries)
 
     (* add the menu *)
@@ -75,8 +75,8 @@ struct
                                   tr (List.map (fun v -> td [ raw v ]) vals) :: rows)
                 [] tops |>
             List.rev in
-        let heads = tr (List.map (fun v -> th [ raw v ]) heads) in
-        [ table (heads :: all_rows) ]
+        let heads = thead [ tr (List.map (fun v -> th [ raw v ]) heads) ] in
+        [ table ~attrs:["class","tops"] (heads :: all_rows) ]
 
     let bandwidth_chart title time_step start datasets =
         let datasets = List.rev datasets in (* for some reason the legend is reversed in the graph lib *)
@@ -400,6 +400,17 @@ struct
         let uniq_name = "maxrt"
         let persistant = false
     end
+    module SortOrders = struct
+        let name = "selection"
+        let options = [| "min";"max" |]
+    end
+    module SortOrder = struct
+        module Type = Enum (SortOrders)
+        let display_name = "Selection"
+        let uniq_name = "sort-order"
+        let persistant = false
+    end
+
     module Traffic = struct
         module TblNames = struct
             let name = "db-tables"
@@ -491,6 +502,8 @@ struct
             let uniq_name = "url"
             let persistant = false
         end
+
+        (* TODO: Add HttpMethod *)
         module RespTime = RecordOf (ConsOf (FieldOf (StartField))
                                    (ConsOf (FieldOf (StopField))
                                    (ConsOf (FieldOf (VlanField))
@@ -506,6 +519,24 @@ struct
                                    (ConsOf (FieldOf (TimeStepField))
                                    (ConsOf (FieldOf (TblNameField))
                                            (NulType)))))))))))))))
+
+        (* TODO: Add HttpMethod *)
+        module Top = RecordOf (ConsOf (FieldOf (StartField))
+                              (ConsOf (FieldOf (StopField))
+                              (ConsOf (FieldOf (VlanField))
+                              (ConsOf (FieldOf (MacSrcField))
+                              (ConsOf (FieldOf (MacDstField))
+                              (ConsOf (FieldOf (IpSrcField))
+                              (ConsOf (FieldOf (IpDstField))
+                              (ConsOf (FieldOf (HttpStatus))
+                              (ConsOf (FieldOf (HttpHost))
+                              (ConsOf (FieldOf (HttpURL))
+                              (ConsOf (FieldOf (MinRespTime))
+                              (ConsOf (FieldOf (MaxRespTime))
+                              (ConsOf (FieldOf (MaxGraphsField))
+                              (ConsOf (FieldOf (SortOrder))
+                                      (NulType)))))))))))))))
+
     end
 
     module Dns = struct
@@ -517,16 +548,6 @@ struct
             module Type = Enum (TblNames)
             let display_name = "DB table"
             let uniq_name = "db-table"
-            let persistant = false
-        end
-        module SortOrders = struct
-            let name = "selection"
-            let options = [| "min";"max" |]
-        end
-        module SortOrder = struct
-            module Type = Enum (SortOrders)
-            let display_name = "Selection"
-            let uniq_name = "sort-order"
             let persistant = false
         end
         module Error = struct
@@ -715,6 +736,43 @@ struct
         include Web
         let dbdir = dbdir^"/web"
         let s2m x = x *. 1_000_000.
+        let url_name host port url =
+            host ^
+            (if port = 80 then "" else (":" ^ string_of_int port)) ^
+            url
+
+        let top args =
+            let filters = Forms.Web.Top.from_args "filter" args in
+            let filters_form = form "main/web/top" (Forms.Web.Top.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value n, (Value sort_order, ()))))))))))))) ->
+                    let rt_min = BatOption.map s2m rt_min
+                    and rt_max = BatOption.map s2m rt_max
+                    and n = BatOption.default 30 n
+                    and sort_order = match sort_order with 0 -> Asc | _ -> Desc in
+                    let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
+                    let field_display_names =
+                        [ "VLAN" ;
+                          "Client MAC" ; "Client IP" ;
+                          "Server MAC" ; "Server IP" ;
+                          "Method"     ; "Error Code" ;
+                          "Timestamp" ;
+                          "Response Time (&#x00B5s)" ;
+                          "URL" ] in
+                    View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, port, meth, err, ts, (_, _, _, rt, _), host, url) ->
+                        [ View.string_of_vlan vlan ;
+                          EthAddr.to_string eclt ;
+                          Cidr.to_string clt ;
+                          EthAddr.to_string esrv ;
+                          InetAddr.to_string srv ;
+                          string_of_method meth ;
+                          string_of_int err ;
+                          Timestamp.to_string ts ;
+                          string_of_float rt ;
+                          url_name host port url ])
+                | _ -> [] in
+            View.make_graph_page "Web Top Requests" filters_form disp_graph
+
         let resp_time args =
             let filters = Forms.Web.RespTime.from_args "filter" args in
             let filters_form = form "main/web/resptime" (Forms.Web.RespTime.edit "filter" filters) in
@@ -751,8 +809,8 @@ struct
                         [ "VLAN" ;
                           "Client MAC" ; "Client IP" ;
                           "Server MAC" ; "Server IP" ;
-                          "Error Code" ; "timestamp" ;
-                          "Response Time (us)" ; "Query Name" ] in
+                          "Error Code" ; "Timestamp" ;
+                          "Response Time (&#x00B5s)" ; "Query Name" ] in
                     View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, err, ts, (_, _, _, rt, _), name) ->
                         [ View.string_of_vlan vlan ;
                           EthAddr.to_string eclt ;
@@ -803,6 +861,8 @@ let _ =
             Ctrl.ensure_logged Ctrl.Traffic.tops
         | ["main";"web";"resptime"] ->
             Ctrl.ensure_logged Ctrl.Web.resp_time
+        | ["main";"web";"top"] ->
+            Ctrl.ensure_logged Ctrl.Web.top
         | ["main";"DNS";"resptime"] ->
             Ctrl.ensure_logged Ctrl.Dns.resp_time
         | ["main";"DNS";"top"] ->
