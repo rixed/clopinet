@@ -1,0 +1,5 @@
+#!/bin/sh
+
+intf="$1"
+
+sudo -E junkie -c junkie.scm -l junkie.log -i "$intf" | ./junkie2db test.db
