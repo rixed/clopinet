@@ -757,7 +757,7 @@ struct
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max
                     and n = BatOption.default 30 n
-                    and sort_order = match sort_order with 0 -> Asc | _ -> Desc in
+                    and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
                     let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
                     let field_display_names =
                         [ "VLAN" ;
@@ -811,7 +811,7 @@ struct
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max
                     and n = BatOption.default 30 n
-                    and sort_order = match sort_order with 0 -> Asc | _ -> Desc in
+                    and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
                     let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir n sort_order in
                     let field_display_names =
                         [ "VLAN" ;

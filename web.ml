@@ -176,14 +176,12 @@ let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?st
             i m in
     Plot.per_date start stop step fold
 
-type sort_order = Asc | Desc
 let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order =
     let fold = Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir "queries" in
-    let cmp_asc (_vl1, _ec1, _c1, _es1, _s1, _p1, _mt1, _er1, _ts1, (_, _, _, rt1, _), _h1, _u1)
-                (_vl2, _ec2, _c2, _es2, _s2, _p2, _mt2, _er2, _ts2, (_, _, _, rt2, _), _h2, _u2) =
+    let cmp (_vl1, _ec1, _c1, _es1, _s1, _p1, _mt1, _er1, _ts1, (_, _, _, rt1, _), _h1, _u1)
+            (_vl2, _ec2, _c2, _es2, _s2, _p2, _mt2, _er2, _ts2, (_, _, _, rt2, _), _h2, _u2) =
         Float.compare rt1 rt2 in
-    let cmp_desc r1 r2 = ~- (cmp_asc r1 r2) in
-    Plot.top_table n (match sort_order with Asc -> cmp_asc | Desc -> cmp_desc) fold
+    Plot.top_table n sort_order cmp fold
 
 (* Lod1: degraded client, rounded query_date (to 1min), stripped url, distribution of resptimes *)
 (* Lod2: round timestamp to 10 mins *)

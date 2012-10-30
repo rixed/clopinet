@@ -116,7 +116,12 @@ let per_date start stop step fold =
             Some (c, m2s mi, m2s ma, m2s a, m2s (m2s v)) in
     Array.map microseconds_to_seconds result
 
-let top_table n cmp fold =
+
+type sort_order = Asc | Desc
+let top_table n sort_order cmp fold =
+    let cmp = match sort_order with
+        | Asc -> cmp
+        | Desc -> fun a b -> cmp b a in
     let init_value () = Array.create n None in
     let is_smaller v = function
         | None -> true

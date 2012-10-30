@@ -1,8 +1,7 @@
 TODO stack
 ----------
 
-* C'est Plot.top_table qui devrait se préoccuper de asc/desc (et défiir 
-sort_order)
+* Why no http HEAD methods ?
 
 * Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr *or*
   make all these available from cmd line
