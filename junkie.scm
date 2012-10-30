@@ -55,12 +55,12 @@ Or just run: junkie -c this_file
                                         (ip.dst == client-ip)
                                         (tcp.dst-port == client-port)
                                         (tcp.src-port == server-port)
-                                        (set? http.status)) 
+                                        (set? http.status))
                                    (do
                                      (qry-stop := cap.ts)
                                      (err-code := http.status)
                                      #t)))
-        (src-index-on (tcp) tcp.dst-port))]))) 
+        (src-index-on (tcp) tcp.dst-port))])))
 
 (define nt-dns (nt:compile "dns-response-time"
   '(
@@ -108,7 +108,7 @@ Or just run: junkie -c this_file
                                 (qry-stop := cap.ts)
                                 (err-code := dns.err-code)
                                 #t)))
-        (src-index-on (dns) dns.txid))]))) 
+        (src-index-on (dns) dns.txid))])))
 
 (define nt-eth (nt:compile "eth-traffic"
   '([(vlan uint)
@@ -215,7 +215,7 @@ Or just run: junkie -c this_file
                               (ip-proto := ip.proto)
                               (count := 1)
                               #t))
-        (dst-index-on () (hash ip-src))
+        (dst-index-on () (hash ip-src ip-dst))
         spawn
         grab)
      (traffic-ip traffic-ip
@@ -235,8 +235,8 @@ Or just run: junkie -c this_file
                                 (ts-stop := cap.ts)
                                 (ip-pld := (ip-pld + ip.payload))
                                 #t)))
-        (dst-index-on () (hash ip-src))
-        (src-index-on (ip) (hash ip.src))
+        (dst-index-on () (hash ip-src ip-dst))
+        (src-index-on (ip) (hash ip.src ip.dst))
         grab)
      (traffic-ip traffic-ip-end
         (on full-parse)
@@ -262,7 +262,7 @@ Or just run: junkie -c this_file
                                   (l4-pld := tcp.payload)
                                   (count := 1)
                                   #t))
-        (dst-index-on () (hash ip-src))
+        (dst-index-on () (hash ip-src ip-dst port-src port-dst))
         spawn
         grab)
      (traffic-tcp traffic-tcp
@@ -285,8 +285,8 @@ Or just run: junkie -c this_file
                                     (ip-pld := (ip-pld + ip.payload))
                                     (l4-pld := (l4-pld + tcp.payload))
                                     #t)))
-        (dst-index-on () (hash ip-src))
-        (src-index-on (ip) (hash ip.src))
+        (dst-index-on () (hash ip-src ip-dst port-src port-dst))
+        (src-index-on (ip tcp) (hash ip.src ip.dst tcp.src-port tcp.dst-port))
         grab)
      (traffic-tcp traffic-l4-end
         (on full-parse)
@@ -312,7 +312,7 @@ Or just run: junkie -c this_file
                                   (l4-pld := udp.payload)
                                   (count := 1)
                                   #t))
-        (dst-index-on () (hash ip-src))
+        (dst-index-on () (hash ip-src ip-dst port-src port-dst))
         spawn
         grab)
      (traffic-udp traffic-udp
@@ -335,12 +335,12 @@ Or just run: junkie -c this_file
                                     (ip-pld := (ip-pld + ip.payload))
                                     (l4-pld := (l4-pld + udp.payload))
                                     #t)))
-        (dst-index-on () (hash ip-src))
-        (src-index-on (ip) (hash ip.src))
+        (dst-index-on () (hash ip-src ip-dst port-src port-dst))
+        (src-index-on (ip udp) (hash ip.src ip.dst udp.src-port udp.dst-port))
         grab)
      (traffic-udp traffic-l4-end
         (on full-parse)
-        (older 30000000))]))) 
+        (older 30000000))])))
 
 (nettrack-start nt-http)
 (nettrack-start nt-dns)
