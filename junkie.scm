@@ -23,7 +23,7 @@ Or just run: junkie -c this_file
      (qry-host str)]
     [(http-answer
        (on-entry (pass "printf(\"WEB\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\t%s\\t%s\\n\",
-                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+                        (int)" vlan " == VLAN_UNSET ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "), " server-port ",
                         " qry-method ", " err-code ", timeval_2_str(" qry-start "),
@@ -41,6 +41,7 @@ Or just run: junkie -c this_file
                                          (client-port := tcp.src-port)
                                          (server-ip := ip.dst)
                                          (server-mac := eth.dst)
+                                         (vlan := eth.vlan)
                                          (server-port := tcp.dst-port)
                                          (qry-start := cap.ts)
                                          (qry-method := http.method)
@@ -92,6 +93,7 @@ Or just run: junkie -c this_file
                                     (client-mac := eth.src)
                                     (server-ip := ip.dst)
                                     (server-mac := eth.dst)
+                                    (vlan := eth.vlan)
                                     (txid := dns.txid)
                                     (qry-name := dns.name)
                                     (qry-start := cap.ts)

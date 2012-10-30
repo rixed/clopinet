@@ -6,8 +6,6 @@ TODO stack
 * Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr *or*
   make all these available from cmd line
 
-* Top DNS: VLAN = 0 ??
-
 * Ajouter un check sur stop > start
 
 * Peers : pour chaque A,B sélectionné dans la première passe, calculer
