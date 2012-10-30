@@ -344,6 +344,9 @@ Or just run: junkie -c this_file
         (on full-parse)
         (older 30000000))])))
 
+(set-collapse-vlans #f)
+(set-collapse-ifaces #f)
+
 (nettrack-start nt-http)
 (nettrack-start nt-dns)
 (nettrack-start nt-eth)
