@@ -5,9 +5,6 @@ open Datatype
 
 let verbose = ref false
 
-(* this one never flush *)
-let never_flush _k _v = false
-
 (* Lod0: Traffic stats for periods of 30s, with fields:
   TS1, TS2, count, vlan, src mac, dst mac, proto, eth payload, eth mtu, src ip, dst ip, ip proto, ip payload, src port, dst port, l4 payload *)
 
@@ -154,6 +151,13 @@ module EthPld = Plot.DataSet (EthKey)
 module EthKey2 = Tuple3.Make (Option (UInteger16)) (EthAddr) (EthAddr) (* Eth vlan, source, dest *)
 module EthPld2 = Plot.DataSet (EthKey2)
 
+let optmin a b = match a, b with
+    | Some a, Some b -> Some (min a b)
+    | _ -> a
+let optmax a b = match a, b with
+    | Some a, Some b -> Some (max a b)
+    | _ -> b
+
 type plot_what = PacketCount | Volume
 
 let label_of_eth_key (vlan, mac_src) =
@@ -174,6 +178,7 @@ let label_of_ip_key mac_proto ip =
 
 (* Returns traffic against time, with a different plot per MAC sockpair *)
 let eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs by_src what step dbdir name =
+    let start, stop = min start stop, max start stop in
     let fold f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port dbdir name (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
             f (vlan, if by_src then mac_src else mac_dst) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
@@ -181,18 +186,8 @@ let eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     EthPld.per_time ?max_graphs start stop step fold label_of_eth_key
 
 (* Returns traffic per pair of MACs *)
-let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what dbdir name =
-    let label_of_key (vlan, mac_src, mac_dst) =
-        label_of_eth_key (vlan, mac_src),
-        label_of_eth_key (vlan, mac_dst) in
-    let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port dbdir name (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
-            f (vlan, mac_src, mac_dst) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
-            i m in
-    EthPld2.sum ?max_graphs ?start ?stop fold label_of_key
-
-(* Returns traffic per pair of MACs *)
-let eth_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?(max_graphs=20) what dbdir name =
+let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?(max_graphs=20) what dbdir name =
+    let start, stop = optmin start stop, optmax start stop in
     let label_of_key (vlan, mac_src, mac_dst) =
         label_of_eth_key (vlan, mac_src),
         label_of_eth_key (vlan, mac_dst) in
@@ -217,6 +212,7 @@ let eth_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?i
 
 (* Returns traffic per pair of MACs *)
 let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?(max_graphs=20) by_src what dbdir name =
+    let start, stop = optmin start stop, optmax start stop in
     let fold f i m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port dbdir name
             (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
@@ -238,6 +234,7 @@ let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
 
 (* Returns traffic per pair of MACs *)
 let eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?(max_graphs=20) what dbdir name =
+    let start, stop = optmin start stop, optmax start stop in
     let label_of_key (vlan, mac_src, mac_dst) =
         label_of_eth_key (vlan, mac_src) ^"\\u2192"^
         EthAddr.to_string mac_dst in
@@ -267,6 +264,7 @@ module IPPld2 = Plot.DataSet (IPKey2)
 
 (* Returns traffic against time, with a different plot per IP sockpair *)
 let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs by_src what step dbdir name =
+    let start, stop = min start stop, max start stop in
     let fold f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             f (mac_proto, if by_src then src else dst) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
@@ -275,6 +273,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
 
 (* Returns traffic per pair of IPs *)
 let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what dbdir name =
+    let start, stop = optmin start stop, optmax start stop in
     let label_of_key (mac_proto, src, dst) =
         label_of_ip_key mac_proto src,
         label_of_ip_key mac_proto dst in
@@ -284,7 +283,8 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
             i m in
     IPPld2.sum ?max_graphs ?start ?stop fold label_of_key
 
-let ip_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?(max_graphs=20) what dbdir name =
+let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?(max_graphs=20) what dbdir name =
+    let start, stop = optmin start stop, optmax start stop in
     let label_of_key (mac_proto, src, dst) =
         label_of_ip_key mac_proto src,
         label_of_ip_key mac_proto dst in
@@ -308,6 +308,7 @@ let ip_plot_vol_tot2 ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     h
 
 let ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?(max_graphs=20) by_src what dbdir name =
+    let start, stop = optmin start stop, optmax start stop in
     let fold f i m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port dbdir name
             (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
@@ -328,6 +329,7 @@ let ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     h
 
 let ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?(max_graphs=20) what dbdir name =
+    let start, stop = optmin start stop, optmax start stop in
     let label_of_key (mac_proto, src, dst) =
         label_of_ip_key mac_proto src ^"\\u2192"^
         label_of_ip_key mac_proto dst in
@@ -365,6 +367,7 @@ let label_of_app_key (proto, port) =
 
 (* Returns traffic against time, with a different plot per proto/port *)
 let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what step dbdir name =
+    let start, stop = min start stop, max start stop in
     let fold f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port dbdir name (fun (t1, t2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) p ->
             f (proto, min p1 p2) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
@@ -372,6 +375,7 @@ let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     AppPld.per_time ?max_graphs start stop step fold label_of_app_key
 
 let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?(max_graphs=10) what dbdir name =
+    let start, stop = optmin start stop, optmax start stop in
     let fold f i m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port dbdir name
             (fun (t1, t2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) p ->

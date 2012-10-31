@@ -138,6 +138,7 @@ struct
 end
 
 let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min step dbdir name =
+    let start, stop = min start stop, max start stop in
     let fold f i m =
         Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min dbdir name
             (fun (_vlan, _mac_clt, _clt, _mac_srv, _srv, _err, ts, rt, _name) p ->
@@ -146,6 +147,7 @@ let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?r
     Plot.per_date start stop step fold
 
 let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir n sort_order =
+    let start, stop = min start stop, max start stop in
     let fold = Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir "queries" in
     let cmp (_vl1, _eclt1, _clt1, _esrv1, _srv1, _err1, _ts1, (_, _, _, rt1, _), _nm1)
             (_vl2, _eclt2, _clt2, _esrv2, _srv2, _err2, _ts2, (_, _, _, rt2, _), _nm2) =
