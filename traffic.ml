@@ -418,16 +418,16 @@ let load dbdir create fname =
             [ fun (start, stop, vlan, mac_src, mac_dst, mac_proto, ip_src, ip_dst, ip_proto, l4_src, l4_dst) (count, eth_pld, mtu, ip_pld, l4_pld) ->
                 Table.append table1
                     (start, stop, count, vlan, mac_src, mac_dst, mac_proto, eth_pld, mtu, ip_src, ip_dst, ip_proto, ip_pld, l4_src, l4_dst, l4_pld) ;
-                let start = round_timestamp 3600 start
-                and stop = round_timestamp ~ceil:true 3600 stop in
+                let start = round_timestamp 3600_000 start
+                and stop = round_timestamp ~ceil:true 3600_000 stop in
                 accum2 (start, stop, vlan, mac_src, mac_dst, mac_proto, ip_src, ip_dst, ip_proto, l4_src, l4_dst) (count, eth_pld, mtu, ip_pld, l4_pld) ] in
 
-    let table0 = Traffic.table dbdir "30secs" in
+    let table0 = Traffic.table dbdir "1min" in
 
     let append0 ((start, stop, count, vlan, mac_src, mac_dst, mac_proto, eth_pld, mtu, ip_src, ip_dst, ip_proto, ip_pld, l4_src, l4_dst, l4_pld) as v) =
         Table.append table0 v ;
-        let start = round_timestamp 600 start
-        and stop = round_timestamp ~ceil:true 600 stop in
+        let start = round_timestamp 600_000 start
+        and stop = round_timestamp ~ceil:true 600_000 stop in
         accum1 (start, stop, vlan, mac_src, mac_dst, mac_proto, ip_src, ip_dst, ip_proto, l4_src, l4_dst) (count, eth_pld, mtu, ip_pld, l4_pld) in
 
     let flush_all () =

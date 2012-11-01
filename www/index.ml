@@ -418,7 +418,7 @@ struct
     module Traffic = struct
         module TblNames = struct
             let name = "db-tables"
-            let options = [| "30secs";"10mins";"1hour" |]
+            let options = [| "1min";"10mins";"1hour" |]
         end
         module TblNameField = struct
             module Type = Enum (TblNames)

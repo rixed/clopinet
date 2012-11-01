@@ -198,7 +198,7 @@ Or just run: junkie -c this_file
         grab) ; prevent root->traffic-eth
      (traffic-eth traffic-eth-end
         (on full-parse)
-        (older 30000000)) ; do not prevent root->traffic-eth edge to match as well (thus reporting this packet payload)
+        (older 60000000)) ; do not prevent root->traffic-eth edge to match as well (thus reporting this packet payload)
      ; other IP
      (root traffic-ip ; for other ip traffic
         (on full-parse)
@@ -242,7 +242,7 @@ Or just run: junkie -c this_file
         grab)
      (traffic-ip traffic-ip-end
         (on full-parse)
-        (older 30000000))
+        (older 60000000))
      ; TCP
      (root traffic-tcp
         (on full-parse)
@@ -292,7 +292,7 @@ Or just run: junkie -c this_file
         grab)
      (traffic-tcp traffic-l4-end
         (on full-parse)
-        (older 30000000))
+        (older 60000000))
      ; UDP
      (root traffic-udp
         (on full-parse)
@@ -342,7 +342,7 @@ Or just run: junkie -c this_file
         grab)
      (traffic-udp traffic-l4-end
         (on full-parse)
-        (older 30000000))])))
+        (older 60000000))])))
 
 (set-collapse-vlans #f)
 (set-collapse-ifaces #f)
