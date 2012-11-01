@@ -418,6 +418,12 @@ struct
         let uniq_name = "ip-dst"
         let persistant = false
     end
+    module IpField = struct
+        module Type = OptInputOfDatatype(Cidr)
+        let display_name = "IP src/dst"
+        let uniq_name = "ip"
+        let persistant = false
+    end
     module IpProtoField = struct
         module Type = OptInputOfDatatype(Integer8)
         let display_name = "IP proto"
@@ -522,6 +528,7 @@ struct
                                     (ConsOf (FieldOf (EthProtoField))
                                     (ConsOf (FieldOf (IpSrcField))
                                     (ConsOf (FieldOf (IpDstField))
+                                    (ConsOf (FieldOf (IpField))
                                     (ConsOf (FieldOf (IpProtoField))
                                     (ConsOf (FieldOf (L4PortField))
                                     (ConsOf (FieldOf (TimeStepField))
@@ -529,7 +536,7 @@ struct
                                     (ConsOf (FieldOf (PlotWhat))
                                     (ConsOf (FieldOf (GroupByField))
                                     (ConsOf (FieldOf (MaxGraphsField))
-                                            (NulType))))))))))))))))
+                                            (NulType)))))))))))))))))
 
         module Peers = RecordOf (ConsOf (FieldOf (StartField))
                                 (ConsOf (FieldOf (StopField))
@@ -539,13 +546,14 @@ struct
                                 (ConsOf (FieldOf (EthProtoField))
                                 (ConsOf (FieldOf (IpSrcField))
                                 (ConsOf (FieldOf (IpDstField))
+                                (ConsOf (FieldOf (IpField))
                                 (ConsOf (FieldOf (IpProtoField))
                                 (ConsOf (FieldOf (L4PortField))
                                 (ConsOf (FieldOf (TblNameField))
                                 (ConsOf (FieldOf (PlotWhat))
                                 (ConsOf (FieldOf (GroupByPeerField))
                                 (ConsOf (FieldOf (MaxGraphsField))
-                                        (NulType)))))))))))))))
+                                        (NulType))))))))))))))))
 
         module Tops = RecordOf (ConsOf (FieldOf (StartField))
                                (ConsOf (FieldOf (StopField))
@@ -555,13 +563,14 @@ struct
                                (ConsOf (FieldOf (EthProtoField))
                                (ConsOf (FieldOf (IpSrcField))
                                (ConsOf (FieldOf (IpDstField))
+                               (ConsOf (FieldOf (IpField))
                                (ConsOf (FieldOf (IpProtoField))
                                (ConsOf (FieldOf (L4PortField))
                                (ConsOf (FieldOf (TblNameField))
                                (ConsOf (FieldOf (PlotWhat))
                                (ConsOf (FieldOf (GroupByTopField))
                                (ConsOf (FieldOf (MaxGraphsField))
-                                       (NulType)))))))))))))))
+                                       (NulType))))))))))))))))
 
     end
 
@@ -759,17 +768,17 @@ struct
             let filters = Forms.Traffic.Bandwidth.from_args "filter" args in
             let filters_form = form "main/traffic/bandwidth" (Forms.Traffic.Bandwidth.edit "filter" filters) in
             let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value port, (Value time_step, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))))) ->
+                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value time_step, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))))) ->
                     let time_step = Int64.of_int time_step
                     and tblname = Forms.Traffic.TblNames.options.(tblname)
                     and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
                         | 1 (* src-mac *) | 2 (* dst-mac *) as sd ->
-                            eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs (sd = 0) what time_step dbdir tblname
+                            eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs (sd = 0) what time_step dbdir tblname
                         | 3 (* src-ip *) | 4 (* dst-ip *) as sd ->
-                            ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs (sd = 2) what time_step dbdir tblname
+                            ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs (sd = 2) what time_step dbdir tblname
                         | _ (* default, apps *) ->
-                            app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what time_step dbdir tblname in
+                            app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what time_step dbdir tblname in
                     if datasets = [] then
                         [ cdata "No data" ]
                     else
@@ -782,14 +791,14 @@ struct
             let filters = Forms.Traffic.Peers.from_args "filter" args in
             let filters_form = form "main/traffic/peers" (Forms.Traffic.Peers.edit "filter" filters) in
             let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value port, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))) ->
+                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
                         | 0 (* mac *) ->
-                            eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what dbdir tblname
+                            eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir tblname
                         | _ (* ip *) ->
-                            ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what dbdir tblname in
+                            ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir tblname in
                     if Hashtbl.is_empty datasets then
                         [ cdata "No data" ]
                     else
@@ -804,24 +813,24 @@ struct
             let filters = Forms.Traffic.Tops.from_args "filter" args in
             let filters_form = form "main/traffic/tops" (Forms.Traffic.Tops.edit "filter" filters) in
             let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip_proto, (Value port, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))) ->
+                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and what = if what = 0 then Volume else PacketCount in
                     let key, datasets = match group_by with
                         | 1 (* src-mac *) ->
-                            "src mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs true what dbdir tblname
+                            "src mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs true what dbdir tblname
                         | 2 (* dst-mac *) ->
-                            "dst mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs false what dbdir tblname
+                            "dst mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs false what dbdir tblname
                         | 3 (* mac (both) *) ->
-                            "mac (both)", eth_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what dbdir tblname
+                            "mac (both)", eth_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip ?ip_dst ?ip_proto ?port ?max_graphs what dbdir tblname
                         | 4 (* src-ip *) ->
-                            "src IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs true what dbdir tblname
+                            "src IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs true what dbdir tblname
                         | 5 (* dst-ip *) ->
-                            "dst IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs false what dbdir tblname
+                            "dst IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs false what dbdir tblname
                         | 6 (* ip (both) *) ->
-                            "IP (both)", ip_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what dbdir tblname
+                            "IP (both)", ip_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir tblname
                         | _ (* app *) ->
-                            "Port", app_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip_proto ?port ?max_graphs what dbdir tblname in
+                            "Port", app_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir tblname in
 
                     if Hashtbl.is_empty datasets then
                         [ cdata "No data" ]
