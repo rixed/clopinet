@@ -35,26 +35,26 @@ function refresh_chart(form) {
 	    chart.draw(data, options);
 	});
 
-/*
-    var data = new google.visualization.DataTable();
-    data.addColumn('string', 'Topping');
-    data.addColumn('number', 'Slices');
-    data.addRows([
-      ['Mushrooms', 3],
-      ['Onions', 1],
-      ['Olives', 1],
-      ['Zucchini', 1],
-      ['Pepperoni', 2]
-    ]);
-
-    // Set chart options
-    var options = {'title':'How Much Pizza I Ate Last Night',
-                   'width':400,
-                   'height':300};
-
-    // Instantiate and draw our chart, passing in some options.
-    var chart = new google.visualization.PieChart(document.getElementById('chart_div'));
-    chart.draw(data, options);
-*/
 }
 
+/* function for SVG circle-graph */
+
+function peer_select(evt, peer_name)
+{
+    var classname = evt.target.getAttribute("class");
+    var all = document.getElementsByClassName(classname);
+    for (var i = 0; i < all.length; i++) {
+        var col = all[i].getAttribute("fill");
+        all[i].setAttribute("fill", "rgb(255,150,5)");
+    }
+}
+
+function peer_unselect(evt, peer_name)
+{
+    var classname = evt.target.getAttribute("class");
+    var all = document.getElementsByClassName(classname);
+    for (var i = 0; i < all.length; i++) {
+        var col = all[i].getAttribute("stroke");
+        all[i].setAttribute("fill", col);
+    }
+}

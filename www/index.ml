@@ -141,7 +141,95 @@ var options = {\n\
 var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
 chart.draw(data, options);\n") ] ]
 
-    let peers_chart lab1 lab2 datasets what =
+    let color_scale =
+        [ 0.0, [| 0.0; 0.5; 1.0 |] ;
+          0.3, [| 0.2; 0.8; 1.0 |] ;
+          0.6, [| 0.0; 1.0; 0.7 |] ;
+          0.9, [| 0.9; 0.9; 0.4 |] ;
+          1.0, [| 1.0; 0.4; 0.3 |] ]
+    let peers_chart _lab1 _lab2 datasets _what =
+        let pi = BatFloat.pi in
+        let to_deg rad = 180. *. rad /. pi in
+        let svg_width = 800. and svg_height = 600. in
+        let inner_rad = 3.5 *. svg_height /. 10. in
+        let inner_x = svg_height/.2. and inner_y = svg_height/.2. in
+        let inner r x y = (x -. inner_x) *. r +. inner_x,
+                          (y -. inner_y) *. r +. inner_y in
+        let x_of_ang ang = inner_rad *. cos ang +. inner_x
+        and y_of_ang ang = inner_rad *. sin ang +. inner_y in
+        let legend_x = svg_height +. 50.
+        and legend_y = 50. in
+        let legend_height = svg_height -. 2.*. legend_y in
+        (* Build a list of all peers *)
+        let other_volume = Hashtbl.find datasets ("other", "") in
+        let tot_volume = ref 0. and max_volume = ref 0. in
+        let peers = (Hashtbl.fold (fun (a, b) v l ->
+                                     if a = "other" then l else (
+                                         tot_volume := !tot_volume +. v ;
+                                         max_volume := max !max_volume v ;
+                                         a::b::l
+                                     )) datasets [] |>
+                     List.sort String.compare) |>
+                    List.unique_cmp ~cmp:String.compare in
+        let opacity w = 0.2 +. 0.8 *. w in
+        let color w = Color.get color_scale w in
+        let nb_peers = List.length peers in
+        let peers =
+            let a = 2.*.pi /. (float_of_int nb_peers) in
+            List.mapi (fun i p ->
+                let a = float_of_int i *. a -. pi/.2. in
+                let a = mod_float a (2.*.pi) in
+                p, "peer"^string_of_int i, a) peers in
+        let get_by_name p =
+            List.find_map (fun ((p', _, _) as r) -> if p = p' then Some r else None) peers in
+        [ svg ~attrs:["width",  string_of_float svg_width ;
+                      "height", string_of_float svg_height ]
+              [ (* legend *)
+                g (rect ~fill:"none" ~stroke_width:1. ~stroke:"#ef0" legend_x legend_y 4. legend_height ::
+                   texts ~fill:"#bbb" ~stroke:"#aaa" (legend_x +. 20.) (legend_y +. 20.)
+                       [ Printf.sprintf "%.0f bytes" !tot_volume, 20. ;
+                         Printf.sprintf "%05.2f%% of total"
+                           (100.*. !tot_volume /. (other_volume +. !tot_volume)), 16. ]) ;
+                (* Traffic *)
+                g (Hashtbl.fold (fun (p1, p2) v l ->
+                     try (
+                         let _, c1, a1 = get_by_name p1
+                         and _, c2, a2 = get_by_name p2 in
+                         let x1, y1 = x_of_ang a1, y_of_ang a1
+                         and x2, y2 = x_of_ang a2, y_of_ang a2 in
+                         let close r a = (* return x,y of a point at radius r and at ang a2+da *)
+                            inner r (x_of_ang a) (y_of_ang a) in
+                         let c1x, c1y = if p1 <> p2 then inner 0.5 x1 y1
+                                        else inner 0.8 (x_of_ang (a1+.0.6)) (y_of_ang (a1+.0.6))
+                         and c2x, c2y = inner 0.5 x2 y2 in
+                         let w = v /. !max_volume in
+                         let w'= 0.3 +. 0.7 *. v /. !max_volume in
+                         let d = moveto (close 0.97 (a1+.0.05*.w')) ^
+                                 curveto (c1x, c1y) (c2x, c2y) (close 0.8 (a2-.0.09*.w')) ^
+                                 lineto (close 0.8 (a2-.0.15*.w')) ^
+                                 lineto (close 0.97 a2) ^
+                                 lineto (close 0.8 (a2+.0.15*.w')) ^
+                                 lineto (close 0.8 (a2+.0.09*.w')) ^
+                                 curveto (c2x, c2y) (c1x, c1y) (close 0.97 (a1-.0.05*.w')) ^
+                                 closepath in
+                         let col = color w in
+                         (g [ path ~attrs:["class",c1^" "^c2] ~fill:col ~stroke:col ~stroke_opacity:0. ~fill_opacity:(opacity w) d ]) :: l
+                     ) with Not_found -> l)
+                     datasets []) ;
+                (* The peers *)
+                g (List.map (fun (p, pclass, a) ->
+                    let x, y = x_of_ang a, y_of_ang a in
+                    let a' = (mod_float (a +. pi/.2.) pi) -. pi/.2. in
+                    let anchor = if a < 0.5*.pi || a > 1.5*.pi then "start" else "end" in
+                       g ~attrs:["transform","translate("^string_of_float x^","^string_of_float y^") "^
+                                             "rotate("^string_of_float (to_deg a') ^")" ;
+                                 "onmouseover","peer_select(evt, '"^pclass^"')" ;
+                                 "onmouseout", "peer_unselect(evt, '"^pclass^"')" ]
+                         [ text ~attrs:["class",pclass] ~style:("text-anchor:"^anchor^"; dominant-baseline:central")
+                                ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_opacity:0. p ]
+                     ) peers) ] ]
+
+    let peers_table lab1 lab2 datasets what =
         let js =
             let os = IO.output_string () in
             Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
@@ -706,7 +794,9 @@ struct
                         [ cdata "No data" ]
                     else
                         let units = if what = PacketCount then "Packets" else "Bytes" in
-                        View.peers_chart "src" "dst" datasets units
+                        View.peers_chart "src" "dst" datasets units @
+                        [ tag "hr" [] ] @
+                        View.peers_table "src" "dst" datasets units
                 | _ -> [] in
             View.make_graph_page "Peers" filters_form disp_graph
 

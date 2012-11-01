@@ -256,7 +256,7 @@ struct
 
     module FindSignificant =
     struct
-        (* over a collection of (key, value), return
+        (* amongst a collection of (key, value),
          * return N with the property that, if a key worth more than 1/Nth of the
          * total value then it will be returned.
          * A second pass is required to get the list
