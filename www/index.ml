@@ -10,6 +10,28 @@ module View =
 struct
     include View
 
+    (* Misc *)
+
+    let string_of_vlan = function
+        | None -> ""
+        | Some v -> string_of_int v
+
+    let multiples_bytes = [| ""; "KiB"; "MiB"; "GiB"; "TiB"; "PiB" |]
+    let multiples = [| ""; "k"; "M"; "G"; "T"; "P" |]
+    let unpower v =
+        let rec aux e v =
+            if e >= Array.length multiples -1 || v < 1024. then
+                e, v
+            else
+                aux (succ e) (v/.1024.) in
+        aux 0 v
+    let string_of_volume v =
+        let e, v = unpower v in
+        Printf.sprintf "%.2f %s" v multiples_bytes.(e)
+    let string_of_number v =
+        let e, v = unpower v in
+        Printf.sprintf "%.2f %s" v multiples.(e)
+
     (* notification system *)
 
     let msgs = ref []
@@ -143,12 +165,13 @@ chart.draw(data, options);\n") ] ]
 
     let color_scale =
         [ 0.0, [| 0.0; 0.5; 1.0 |] ;
-          0.3, [| 0.2; 0.8; 1.0 |] ;
-          0.6, [| 0.0; 1.0; 0.7 |] ;
-          0.9, [| 0.9; 0.9; 0.4 |] ;
+          0.2, [| 0.2; 0.8; 1.0 |] ;
+          0.5, [| 0.0; 1.0; 0.7 |] ;
+          0.7, [| 0.9; 0.8; 0.4 |] ;
           1.0, [| 1.0; 0.4; 0.3 |] ]
-    let peers_chart _lab1 _lab2 datasets _what =
+    let peers_chart ?(is_bytes=false) datasets =
         let pi = BatFloat.pi in
+        let string_of_val = if is_bytes then string_of_volume else string_of_number in
         let to_deg rad = 180. *. rad /. pi in
         let svg_width = 800. and svg_height = 600. in
         let inner_rad = 3.5 *. svg_height /. 10. in
@@ -171,7 +194,7 @@ chart.draw(data, options);\n") ] ]
                                      )) datasets [] |>
                      List.sort String.compare) |>
                     List.unique_cmp ~cmp:String.compare in
-        let opacity w = 0.2 +. 0.8 *. w in
+        let opacity w = 0.05 +. 0.95 *. w in
         let color w = Color.get color_scale w in
         let nb_peers = List.length peers in
         let peers =
@@ -187,8 +210,8 @@ chart.draw(data, options);\n") ] ]
               [ (* legend *)
                 g (rect ~fill:"none" ~stroke_width:1. ~stroke:"#ef0" legend_x legend_y 4. legend_height ::
                    texts ~fill:"#bbb" ~stroke:"#aaa" (legend_x +. 20.) (legend_y +. 20.)
-                       [ Printf.sprintf "%.0f bytes" !tot_volume, 20. ;
-                         Printf.sprintf "%05.2f%% of total"
+                       [ string_of_val !tot_volume, 20. ;
+                         Printf.sprintf "%.1f%% of total"
                            (100.*. !tot_volume /. (other_volume +. !tot_volume)), 16. ]) ;
                 (* Traffic *)
                 g (Hashtbl.fold (fun (p1, p2) v l ->
@@ -199,41 +222,45 @@ chart.draw(data, options);\n") ] ]
                          and x2, y2 = x_of_ang a2, y_of_ang a2 in
                          let close r a = (* return x,y of a point at radius r and at ang a2+da *)
                             inner r (x_of_ang a) (y_of_ang a) in
-                         let c1x, c1y = if p1 <> p2 then inner 0.5 x1 y1
-                                        else inner 0.8 (x_of_ang (a1+.0.6)) (y_of_ang (a1+.0.6))
-                         and c2x, c2y = inner 0.5 x2 y2 in
+                         let c1x, c1y = if p1 <> p2 then inner 0.1 x1 y1
+                                        else close 0.6 (a1+.0.6)
+                         and c2x, c2y = if p1 <> p2 then inner 0.8 x2 y2
+                                        else close 0.6 (a1-.0.6) in
                          let w = v /. !max_volume in
                          let w'= 0.3 +. 0.7 *. v /. !max_volume in
-                         let d = moveto (close 0.97 (a1+.0.05*.w')) ^
-                                 curveto (c1x, c1y) (c2x, c2y) (close 0.8 (a2-.0.09*.w')) ^
-                                 lineto (close 0.8 (a2-.0.15*.w')) ^
-                                 lineto (close 0.97 a2) ^
-                                 lineto (close 0.8 (a2+.0.15*.w')) ^
-                                 lineto (close 0.8 (a2+.0.09*.w')) ^
-                                 curveto (c2x, c2y) (c1x, c1y) (close 0.97 (a1-.0.05*.w')) ^
+                         let d = moveto (close 0.97 (a1+.0.08*.w')) ^
+                                 curveto (c1x, c1y) (c2x, c2y) (close 0.97 a2) ^
+                                 curveto (c2x, c2y) (c1x, c1y) (close 0.97 (a1-.0.08*.w')) ^
                                  closepath in
-                         let col = color w in
-                         (g [ path ~attrs:["class",c1^" "^c2] ~fill:col ~stroke:col ~stroke_opacity:0. ~fill_opacity:(opacity w) d ]) :: l
+                         let col = color w and opac = opacity w in
+                         (g [ path ~attrs:["class",c1^" "^c2] ~fill:col ~stroke:col ~stroke_opacity:opac ~stroke_width:0. ~fill_opacity:opac d ]) :: l
                      ) with Not_found -> l)
                      datasets []) ;
                 (* The peers *)
                 g (List.map (fun (p, pclass, a) ->
                     let x, y = x_of_ang a, y_of_ang a in
+                    let c = Hashtbl.fold (fun (p1, p2) _ l ->
+                        if p = p1 then
+                            let _, c, _ = get_by_name p2 in l^" "^c
+                        else if p = p2 then
+                            let _, c, _ = get_by_name p1 in l^" "^c
+                        else l) datasets pclass in
                     let a' = (mod_float (a +. pi/.2.) pi) -. pi/.2. in
                     let anchor = if a < 0.5*.pi || a > 1.5*.pi then "start" else "end" in
                        g ~attrs:["transform","translate("^string_of_float x^","^string_of_float y^") "^
                                              "rotate("^string_of_float (to_deg a') ^")" ;
                                  "onmouseover","peer_select(evt, '"^pclass^"')" ;
                                  "onmouseout", "peer_unselect(evt, '"^pclass^"')" ]
-                         [ text ~attrs:["class",pclass] ~style:("text-anchor:"^anchor^"; dominant-baseline:central")
-                                ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_opacity:0. p ]
+                         [ text ~attrs:["class",c ; "id",pclass] ~style:("text-anchor:"^anchor^"; dominant-baseline:central")
+                                ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_opacity:1. ~stroke_width:0. p ]
                      ) peers) ] ]
 
-    let peers_table lab1 lab2 datasets what =
+    let peers_table ?(is_bytes=false) lab1 lab2 datasets =
+        let units = if is_bytes then "Bytes" else "Packets" in
         let js =
             let os = IO.output_string () in
             Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
-                lab1 lab2 what
+                lab1 lab2 units
                 (* display the rows *)
                 (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
                                (fun oc (s, d) -> Printf.fprintf oc "{c:[{v:'%s'},{v:'%s'}" s d)
@@ -298,11 +325,6 @@ var options = {\n\
 var chart = new google.visualization.ComboChart(document.getElementById('chart_div'));\n\
 chart.draw(data, options);\n") ] ]
 
-    (* Misc *)
-
-    let string_of_vlan = function
-        | None -> ""
-        | Some v -> string_of_int v
 end
 
 module InputOfDatatype (D : DATATYPE) :
@@ -475,7 +497,7 @@ struct
         let persistant = false
     end
     module MaxGraphsField = struct
-        module Type = OptInteger (struct let min = Some 1 let max = Some 1000 end)
+        module Type = OptInteger (struct let min = Some 1 let max = Some 10000 end)
         let display_name = "#series"
         let uniq_name = "series"
         let persistant = false
@@ -802,10 +824,10 @@ struct
                     if Hashtbl.is_empty datasets then
                         [ cdata "No data" ]
                     else
-                        let units = if what = PacketCount then "Packets" else "Bytes" in
-                        View.peers_chart "src" "dst" datasets units @
+                        let is_bytes = what = Volume in
+                        View.peers_chart ~is_bytes datasets @
                         [ tag "hr" [] ] @
-                        View.peers_table "src" "dst" datasets units
+                        View.peers_table ~is_bytes "src" "dst" datasets
                 | _ -> [] in
             View.make_graph_page "Peers" filters_form disp_graph
 

@@ -41,20 +41,22 @@ function refresh_chart(form) {
 
 function peer_select(evt, peer_name)
 {
-    var classname = evt.target.getAttribute("class");
+    var classname = evt.target.getAttribute("id");
     var all = document.getElementsByClassName(classname);
     for (var i = 0; i < all.length; i++) {
-        var col = all[i].getAttribute("fill");
         all[i].setAttribute("fill", "rgb(255,150,5)");
+        all[i].setAttribute("fill-opacity", 1);
     }
 }
 
 function peer_unselect(evt, peer_name)
 {
-    var classname = evt.target.getAttribute("class");
+    var classname = evt.target.getAttribute("id");
     var all = document.getElementsByClassName(classname);
     for (var i = 0; i < all.length; i++) {
         var col = all[i].getAttribute("stroke");
         all[i].setAttribute("fill", col);
+        var opac = all[i].getAttribute("stroke-opacity");
+        all[i].setAttribute("fill-opacity", opac);
     }
 }
