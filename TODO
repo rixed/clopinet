@@ -8,9 +8,10 @@ should be Abs of ts | Rel of float.
   make all these available from cmd line
 
 * Peers : pour chaque A,B sélectionné dans la première passe, calculer
-ensuite le traffic exacte entre A et B et aussi le traffic total 
+ensuite le traffic exact entre A et B et aussi le traffic total 
 entrant/sortant de A et de B, et afficher ainsi pour tout host le traffic
-"autre".
+"autre". Autre possibilité, à partir des tops peers, calculer la matrice des
+échanges entre tous ces peers et l'afficher en cercle.
 
 * A queries chart as a cloud of dots
 

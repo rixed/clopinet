@@ -632,11 +632,8 @@ module Timestamp = struct
     exception Invalid_date of (int * int * int * int * int * float)
     exception Invalid_unit of char
 
-    let of_tm y mo d h mi s =
+    let of_tm_nocheck y mo d h mi s =
         let open Unix in
-        if y > 2100 || y < 2000 || mo < 1 || mo > 12 ||
-           d < 1 || d > 31 || h > 24 || mi > 60 || s > 60. then
-           raise (Invalid_date (y, mo, d, h, mi, s)) ;
         let s_f, s_i = modf s in
         let tm = { tm_sec = int_of_float s_i ;
                    tm_min = mi ; tm_hour = h ;
@@ -646,6 +643,12 @@ module Timestamp = struct
                    tm_wday = 0 ; tm_yday = 0 ; tm_isdst = false } in
         let ts, _ = mktime tm in
         of_unixfloat (ts +. s_f)
+
+    let of_tm y mo d h mi s =
+        if y > 2100 || y < 2000 || mo < 1 || mo > 12 ||
+           d < 1 || d > 31 || h > 24 || mi > 60 || s > 60. then
+           raise (Invalid_date (y, mo, d, h, mi, s)) ;
+        of_tm_nocheck y mo d h mi s
 
     let of_datestring str =
         let open Unix in
@@ -688,7 +691,8 @@ module Timestamp = struct
             if u <> 'y' && u <> 'm' && u <> 'd' &&
                u <> 'h' && u <> 'n' && u <> 's' then
                 raise (Invalid_unit u) ;
-            of_tm (now.tm_year + 1900 + if u = 'y' then i else 0)
+            of_tm_nocheck
+                  (now.tm_year + 1900 + if u = 'y' then i else 0)
                   (now.tm_mon  +    1 + if u = 'm' then i else 0)
                   (now.tm_mday        + if u = 'd' then i else 0)
                   (now.tm_hour        + if u = 'h' then i else 0)
