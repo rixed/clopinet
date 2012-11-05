@@ -58,7 +58,7 @@ struct
 
     let menu () =
         let html_of_entry e = tag "li" [ tag "a" ~attrs:["href","?action=main/"^e] [cdata e] ]
-        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "DNS/resptime"; "DNS/top"; "web/resptime"; "web/top"; "logout"] in
+        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "traffic/graph"; "DNS/resptime"; "DNS/top"; "web/resptime"; "web/top"; "logout"] in
         tag ~attrs:["id","menu"] "ul" (List.map html_of_entry menu_entries)
 
     (* add the menu *)
@@ -254,6 +254,23 @@ chart.draw(data, options);\n") ] ]
                          [ text ~attrs:["class",c ; "id",pclass] ~style:("text-anchor:"^anchor^"; dominant-baseline:central")
                                 ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_opacity:1. ~stroke_width:0. p ]
                      ) peers) ] ]
+ 
+    let peers_graph datasets =
+        let out, inp = Unix.open_process "dot -Tsvg | sed -e 1,3d" in (* dot outputs HTML header :-< *)
+        Printf.fprintf inp "graph network {\n\
+	node [fontsize=8];\n\
+	layout=\"twopi\";\n" ;
+        Hashtbl.iter (fun k1 n ->
+            Hashtbl.iter (fun k2 _y ->
+                Printf.fprintf inp "\t\"%s\" -- \"%s\";\n" k1 k2)
+                n)
+            datasets ;
+        Printf.fprintf inp "}\n" ;
+        close_out inp ;
+        let result = IO.read_all out in
+        IO.close_out inp ;
+        [ raw result ]
+
 
     let peers_table ?(is_bytes=false) lab1 lab2 datasets =
         let units = if is_bytes then "Bytes" else "Packets" in
@@ -480,6 +497,13 @@ struct
         let uniq_name = "groupby"
         let persistant = false
     end
+    module GroupByGraphField = struct
+        module Type = Enum (struct let name = "key"
+                                   let options = [| "mac+ip";"ip";"mac" |] end)
+        let display_name = "show"
+        let uniq_name = "show_in_network"
+        let persistant = false
+    end
     module GroupByTopField = struct
         module Type = Enum (struct
             let name = "key"
@@ -576,6 +600,13 @@ struct
                                 (ConsOf (FieldOf (GroupByPeerField))
                                 (ConsOf (FieldOf (MaxGraphsField))
                                         (NulType))))))))))))))))
+
+        module Graph = RecordOf (ConsOf (FieldOf (StartField))
+                                (ConsOf (FieldOf (StopField))
+                                (ConsOf (FieldOf (VlanField))
+                                (ConsOf (FieldOf (TblNameField))
+                                (ConsOf (FieldOf (GroupByGraphField))
+                                        (NulType))))))
 
         module Tops = RecordOf (ConsOf (FieldOf (StartField))
                                (ConsOf (FieldOf (StopField))
@@ -831,6 +862,21 @@ struct
                 | _ -> [] in
             View.make_graph_page "Peers" filters_form disp_graph
 
+        let graph args =
+            let filters = Forms.Traffic.Graph.from_args "filter" args in
+            let filters_form = form "main/traffic/graph" (Forms.Traffic.Graph.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value tblname, (Value group_by, ())))) ->
+                    let tblname = Forms.Traffic.TblNames.options.(tblname) in
+                    let show_ip = group_by <> 2 and show_mac = group_by <> 1 in
+                    let datasets = network_graph start stop ?vlan show_mac show_ip dbdir tblname in
+                    if Hashtbl.is_empty datasets then
+                        [ cdata "No data" ]
+                    else
+                        View.peers_graph datasets
+                | _ -> [] in
+            View.make_graph_page "Network" filters_form disp_graph
+
         let tops args =
             let filters = Forms.Traffic.Tops.from_args "filter" args in
             let filters_form = form "main/traffic/tops" (Forms.Traffic.Tops.edit "filter" filters) in
@@ -990,6 +1036,8 @@ let _ =
             Ctrl.ensure_logged Ctrl.Traffic.bandwidth
         | ["main";"traffic";"peers"] ->
             Ctrl.ensure_logged Ctrl.Traffic.peers
+        | ["main";"traffic";"graph"] ->
+            Ctrl.ensure_logged Ctrl.Traffic.graph
         | ["main";"traffic";"tops"] ->
             Ctrl.ensure_logged Ctrl.Traffic.tops
         | ["main";"web";"resptime"] ->

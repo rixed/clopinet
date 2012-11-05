@@ -396,6 +396,35 @@ let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     Hashtbl.add h "other" rest ;
     h
 
+let network_graph start stop ?vlan show_mac show_ip dbdir name =
+    let start, stop = min start stop, max start stop in
+    let fold f i m =
+        Traffic.fold ~start ~stop ?vlan dbdir name
+            (fun (t1, t2, _, vlan, mac_src, mac_dst, mac_proto, mac_pld, _, ip_src, ip_dst, _, _, _, _, _) p ->
+                let y = float_of_int mac_pld in
+                let _, _, y = Plot.clip_y ~start ~stop t1 t2 y in
+                let p = if show_mac then (
+                        let src, dst, y = if EthAddr.compare mac_src mac_dst <= 0 then mac_src, mac_dst, y
+                                                                                  else mac_dst, mac_src, ~-.y in
+                        f (label_of_eth_key (vlan, src)) (label_of_eth_key (vlan, dst)) y p
+                    ) else p in
+                if show_ip && (mac_proto = 0x0800 || mac_proto = 0x86DD) then (
+                    if show_mac then (
+                        (* link Ip to their mac *)
+                        let p' = f (InetAddr.to_string ip_src) (label_of_eth_key (vlan, mac_src)) y p in
+                        f (InetAddr.to_string ip_dst) (label_of_eth_key (vlan, mac_dst)) y p'
+                    ) else (
+                        (* show direct link between IPs *)
+                        let src, dst, y = if InetAddr.compare ip_src ip_dst <= 0 then ip_src, ip_dst, y
+                                                                                 else ip_dst, ip_src, ~-.y in
+                        f (InetAddr.to_string src) (InetAddr.to_string dst) y p
+                    )
+                ) else p)
+            i m
+        in
+    Plot.netgraph fold
+
+
 (* Lod1: Accumulated over 10mins *)
 (* Lod2: round timestamp to hour *)
 (* Load new data into the database *)

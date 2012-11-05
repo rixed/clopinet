@@ -159,7 +159,48 @@ let top_table n sort_order cmp fold =
         tops in
     fold add_value init_value merge_tops
 
- 
+(* TODO: update functions such as this should go into batteries *)
+let hash_find_or_insert h k f =
+    try Hashtbl.find h k
+    with Not_found -> (
+        let v = f () in
+        Hashtbl.add h k v ;
+        v
+    )
+let hash_update_with_default def h k f =
+    try let prev = Hashtbl.find h k in
+        Hashtbl.replace h k (f prev)
+    with Not_found ->
+        Hashtbl.add h k def
+
+(* returns a hash of node *)
+let netgraph fold =
+    let update_h h k1 k2 v =
+        let peers = hash_find_or_insert h k1 (fun () ->
+            Hashtbl.create 3) in
+        hash_update_with_default v
+            peers k2
+            ((+.) v) in
+    let update_h_node h k1 peers =
+        try let prev_peers = Hashtbl.find h k1 in
+            (* merge peers into prev_peers *)
+            Hashtbl.iter (fun k2 v ->
+                hash_update_with_default v
+                    prev_peers k2
+                    ((+.) v)) peers
+        with Not_found ->
+            Hashtbl.add h k1 peers in
+    let graph = fold (fun k1 k2 v h ->
+        update_h h k1 k2 v ;
+        h)
+        (fun () -> Hashtbl.create 31)
+        (fun h1 h2 -> (* merge two hashs, h1 being the big one, so merge h2 into h1 *)
+            Hashtbl.iter (fun k1 n ->
+                (* add k1->n into h1 *)
+                update_h_node h1 k1 n) h2 ;
+            h1) in
+    graph
+
 module DataSet (Key : DATATYPE) =
 struct
     module Maplot = Finite_map_impl.Finite_map (struct
@@ -334,5 +375,5 @@ struct
                 )) result in
             new_result, !new_rest
     end
-   
+
 end
