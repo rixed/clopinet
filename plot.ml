@@ -174,7 +174,7 @@ let hash_update_with_default def h k f =
         Hashtbl.add h k def
 
 (* returns a hash of node *)
-let netgraph fold =
+let netgraph ?min_volume fold =
     let update_h h k1 k2 v =
         let peers = hash_find_or_insert h k1 (fun () ->
             Hashtbl.create 3) in
@@ -199,7 +199,15 @@ let netgraph fold =
                 (* add k1->n into h1 *)
                 update_h_node h1 k1 n) h2 ;
             h1) in
-    graph
+    match min_volume with
+    | None ->
+        graph
+    | Some min_volume ->
+        let min_volume = float_of_int min_volume in
+        Hashtbl.filter_map (fun _k1 n ->
+            let n' = Hashtbl.filter (fun y -> y >= min_volume) n in
+            if Hashtbl.is_empty n' then None
+            else Some n') graph
 
 module DataSet (Key : DATATYPE) =
 struct

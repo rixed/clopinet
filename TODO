@@ -1,8 +1,6 @@
 TODO stack
 ----------
 
-* Add a minimum amount of volume to display a link in the graph
-
 * Benchmark hashtbl vs Maplot with runcgi
 
 * Remove all non-ip traffic when we ask an IP peer graph

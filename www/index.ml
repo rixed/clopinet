@@ -256,13 +256,24 @@ chart.draw(data, options);\n") ] ]
                      ) peers) ] ]
  
     let peers_graph datasets =
+        (* Get max volume *)
+        let max_volume = Hashtbl.fold (fun _k1 n m ->
+            Hashtbl.fold (fun _k2 y m ->
+                max y m) n m) datasets 0. in
+        let weight w = 0.5 +. w in
+        let color w = Color.get color_scale w in
         let out, inp = Unix.open_process "dot -Tsvg | sed -e 1,3d" in (* dot outputs HTML header :-< *)
         Printf.fprintf inp "graph network {\n\
-	node [fontsize=8];\n\
+	node [fontsize=8,shape=box,height=0.3,style=filled,fillcolor=\"#90cedf\"];\n\
+    overlap=scale;\n\
 	layout=\"twopi\";\n" ;
-        Hashtbl.iter (fun k1 n ->
-            Hashtbl.iter (fun k2 _y ->
-                Printf.fprintf inp "\t\"%s\" -- \"%s\";\n" k1 k2)
+        Hashtbl.iter (fun (k1, is_ip) n ->
+            if is_ip then
+                Printf.fprintf inp "\t\"%s\" [fillcolor=\"#50d870\"];\n" k1 ;
+            Hashtbl.iter (fun k2 y ->
+                let w = y /. max_volume in
+                Printf.fprintf inp "\t\"%s\" -- \"%s\" [weight=%f,color=\"%s\",tooltip=\"%s\"];\n"
+                    k1 k2 (weight w) (color w) (string_of_volume y))
                 n)
             datasets ;
         Printf.fprintf inp "}\n" ;
@@ -270,7 +281,6 @@ chart.draw(data, options);\n") ] ]
         let result = IO.read_all out in
         IO.close_out inp ;
         [ raw result ]
-
 
     let peers_table ?(is_bytes=false) lab1 lab2 datasets =
         let units = if is_bytes then "Bytes" else "Packets" in
@@ -342,6 +352,11 @@ var options = {\n\
 var chart = new google.visualization.ComboChart(document.getElementById('chart_div'));\n\
 chart.draw(data, options);\n") ] ]
 
+end
+
+module NoLimit = struct
+    let min = None
+    let max = None
 end
 
 module InputOfDatatype (D : DATATYPE) :
@@ -566,6 +581,12 @@ struct
             let uniq_name = "db-table"
             let persistant = false
         end
+        module MinTraffic = struct
+            module Type = OptInteger (NoLimit)
+            let display_name = "volume min"
+            let uniq_name = "volume_min"
+            let persistant = false
+        end
         module Bandwidth = RecordOf (ConsOf (FieldOf (StartField))
                                     (ConsOf (FieldOf (StopField))
                                     (ConsOf (FieldOf (VlanField))
@@ -604,9 +625,10 @@ struct
         module Graph = RecordOf (ConsOf (FieldOf (StartField))
                                 (ConsOf (FieldOf (StopField))
                                 (ConsOf (FieldOf (VlanField))
+                                (ConsOf (FieldOf (MinTraffic))
                                 (ConsOf (FieldOf (TblNameField))
                                 (ConsOf (FieldOf (GroupByGraphField))
-                                        (NulType))))))
+                                        (NulType)))))))
 
         module Tops = RecordOf (ConsOf (FieldOf (StartField))
                                (ConsOf (FieldOf (StopField))
@@ -645,13 +667,13 @@ struct
             let persistant = false
         end
         module HttpHost = struct
-            module Type = OptString (struct let min = None let max = None end)
+            module Type = OptString (NoLimit)
             let display_name = "host"
             let uniq_name = "host"
             let persistant = false
         end
         module HttpURL = struct
-            module Type = OptString (struct let min = None let max = None end)
+            module Type = OptString (NoLimit)
             let display_name = "URL"
             let uniq_name = "url"
             let persistant = false
@@ -719,7 +741,7 @@ struct
             let persistant = false
         end
         module QueryName = struct
-            module Type = OptString (struct let min = None let max = None end)
+            module Type = OptString (NoLimit)
             let display_name = "Query Name"
             let uniq_name = "qname"
             let persistant = false
@@ -866,10 +888,10 @@ struct
             let filters = Forms.Traffic.Graph.from_args "filter" args in
             let filters_form = form "main/traffic/graph" (Forms.Traffic.Graph.edit "filter" filters) in
             let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value tblname, (Value group_by, ())))) ->
+                | Value start, (Value stop, (Value vlan, (Value min_volume, (Value tblname, (Value group_by, ()))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname) in
                     let show_ip = group_by <> 2 and show_mac = group_by <> 1 in
-                    let datasets = network_graph start stop ?vlan show_mac show_ip dbdir tblname in
+                    let datasets = network_graph start stop ?min_volume ?vlan show_mac show_ip dbdir tblname in
                     if Hashtbl.is_empty datasets then
                         [ cdata "No data" ]
                     else
