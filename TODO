@@ -27,17 +27,9 @@ should be Abs of ts | Rel of float.
 * Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr *or*
   make all these available from cmd line
 
-* Peers : pour chaque A,B sélectionné dans la première passe, calculer
-ensuite le traffic exact entre A et B et aussi le traffic total 
-entrant/sortant de A et de B, et afficher ainsi pour tout host le traffic
-"autre". Autre possibilité, à partir des tops peers, calculer la matrice des
-échanges entre tous ces peers et l'afficher en cercle.
-
 * A queries chart as a cloud of dots
 
 * A max packet size chart, as an histogram
-
-* An eth/ip connection graph (with the usual filters)
 
 * An Interval type
 
@@ -80,3 +72,7 @@ distributed querying
 
 * IP proto devrait être une selectbox
 
+
+* nettrack language should provide special function to create a new capfile,
+  add a packet to it, discard it, save it, etc. Ie. a capture type with most
+  operations implemented in C.
