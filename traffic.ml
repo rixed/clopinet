@@ -406,18 +406,18 @@ let network_graph start stop ?min_volume ?vlan show_mac show_ip dbdir name =
                 let p = if show_mac then (
                         let src, dst, y = if EthAddr.compare mac_src mac_dst <= 0 then mac_src, mac_dst, y
                                                                                   else mac_dst, mac_src, ~-.y in
-                        f ((label_of_eth_key (vlan, src)), false) (label_of_eth_key (vlan, dst)) y p
+                        f (label_of_eth_key (vlan, src)) (label_of_eth_key (vlan, dst)) y p
                     ) else p in
                 if show_ip && (mac_proto = 0x0800 || mac_proto = 0x86DD) then (
                     if show_mac then (
                         (* link Ip to their mac *)
-                        let p' = f ((InetAddr.to_string ip_src), true) (label_of_eth_key (vlan, mac_src)) y p in
-                        f ((InetAddr.to_string ip_dst), true) (label_of_eth_key (vlan, mac_dst)) y p'
+                        let p' = f (InetAddr.to_string ip_src) (label_of_eth_key (vlan, mac_src)) y p in
+                        f (InetAddr.to_string ip_dst) (label_of_eth_key (vlan, mac_dst)) y p'
                     ) else (
                         (* show direct link between IPs *)
                         let src, dst, y = if InetAddr.compare ip_src ip_dst <= 0 then ip_src, ip_dst, y
                                                                                  else ip_dst, ip_src, ~-.y in
-                        f ((InetAddr.to_string src), true) (InetAddr.to_string dst) y p
+                        f (InetAddr.to_string src) (InetAddr.to_string dst) y p
                     )
                 ) else p)
             i m

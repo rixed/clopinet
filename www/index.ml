@@ -270,7 +270,7 @@ chart.draw(data, options);\n") ] ]
 	node [fontsize=8,shape=box,height=0.3];\n\
     overlap=scale;\n\
 	layout=\"twopi\";\n" ;
-        Hashtbl.iter (fun (k1, _) n ->
+        Hashtbl.iter (fun k1 n ->
             Hashtbl.iter (fun k2 y ->
                 let w = y /. max_volume in
                 Printf.fprintf inp "\t\"%s\" -- \"%s\" [weight=%f];\n"
@@ -283,31 +283,36 @@ chart.draw(data, options);\n") ] ]
         try let scale, width, height =
                 Scanf.fscanf ic "graph %f %f %f\n" (fun scale width height ->
                     scale, width, height) in
+            let dot_2_svg x y =
+                svg_width *. x *. scale /. width,
+                svg_height *. y *. scale /. height in
             let node_pos = Hashtbl.create 71 in
             (try while true do
                 Scanf.fscanf ic "node \"%s@\" %f %f %f %f %_s %_s %_s %_s %_s\n" (fun name x y width height ->
-                    Hashtbl.add node_pos name (x, y, width, height))
+                    let x, y = dot_2_svg x y
+                    and w, h = dot_2_svg width height in
+                    Hashtbl.add node_pos name (x, svg_height -. y, w, h))
                 done
             with StdScanf.Scan_failure _ -> ()) ;
-            let dot_2_svg x y =
-                svg_width *. x *. scale /. width,
-                svg_height -. svg_height *. y *. scale /. height in
             let pos_of n =
                 let x,y,_w,_h = Hashtbl.find node_pos n in
-                dot_2_svg x y in
+                x,y in
             IO.close_out inp ; (* cleans everything *)
             let svg_nodes = Hashtbl.fold (fun n (x,y,w,h) p ->
-                let x, y = dot_2_svg x y in
-                (g [ rect x y w h ;
-                     text ~style:("text-anchor:middle; dominant-baseline:central") ~x ~y n ]) ::p)
+                let is_mac = try Scanf.sscanf n "%[0-9a-f]:" ignore ; true
+                             with StdScanf.Scan_failure _ -> false in
+                let col = if is_mac then "#888" else "#5c8" in
+                (g [ rect ~stroke:"#000" ~fill:col (x-.w/.2.) (y-.h/.2.) w h ;
+                     text ~font_size:10. ~style:("text-anchor:middle; dominant-baseline:central") ~x ~y n ]) ::p)
                 node_pos [] in
-            let svg_edges = Hashtbl.fold (fun (k1,_) n p ->
+            let svg_edges = Hashtbl.fold (fun k1 n p ->
                 Hashtbl.fold (fun k2 y p ->
                     let w = y /. max_volume in
                     let col = color w and opac = opacity w and sw = stroke_width w in
                     (g [path ~stroke:col ~stroke_opacity:opac ~stroke_width:sw
                              (moveto (pos_of k1) ^ lineto (pos_of k2))])::p)
                     n p) datasets [] in
+            (comment (Printf.sprintf "width=%f, height=%f, scale=%f" width height scale)) ::
             [ svg ~width:svg_width ~height:svg_height
                   [ g svg_edges ; g svg_nodes ] ]
         with End_of_file ->
