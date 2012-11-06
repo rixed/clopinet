@@ -1,4 +1,5 @@
 (* CGI script for visualizing mlrrd datas *)
+module StdScanf = Scanf (* opening Batteries will somewhat overwrite the stdlib exception... *)
 open Batteries
 open Html
 open Datatype
@@ -169,11 +170,12 @@ chart.draw(data, options);\n") ] ]
           0.5, [| 0.0; 1.0; 0.7 |] ;
           0.7, [| 0.9; 0.8; 0.4 |] ;
           1.0, [| 1.0; 0.4; 0.3 |] ]
+    let pi = BatFloat.pi
+    let to_deg rad = 180. *. rad /. pi
+    let svg_width = 800. and svg_height = 600.
+
     let peers_chart ?(is_bytes=false) datasets =
-        let pi = BatFloat.pi in
         let string_of_val = if is_bytes then string_of_volume else string_of_number in
-        let to_deg rad = 180. *. rad /. pi in
-        let svg_width = 800. and svg_height = 600. in
         let inner_rad = 3.5 *. svg_height /. 10. in
         let inner_x = svg_height/.2. and inner_y = svg_height/.2. in
         let inner r x y = (x -. inner_x) *. r +. inner_x,
@@ -205,8 +207,7 @@ chart.draw(data, options);\n") ] ]
                 p, "peer"^string_of_int i, a) peers in
         let get_by_name p =
             List.find_map (fun ((p', _, _) as r) -> if p = p' then Some r else None) peers in
-        [ svg ~attrs:["width",  string_of_float svg_width ;
-                      "height", string_of_float svg_height ]
+        [ svg ~width:svg_width ~height:svg_height
               [ (* legend *)
                 g (rect ~fill:"none" ~stroke_width:1. ~stroke:"#ef0" legend_x legend_y 4. legend_height ::
                    texts ~fill:"#bbb" ~stroke:"#aaa" (legend_x +. 20.) (legend_y +. 20.)
@@ -260,27 +261,57 @@ chart.draw(data, options);\n") ] ]
         let max_volume = Hashtbl.fold (fun _k1 n m ->
             Hashtbl.fold (fun _k2 y m ->
                 max y m) n m) datasets 0. in
-        let weight w = 0.5 +. w in
+        let weight w = 0.01 +. 2. *. w in
+        let opacity w = 0.5 +. 0.5 *. w in
         let color w = Color.get color_scale w in
-        let out, inp = Unix.open_process "dot -Tsvg | sed -e 1,3d" in (* dot outputs HTML header :-< *)
+        let stroke_width w = 1. +. 20. *. w in
+        let out, inp = Unix.open_process "dot -Tplain" in (* dot outputs HTML header :-< *)
         Printf.fprintf inp "graph network {\n\
-	node [fontsize=8,shape=box,height=0.3,style=filled,fillcolor=\"#90cedf\"];\n\
+	node [fontsize=8,shape=box,height=0.3];\n\
     overlap=scale;\n\
 	layout=\"twopi\";\n" ;
-        Hashtbl.iter (fun (k1, is_ip) n ->
-            if is_ip then
-                Printf.fprintf inp "\t\"%s\" [fillcolor=\"#50d870\"];\n" k1 ;
+        Hashtbl.iter (fun (k1, _) n ->
             Hashtbl.iter (fun k2 y ->
                 let w = y /. max_volume in
-                Printf.fprintf inp "\t\"%s\" -- \"%s\" [weight=%f,color=\"%s\",tooltip=\"%s\"];\n"
-                    k1 k2 (weight w) (color w) (string_of_volume y))
+                Printf.fprintf inp "\t\"%s\" -- \"%s\" [weight=%f];\n"
+                    k1 k2 (weight w))
                 n)
             datasets ;
         Printf.fprintf inp "}\n" ;
-        close_out inp ;
-        let result = IO.read_all out in
-        IO.close_out inp ;
-        [ raw result ]
+        IO.flush inp ;
+        let ic = IO.to_input_channel out in
+        try let scale, width, height =
+                Scanf.fscanf ic "graph %f %f %f\n" (fun scale width height ->
+                    scale, width, height) in
+            let node_pos = Hashtbl.create 71 in
+            (try while true do
+                Scanf.fscanf ic "node \"%s@\" %f %f %f %f %_s %_s %_s %_s %_s\n" (fun name x y width height ->
+                    Hashtbl.add node_pos name (x, y, width, height))
+                done
+            with StdScanf.Scan_failure _ -> ()) ;
+            let dot_2_svg x y =
+                svg_width *. x *. scale /. width,
+                svg_height -. svg_height *. y *. scale /. height in
+            let pos_of n =
+                let x,y,_w,_h = Hashtbl.find node_pos n in
+                dot_2_svg x y in
+            IO.close_out inp ; (* cleans everything *)
+            let svg_nodes = Hashtbl.fold (fun n (x,y,w,h) p ->
+                let x, y = dot_2_svg x y in
+                (g [ rect x y w h ;
+                     text ~style:("text-anchor:middle; dominant-baseline:central") ~x ~y n ]) ::p)
+                node_pos [] in
+            let svg_edges = Hashtbl.fold (fun (k1,_) n p ->
+                Hashtbl.fold (fun k2 y p ->
+                    let w = y /. max_volume in
+                    let col = color w and opac = opacity w and sw = stroke_width w in
+                    (g [path ~stroke:col ~stroke_opacity:opac ~stroke_width:sw
+                             (moveto (pos_of k1) ^ lineto (pos_of k2))])::p)
+                    n p) datasets [] in
+            [ svg ~width:svg_width ~height:svg_height
+                  [ g svg_edges ; g svg_nodes ] ]
+        with End_of_file ->
+            [ raw "dot crashed" ]
 
     let peers_table ?(is_bytes=false) lab1 lab2 datasets =
         let units = if is_bytes then "Bytes" else "Packets" in
