@@ -661,10 +661,13 @@ struct
         module Graph = RecordOf (ConsOf (FieldOf (StartField))
                                 (ConsOf (FieldOf (StopField))
                                 (ConsOf (FieldOf (VlanField))
+                                (ConsOf (FieldOf (EthProtoField))
+                                (ConsOf (FieldOf (IpProtoField))
+                                (ConsOf (FieldOf (L4PortField))
                                 (ConsOf (FieldOf (MinTraffic))
                                 (ConsOf (FieldOf (TblNameField))
                                 (ConsOf (FieldOf (GroupByGraphField))
-                                        (NulType)))))))
+                                        (NulType))))))))))
 
         module Tops = RecordOf (ConsOf (FieldOf (StartField))
                                (ConsOf (FieldOf (StopField))
@@ -924,10 +927,10 @@ struct
             let filters = Forms.Traffic.Graph.from_args "filter" args in
             let filters_form = form "main/traffic/graph" (Forms.Traffic.Graph.edit "filter" filters) in
             let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value min_volume, (Value tblname, (Value group_by, ()))))) ->
+                | Value start, (Value stop, (Value vlan, (Value eth_proto, (Value ip_proto, (Value port, (Value min_volume, (Value tblname, (Value group_by, ())))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname) in
                     let show_ip = group_by <> 2 and show_mac = group_by <> 1 in
-                    let datasets = network_graph start stop ?min_volume ?vlan show_mac show_ip dbdir tblname in
+                    let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_mac show_ip dbdir tblname in
                     if Hashtbl.is_empty datasets then
                         [ cdata "No data" ]
                     else

@@ -396,10 +396,10 @@ let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     Hashtbl.add h "other" rest ;
     h
 
-let network_graph start stop ?min_volume ?vlan show_mac show_ip dbdir name =
+let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_mac show_ip dbdir name =
     let start, stop = min start stop, max start stop in
     let fold f i m =
-        Traffic.fold ~start ~stop ?vlan dbdir name
+        Traffic.fold ~start ~stop ?vlan ?eth_proto ?ip_proto ?port dbdir name
             (fun (t1, t2, _, vlan, mac_src, mac_dst, mac_proto, mac_pld, _, ip_src, ip_dst, _, _, _, _, _) p ->
                 let y = float_of_int mac_pld in
                 let _, _, y = Plot.clip_y ~start ~stop t1 t2 y in
