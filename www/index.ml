@@ -256,20 +256,22 @@ chart.draw(data, options);\n") ] ]
                                 ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_opacity:1. ~stroke_width:0. p ]
                      ) peers) ] ]
  
-    let peers_graph datasets =
+    let peers_graph datasets layout =
         (* Get max volume *)
         let max_volume = Hashtbl.fold (fun _k1 n m ->
             Hashtbl.fold (fun _k2 y m ->
                 max y m) n m) datasets 0. in
-        let weight w = 0.01 +. 2. *. w in
+        let weight w = 1. +. 2. *. w in
         let opacity w = 0.5 +. 0.5 *. w in
         let color w = Color.get color_scale w in
-        let stroke_width w = 1. +. 20. *. w in
         let out, inp = Unix.open_process "dot -Tplain" in (* dot outputs HTML header :-< *)
+        let font_size_pt = 11 in
         Printf.fprintf inp "graph network {\n\
-	node [fontsize=8,shape=box,height=0.3];\n\
+	node [shape=box,height=0.2];\n\
+    graph [fontsize=%d];\n\
     overlap=scale;\n\
-	layout=\"twopi\";\n" ;
+	layout=\"%s\";\n"
+        font_size_pt layout ;
         Hashtbl.iter (fun k1 n ->
             Hashtbl.iter (fun k2 y ->
                 let w = y /. max_volume in
@@ -286,6 +288,9 @@ chart.draw(data, options);\n") ] ]
             let dot_2_svg x y =
                 svg_width *. x *. scale /. width,
                 svg_height *. y *. scale /. height in
+            (* if 72points is an inch, then our fontsize is .11111 inch *)
+            let font_size, _ = dot_2_svg (float_of_int font_size_pt /. 72.) 0.0 in
+            let stroke_width w = 0.6 +. font_size *. w in
             let node_pos = Hashtbl.create 71 in
             (try while true do
                 Scanf.fscanf ic "node \"%s@\" %f %f %f %f %_s %_s %_s %_s %_s\n" (fun name x y width height ->
@@ -303,7 +308,7 @@ chart.draw(data, options);\n") ] ]
                              with StdScanf.Scan_failure _ -> false in
                 let col = if is_mac then "#888" else "#5c8" in
                 (g [ rect ~stroke:"#000" ~fill:col (x-.w/.2.) (y-.h/.2.) w h ;
-                     text ~font_size:10. ~style:("text-anchor:middle; dominant-baseline:central") ~x ~y n ]) ::p)
+                     text ~font_size ~style:("text-anchor:middle; dominant-baseline:central") ~x ~y n ]) ::p)
                 node_pos [] in
             let svg_edges = Hashtbl.fold (fun k1 n p ->
                 Hashtbl.fold (fun k2 y p ->
@@ -623,6 +628,16 @@ struct
             let uniq_name = "volume_min"
             let persistant = false
         end
+        module LayoutType = struct
+            let name = "layout"
+            let options = [| "neato";"twopi";"circo";"fdp";"sfdp";"dot" |]
+        end
+        module Layout = struct
+            module Type = Enum (LayoutType)
+            let display_name = "layout"
+            let uniq_name = "layout"
+            let persistant = true
+        end
         module Bandwidth = RecordOf (ConsOf (FieldOf (StartField))
                                     (ConsOf (FieldOf (StopField))
                                     (ConsOf (FieldOf (VlanField))
@@ -665,9 +680,10 @@ struct
                                 (ConsOf (FieldOf (IpProtoField))
                                 (ConsOf (FieldOf (L4PortField))
                                 (ConsOf (FieldOf (MinTraffic))
+                                (ConsOf (FieldOf (Layout))
                                 (ConsOf (FieldOf (TblNameField))
                                 (ConsOf (FieldOf (GroupByGraphField))
-                                        (NulType))))))))))
+                                        (NulType)))))))))))
 
         module Tops = RecordOf (ConsOf (FieldOf (StartField))
                                (ConsOf (FieldOf (StopField))
@@ -927,14 +943,14 @@ struct
             let filters = Forms.Traffic.Graph.from_args "filter" args in
             let filters_form = form "main/traffic/graph" (Forms.Traffic.Graph.edit "filter" filters) in
             let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value eth_proto, (Value ip_proto, (Value port, (Value min_volume, (Value tblname, (Value group_by, ())))))))) ->
+                | Value start, (Value stop, (Value vlan, (Value eth_proto, (Value ip_proto, (Value port, (Value min_volume, (Value layout, (Value tblname, (Value group_by, ()))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname) in
                     let show_ip = group_by <> 2 and show_mac = group_by <> 1 in
                     let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_mac show_ip dbdir tblname in
                     if Hashtbl.is_empty datasets then
                         [ cdata "No data" ]
                     else
-                        View.peers_graph datasets
+                        View.peers_graph datasets Forms.Traffic.LayoutType.options.(layout)
                 | _ -> [] in
             View.make_graph_page "Network" filters_form disp_graph
 
