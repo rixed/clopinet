@@ -83,12 +83,11 @@ function svg_explorer(svg_id, controler_id)
 
         var prev_zoom = zoom;
         zoom *= 1 + dir*0.3;
-
         if (zoom < 0.3) zoom = 0.3;
 
         var rect = svg.getBoundingClientRect(), root = document.documentElement;
-        var cursor_x = e.clientX - rect.top - root.scrollTop;
-        var cursor_y = e.clientY - rect.left - root.scrollLeft;
+        var cursor_x = e.clientX - rect.left - root.scrollLeft;
+        var cursor_y = e.clientY - rect.top - root.scrollTop;
         var cursor_dx = cursor_x/zoom - cursor_x/prev_zoom;
         var cursor_dy = cursor_y/zoom - cursor_y/prev_zoom;
         trans_x += cursor_dx;

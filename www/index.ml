@@ -58,14 +58,23 @@ struct
     (* rendering of pages *)
 
     let menu () =
-        let html_of_entry e = tag "li" [ tag "a" ~attrs:["href","?action=main/"^e] [cdata e] ]
-        and menu_entries = ["traffic/bandwidth"; "traffic/peers"; "traffic/tops"; "traffic/graph"; "DNS/resptime"; "DNS/top"; "web/resptime"; "web/top"; "logout"] in
-        tag ~attrs:["id","menu"] "ul" (List.map html_of_entry menu_entries)
+        let html_of_entry e1 e2 = tag "li" [ tag "a" ~attrs:["href","?action="^e1^"/"^e2] [cdata e2] ]
+        and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "tops"; "graph"] ;
+                             "DNS", ["resptime"; "top"] ;
+                             "Web", ["resptime"; "top"] ;
+                             "Admin", ["logout"] ] in
+        tag ~attrs:["id","menu"] "ul" (List.map (fun (section, links) ->
+            tag "li" [ p [ raw section ] ;
+                       tag "ul" (List.map (html_of_entry section) links) ])
+            menu_entries)
 
     (* add the menu *)
     let make_app_page content =
         let body = menu () :: msgs () :: [ tag "div" ~attrs:["id","page"] content ]
-        and head = [ title "MlRRD" ; link_css "static/css/style.css" ] @ chart_head in
+        and head = [ title "MlRRD" ;
+                     link_css "static/css/style.css" ;
+                     link_css "http://fonts.googleapis.com/css?family=BenchNine:300|Anaheim" ] @
+                   chart_head in
         html head body
 
     let make_graph_page title form graph =
@@ -290,7 +299,6 @@ chart.draw(data, options);\n") ] ]
                 svg_height *. y *. scale /. height in
             (* if 72points is an inch, then our fontsize is .11111 inch *)
             let font_size, _ = dot_2_svg (float_of_int font_size_pt /. 72.) 0.0 in
-            let stroke_width w = 0.6 +. font_size *. w in
             let node_pos = Hashtbl.create 71 in
             (try while true do
                 Scanf.fscanf ic "node \"%s@\" %f %f %f %f %_s %_s %_s %_s %_s\n" (fun name x y w h ->
@@ -306,22 +314,25 @@ chart.draw(data, options);\n") ] ]
             let svg_nodes = Hashtbl.fold (fun n (x,y,w,h) p ->
                 let is_mac = try Scanf.sscanf n "%[0-9a-f]:" ignore ; true
                              with StdScanf.Scan_failure _ -> false in
-                let col = if is_mac then "#888" else "#5c8"
-                and sw = h *. 0.03 in
-                (g [ rect ~stroke_width:sw ~stroke:"#000" ~fill:col (x-.w/.2.) (y-.h/.2.) w h ;
-                     text ~font_size ~style:("text-anchor:middle; dominant-baseline:central") ~x ~y n ]) ::p)
+                let col = if is_mac then "#888" else "#5c8" in
+                (g [ rect ~fill:col (x-.w/.2.) (y-.h/.2.) w h ;
+                     text ~x ~y n ]) ::p)
                 node_pos [] in
             let svg_edges = Hashtbl.fold (fun k1 n p ->
                 Hashtbl.fold (fun k2 y p ->
                     let w = y /. max_volume in
-                    let col = color w and sw = font_size *. stroke_width w in
-                    (g [path ~stroke:col ~stroke_width:sw
-                             (moveto (pos_of k1) ^ lineto (pos_of k2))])::p)
+                    let col = color w and sw = 0.5 *. font_size in
+                    (g [line ~stroke:col ~stroke_width:sw (pos_of k1) (pos_of k2)
+                        (*path ~stroke:col ~stroke_width:sw
+                             (moveto (pos_of k1) ^ lineto (pos_of k2))*)])::p)
                     n p) datasets [] in
             (comment (Printf.sprintf "width=%f, height=%f, scale=%f" width height scale)) ::
             [ svg ~width:svg_width ~height:svg_height ~id:"netgraph"
                 [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
-                    [ g svg_edges ; g svg_nodes ] ] ;
+                    [ g svg_edges ;
+                      g ~attrs:["style","text-anchor:middle; dominant-baseline:central" ;
+                                "font-size", Html.string_of_float font_size]
+                        svg_nodes ] ] ;
               script "svg_explorer('netgraph', 'scaler');" ]
         with End_of_file ->
             [ raw "dot crashed" ]
@@ -899,7 +910,7 @@ struct
         let dbdir = dbdir^"/traffic"
         let bandwidth args =
             let filters = Forms.Traffic.Bandwidth.from_args "filter" args in
-            let filters_form = form "main/traffic/bandwidth" (Forms.Traffic.Bandwidth.edit "filter" filters) in
+            let filters_form = form "Traffic/bandwidth" (Forms.Traffic.Bandwidth.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value time_step, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))))) ->
                     let time_step = Int64.of_int time_step
@@ -922,7 +933,7 @@ struct
 
         let peers args =
             let filters = Forms.Traffic.Peers.from_args "filter" args in
-            let filters_form = form "main/traffic/peers" (Forms.Traffic.Peers.edit "filter" filters) in
+            let filters_form = form "Traffic/peers" (Forms.Traffic.Peers.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
@@ -944,7 +955,7 @@ struct
 
         let graph args =
             let filters = Forms.Traffic.Graph.from_args "filter" args in
-            let filters_form = form "main/traffic/graph" (Forms.Traffic.Graph.edit "filter" filters) in
+            let filters_form = form "Traffic/graph" (Forms.Traffic.Graph.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value eth_proto, (Value ip_proto, (Value port, (Value min_volume, (Value layout, (Value tblname, (Value group_by, ()))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname) in
@@ -959,7 +970,7 @@ struct
 
         let tops args =
             let filters = Forms.Traffic.Tops.from_args "filter" args in
-            let filters_form = form "main/traffic/tops" (Forms.Traffic.Tops.edit "filter" filters) in
+            let filters_form = form "Traffic/tops" (Forms.Traffic.Tops.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
@@ -1002,7 +1013,7 @@ struct
 
         let top args =
             let filters = Forms.Web.Top.from_args "filter" args in
-            let filters_form = form "main/web/top" (Forms.Web.Top.edit "filter" filters) in
+            let filters_form = form "Web/top" (Forms.Web.Top.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value n, (Value sort_order, ())))))))))))))) ->
                     let rt_min = BatOption.map s2m rt_min
@@ -1034,7 +1045,7 @@ struct
 
         let resp_time args =
             let filters = Forms.Web.RespTime.from_args "filter" args in
-            let filters_form = form "main/web/resptime" (Forms.Web.RespTime.edit "filter" filters) in
+            let filters_form = form "Web/resptime" (Forms.Web.RespTime.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ())))))))))))))) ->
                     let time_step = Int64.of_int time_step
@@ -1056,7 +1067,7 @@ struct
 
         let top args =
             let filters = Forms.Dns.Top.from_args "filter" args in
-            let filters_form = form "main/DNS/top" (Forms.Dns.Top.edit "filter" filters) in
+            let filters_form = form "DNS/top" (Forms.Dns.Top.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value error, (Value qname, (Value n, (Value sort_order, ())))))))))))) ->
                     let rt_min = BatOption.map s2m rt_min
@@ -1087,7 +1098,7 @@ struct
 
         let resp_time args =
             let filters = Forms.Dns.RespTime.from_args "filter" args in
-            let filters_form = form "main/DNS/resptime" (Forms.Dns.RespTime.edit "filter" filters) in
+            let filters_form = form "DNS/resptime" (Forms.Dns.RespTime.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value tx_min, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ()))))))))))) ->
                     let time_step = Int64.of_int time_step
@@ -1110,23 +1121,23 @@ let _ =
             Ctrl.login
         | ["main"] ->
             Ctrl.ensure_logged Ctrl.main
-        | ["main"; "logout"] ->
+        | ["Admin"; "logout"] ->
             Ctrl.logout
-        | ["main";"traffic";"bandwidth"] ->
+        | ["Traffic"; "bandwidth"] ->
             Ctrl.ensure_logged Ctrl.Traffic.bandwidth
-        | ["main";"traffic";"peers"] ->
+        | ["Traffic"; "peers"] ->
             Ctrl.ensure_logged Ctrl.Traffic.peers
-        | ["main";"traffic";"graph"] ->
+        | ["Traffic"; "graph"] ->
             Ctrl.ensure_logged Ctrl.Traffic.graph
-        | ["main";"traffic";"tops"] ->
+        | ["Traffic"; "tops"] ->
             Ctrl.ensure_logged Ctrl.Traffic.tops
-        | ["main";"web";"resptime"] ->
+        | ["Web"; "resptime"] ->
             Ctrl.ensure_logged Ctrl.Web.resp_time
-        | ["main";"web";"top"] ->
+        | ["Web"; "top"] ->
             Ctrl.ensure_logged Ctrl.Web.top
-        | ["main";"DNS";"resptime"] ->
+        | ["DNS"; "resptime"] ->
             Ctrl.ensure_logged Ctrl.Dns.resp_time
-        | ["main";"DNS";"top"] ->
+        | ["DNS"; "top"] ->
             Ctrl.ensure_logged Ctrl.Dns.top
         | _ -> Ctrl.Invalid.run)
 
