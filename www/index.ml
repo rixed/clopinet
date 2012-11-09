@@ -57,20 +57,27 @@ struct
 
     (* rendering of pages *)
 
+    let header () =
+        div ~id:"header" []
+
     let menu () =
         let html_of_entry e1 e2 = tag "li" [ tag "a" ~attrs:["href","?action="^e1^"/"^e2] [cdata e2] ]
         and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "tops"; "graph"] ;
                              "DNS", ["resptime"; "top"] ;
                              "Web", ["resptime"; "top"] ;
                              "Admin", ["logout"] ] in
-        tag ~attrs:["id","menu"] "ul" (List.map (fun (section, links) ->
-            tag "li" [ p [ raw section ] ;
-                       tag "ul" (List.map (html_of_entry section) links) ])
-            menu_entries)
+        span ~id:"menu" [
+            tag "ul" (List.map (fun (section, links) ->
+                tag "li" [ p [ raw section ] ;
+                           tag "ul" (List.map (html_of_entry section) links) ])
+                menu_entries) ]
 
     (* add the menu *)
     let make_app_page content =
-        let body = menu () :: msgs () :: [ tag "div" ~attrs:["id","page"] content ]
+        let body = [ header () ;
+                     menu () ;
+                     msgs () ;
+                     tag "div" ~attrs:["id","page"] content ]
         and head = [ title "MlRRD" ;
                      link_css "static/css/style.css" ;
                      link_css "http://fonts.googleapis.com/css?family=BenchNine:300|Anaheim" ] @

@@ -12,47 +12,66 @@ html {
 /* Layout is now a table. */
 
 #menu {
+	display: block;
+	width: 100%;
+	background-color: #000;
+	height: 40px;
+}
+
+#menu > ul {
 	font-family: 'Anaheim', sans-serif;
     display: block;
     font-variant: small-caps;
 	margin-left: auto;
 	margin-right: auto;
-	width: 450px;
-}
-#menu + * {
-    clear: left;
+	width: 620px;
+	height: 40px;
 }
 #menu li {
     list-style-type: none;
 }
 
-#menu > li {
+#menu > ul > li {
     display: block;
     float: left;
     border-width: 0px 1px 0px 0px;
-    border-color: #777;
+    border-color: #555;
     border-style: solid;
+	width: 150px;
+	height: 40px;
+}
+#menu > ul > li:first-child {
+	border-left-width: 1px;
+}
+
+#menu > ul * li {
     position: relative;
-    width: 100px;
+}
+#menu > ul * ul {
     background-color: #444;
 	opacity: 0.8;
 	z-index: 100;
+}
+#notifs {
+    clear: left;
 }
 #menu p {
     font-weight: bold;
     color: #ddf;
     padding: 10px;
 	text-align: center;
+    cursor: pointer;
 }
-#menu > li:hover {
+#menu > ul > li:hover {
     background-color: #666;
 }
 
-#menu > li:hover ul {
+#menu > ul > li:hover ul {
     display: block;
-    position: absolute;
+    position: relative;
+	top: -1px;
 }
-#menu li ul {
+#menu > ul li ul {
     display: none;
     border-radius: 0px 0px 6px 6px;
     box-shadow: 2px 3px 1px #ccc;
@@ -67,15 +86,11 @@ html {
     text-decoration: none;
     padding: 0.2em 1em 0.2em 1em;
     color: #000;
-    width: 100px;
 	border-width: 0px 1px 0px 1px;
 }
-#menu li ul li:hover a {
+#menu > ul li ul li:hover a {
     background-color: #ddd;
 	border-color: #000 #555 #000 #fff;
-}
-#menu li p {
-    cursor: pointer;
 }
 
 /* Forms */
@@ -135,7 +150,6 @@ svg {
     border-width: 1.5px;
     border-style: solid;
     border-color: #fff #ccc #ccc #fff;
-    border-radius: 10px;
     margin-left: 15px;
     margin-bottom: 15px;
     box-shadow: 6px 6px 4px #ccc;
