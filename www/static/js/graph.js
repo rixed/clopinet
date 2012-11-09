@@ -77,7 +77,7 @@ function svg_explorer(svg_id, controler_id)
     }
 
     // zooming
-    svg.addEventListener("mousewheel", function(e) {
+	function zoom_handler(e) {
         e.preventDefault();
         var dir = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
 
@@ -95,7 +95,9 @@ function svg_explorer(svg_id, controler_id)
 
         reset_transform();
         return false;
-    }, false);
+	}
+    svg.addEventListener("DOMMouseScroll", zoom_handler, false);
+    svg.addEventListener("mousewheel", zoom_handler, false);
 
     // panning
     var dragging = false;

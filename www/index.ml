@@ -333,13 +333,13 @@ chart.draw(data, options);\n") ] ]
                         (*path ~stroke:col ~stroke_width:sw
                              (moveto (pos_of k1) ^ lineto (pos_of k2))*)])::p)
                     n p) datasets [] in
-            (comment (Printf.sprintf "width=%f, height=%f, scale=%f" width height scale)) ::
-            [ svg ~width:svg_width ~height:svg_height ~id:"netgraph"
-                [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
-                    [ g svg_edges ;
-                      g ~attrs:["style","text-anchor:middle; dominant-baseline:central" ;
-                                "font-size", Html.string_of_float font_size]
-                        svg_nodes ] ] ;
+            [ div ~id:"netgraph" (* so that we can reliably use getBoundingClientRect on this item (FF seams confused by svg) *)
+              [ svg ~width:svg_width ~height:svg_height
+                  [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
+                      [ g svg_edges ;
+                        g ~attrs:["style","text-anchor:middle; dominant-baseline:central" ;
+                                  "font-size", Html.string_of_float font_size]
+                          svg_nodes ] ] ] ;
               script "svg_explorer('netgraph', 'scaler');" ]
         with End_of_file ->
             [ raw "dot crashed" ]
