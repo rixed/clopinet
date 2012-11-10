@@ -11,7 +11,7 @@ let main =
         "-dir", Set_string dbdir, "database directory (or './')" ;
         "-create", Set create, "create db if it does not exist yet" ;
         "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
-        "-verbose", Set verbose, "verbose" ;
+        "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
         "-dump", String (function tbname -> Dns.(iter ?start:!start ?stop:!stop ?rt_min:!rt_min
                                                       ?client:!client ?server:!server ?peer:!peer

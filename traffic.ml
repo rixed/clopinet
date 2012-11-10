@@ -1,5 +1,6 @@
 open Bricabrac
 open Datatype
+open Metric
 
 (* FIXME: factorize all this with DNS, or generate this? *)
 
@@ -7,8 +8,6 @@ let verbose = ref false
 
 (* Lod0: Traffic stats for periods of 30s, with fields:
   TS1, TS2, count, vlan, src mac, dst mac, proto, eth payload, eth mtu, src ip, dst ip, ip proto, ip payload, src port, dst port, l4 payload *)
-
-module BoundsTS = Tuple2.Make (Timestamp) (Timestamp)
 
 module Traffic =
 struct
@@ -56,13 +55,14 @@ struct
     (* We hash on the source IP *)
     let hash_on_src (_ts1, _ts2, _count, _vlan, _mac_src, _mac_dst, _proto, _pld, _mtu, ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) =
         InetAddr.hash ip_src
-    (* Metafile stores timestamp range *)
+
+    (* Metafile stores timestamp range of the whole slice duration *)
     let meta_aggr (ts1, ts2, _count, _vlan, _mac_src, _mac_dst, _proto, _pld, _mtu, _ip_src, _ip_dst, _ip_proto, _ip_pld, _l4_src, _l4_dst, _l4_pld) bound_opt =
         let bound = Aggregator.bounds ~cmp:Timestamp.compare ts1 bound_opt in
         Aggregator.bounds ~cmp:Timestamp.compare ts2 (Some bound)
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
-    let table_name dbdir name = dbdir ^ "/" ^ name
+
     let table dbdir name =
         Table.create (table_name dbdir name)
             hash_on_src write
@@ -88,19 +88,11 @@ struct
     (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
     let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name f make_fst merge =
         let tdir = table_name dbdir name in
-        let check vopt f = match vopt with
-            | None -> true
-            | Some v -> f v in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let cmp = Timestamp.compare in
-                let scan_it = match bounds with
-                    | None -> true
-                    | Some (ts1, ts2) ->
-                        check start (fun start -> cmp ts2 start >= 0) &&
-                        check stop  (fun stop  -> cmp stop ts1 > 0) in
                 let res =
-                    if scan_it then (
+                    if is_within bounds start stop then (
                         Table.fold_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, l4src, l4dst, _) as x) prev ->
                             (* ocamlopt won't inline check function here, which hurts! *)
                             if check start     (fun start -> cmp ts2 start >= 0) &&
@@ -122,22 +114,7 @@ struct
                     ) in
                 res)
                 fst merge in
-        match ip_src with
-        | Some cidr when subnet_size cidr < Table.max_hash_size ->
-            if !verbose then Printf.fprintf stderr "Using index\n" ;
-            (* We have an index for this! Build the list of hnums *)
-            let visited = Hashtbl.create 977 in
-            let hnums = fold_ips cidr (fun ip p ->
-                let hnum = InetAddr.hash ip mod Table.max_hash_size in
-                if Hashtbl.mem visited hnum then (
-                    p
-                ) else (
-                    Hashtbl.add visited hnum true ;
-                    hnum :: p
-                )) [] in
-            Table.fold_some_hnums hnums fold_hnum make_fst merge
-        | _ ->
-            Table.fold_hnums tdir fold_hnum make_fst merge
+        fold_using_indexed ip_src tdir fold_hnum make_fst merge
 
     let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto dbdir name f =
         let dummy_merge _ _ = () in
@@ -468,25 +445,6 @@ let load dbdir create fname =
         Table.close table1 ;
         Table.close table2 in
 
-    Sys.(List.iter
-        (fun s -> set_signal s (Signal_handle (fun _ -> flush_all ())))
-        [ sigabrt; sigfpe; sigill; sigint;
-          sigpipe; sigquit; sigsegv; sigterm ]) ;
-
-    let lineno = ref 0 in
-    try_finalize (fun () ->
-        with_file_in fname (fun ic ->
-            let ic = TxtInput.from_file ic in
-            try forever (fun () ->
-                Traffic.read_txt ic |> append0 ;
-                let eol = TxtInput.read ic in
-                assert (eol = '\n' || eol = '\r') ;
-                incr lineno) ()
-            with End_of_file ->
-                if !verbose then Printf.fprintf stderr "Inserted %d lines\n" !lineno
-               | e ->
-                Printf.fprintf stderr "Error at line %d\n" !lineno ;
-                raise e)) ()
-        flush_all ()
+    load fname Traffic.read_txt append0 flush_all
 
 

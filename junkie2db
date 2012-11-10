@@ -14,5 +14,6 @@ mkdir -p "$dbdir"
 tee >(grep '^WEB' | cut -f 2- | ./web_exe.opt -dir "$dbdir/web" -create -verbose -load /dev/stdin >& "$dbdir/web.log") \
     >(grep '^DNS' | cut -f 2- | ./dns_exe.opt -dir "$dbdir/dns" -create -verbose -load /dev/stdin >& "$dbdir/dns.log") \
     >(grep '^TRF' | cut -f 2- | ./traffic_exe.opt -dir "$dbdir/traffic" -create -verbose -load /dev/stdin >& "$dbdir/traffic.log") \
+    >(grep '^TCP' | cut -f 2- | ./tcp_exe.opt -dir "$dbdir/tcp" -create -verbose -load /dev/stdin >& "$dbdir/tcp.log") \
     > /dev/null
 

@@ -10,7 +10,7 @@ let main =
         "-dir", Set_string dbdir, "database directory (or './')" ;
         "-create", Set create, "create db if it does not exist yet" ;
         "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
-        "-verbose", Set verbose, "output some msgs on stderr" ;
+        "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
         "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
         "-step", Set_int step, "time step for plots (default: 60)" ;
         "-dump", String (function tbname -> Traffic.(iter ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto

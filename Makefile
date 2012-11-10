@@ -16,20 +16,24 @@ SOURCES  = \
 	tuple10.ml \
 	tuple11.ml \
 	tuple12.ml \
+	tuple13.ml \
 	tuple16.ml \
 	distribution.ml \
 	aggregator.ml \
 	dbfile.ml \
 	table.ml \
 	plot.ml \
+	subnet.ml \
+    metric.ml \
 	traffic.ml \
+	tcp.ml \
 	web.ml \
 	dns.ml
 
 C_SOURCES = ll_serial.c
 
 EXAMPLES_BYTE = \
-	dns_exe.byte web_exe.byte \
+	dns_exe.byte web_exe.byte tcp_exe.byte \
 	traffic_exe.byte runtest.byte \
 
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)

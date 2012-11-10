@@ -242,3 +242,18 @@ Soit pour une dizaine de métriques sur 3 niveaux : dans les 500Gb.
 Il faudrait idéalement un outils pour partitionner cet espace en réglant les
 durées de vie des niveaux et l'effondrement des données.
 
+
+5) Réalisation en OCaml
+
+Même si l'objectif du POC n'est pas de comparer les outils utilisés pour 
+développer ce POC et ceux empoyés pour développer APS, la comparaison est
+tout de même interressante et importante (car si on se doute que les outils
+font une différences importante, on manque généralement de point de mesure).
+
+Ici, une journée était nécessaire pour ajouter une nouvelle métrique (ajout
+de la conf dans junkie (et du code manquant dans junkie), ajout de l'importeur 
+de donnée avec ses niveaux d'agrégats spécifiques et ajout d'une page de 
+requètage depuis le web). Ce délais est grosso modo comparable à ce qu'il 
+faudrait dépenser pour ajouter une nouvelle métrique dans APS, mais on compare
+une solution custom à un RDBMS !
+

@@ -30,7 +30,7 @@ let bounds ?(cmp=Pervasives.compare) x = function
         (if cmp x mi < 0 then x else mi),
         (if cmp ma x < 0 then x else ma)
 
-(* [accum flush aggr] returns a function taking entries (as [k, v]) and grouping
+(* [accum flush aggr ks] returns a function taking entries (as [k, v]) and grouping
    them (by [k], aggregating [v]s with aggr), flushing into the given [ks] whenever
    [flush k v] is true, and another function closing the accumulator *)
 let accum flush aggr ks =

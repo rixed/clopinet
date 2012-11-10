@@ -174,7 +174,9 @@ static int ibuf_ctor(struct ibuf *ib, char const *fname)
 {
     ib->fd = open(fname, O_RDONLY|O_CLOEXEC|O_LARGEFILE);
     if (ib->fd < 0) {
+#       ifdef DEBUG_IBUF
         fprintf(stderr, "Cannot open %s: %s\n", fname, strerror(errno));
+#       endif
         sys_error("open");
     }
     ib->next = ib->stop = 0;

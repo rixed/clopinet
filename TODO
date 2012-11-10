@@ -1,6 +1,8 @@
 TODO stack
 ----------
 
+* Un netgraph DNS et TCP
+
 * Benchmark hashtbl vs Maplot with runcgi
 
 * Filters for http method, vlan, etc, should be multiselect or
@@ -11,7 +13,11 @@ as functions. The only exception is ip srv which is used as an index.
 traffic decomposition by srv port - or a button to open a page with this info 
 for this IP).
 
-* in the netgraph, display MTU per link
+* in the netgraph, display MTU/traffic per link
+
+* in the netgraph, client side search engine for IP/Mac
+
+* Hide search form in CSS to have more space for graph
 
 * Add metric for TCP, Sql, VoIP, ARP, ...
 

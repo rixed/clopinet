@@ -24,30 +24,33 @@ let distr x = function
         v +. (xd *. (x -. avg'))
 
 let combine ((n, mi, ma, avg, v) as x) = function
-    | None -> x
-    | Some (n', mi', ma', avg', v') ->
-        assert (n' >= 1) ;
-        assert (n >= 1) ;
-        assert (v >= 0.) ;
-        assert (v' >= 0.) ;
-        let fn = float_of_int n and fn' = float_of_int n' in
-        (* imagine we have each sample sets split in two, with n/2 samples
-         * at avg-sigma and n/2 at avg+sigma. It's then easy to combine the two sets. *)
-        let sigma = sqrt (v /. fn)
-        and sigma'= sqrt (v' /. fn')
-        and comb_avg = ((avg *. fn) +. (avg' *. fn')) /. (fn +. fn')
-        and sq x = x *. x in
-        let comb_q =
-            let half_fn = fn/.2. and half_fn' = fn'/.2. in
-            let s1 = avg -. sigma  and s2 = avg +. sigma
-            and s1'= avg'-. sigma' and s2'= avg'+. sigma' in
-            half_fn *. (sq(s1 -. comb_avg) +. sq(s2 -. comb_avg)) +.
-            half_fn'*. (sq(s1'-. comb_avg) +. sq(s2'-. comb_avg)) in
-        n+n',
-        min mi mi',
-        max ma ma',
-        comb_avg,
-        comb_q
+    | None
+    | Some (0, _, _, _, _) -> x
+    | Some ((n', mi', ma', avg', v') as x') ->
+        if n = 0 then x' else (
+            assert (n' >= 1) ;
+            assert (n >= 1) ;
+            assert (v >= 0.) ;
+            assert (v' >= 0.) ;
+            let fn = float_of_int n and fn' = float_of_int n' in
+            (* imagine we have each sample sets split in two, with n/2 samples
+             * at avg-sigma and n/2 at avg+sigma. It's then easy to combine the two sets. *)
+            let sigma = sqrt (v /. fn)
+            and sigma'= sqrt (v' /. fn')
+            and comb_avg = ((avg *. fn) +. (avg' *. fn')) /. (fn +. fn')
+            and sq x = x *. x in
+            let comb_q =
+                let half_fn = fn/.2. and half_fn' = fn'/.2. in
+                let s1 = avg -. sigma  and s2 = avg +. sigma
+                and s1'= avg'-. sigma' and s2'= avg'+. sigma' in
+                half_fn *. (sq(s1 -. comb_avg) +. sq(s2 -. comb_avg)) +.
+                half_fn'*. (sq(s1'-. comb_avg) +. sq(s2'-. comb_avg)) in
+            n+n',
+            min mi mi',
+            max ma ma',
+            comb_avg,
+            comb_q
+        )
 
 let std_dev (c, _mi, _ma, _avg, v) =
     if c > 1 then sqrt(v /. float_of_int (pred c))
