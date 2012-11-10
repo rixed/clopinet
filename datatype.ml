@@ -721,10 +721,14 @@ module Timestamp = struct
 end
 
 let round_timestamp ?(ceil=false) n t =
-    let n = Int64.of_int n in
     let r = Int64.rem t n in
     let t' = Int64.sub t r in
     if ceil && r <> 0L then Int64.add t' n else t'
+
+let round_time_interval n start stop =
+    let start = round_timestamp n start
+    and stop = round_timestamp ~ceil:true n stop in
+    if stop <> start then start, stop else start, Int64.add start n
 
 (*
    Functors to easily assemble more complex types

@@ -139,7 +139,7 @@ let load dbdir create fname =
             aggreg_all
             [ fun (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct, dur, up, down) ->
                 Table.append table2 (vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct, dur, up, down) ;
-                let ts = round_timestamp 3600_000 ts in
+                let ts = round_timestamp 3600_000L ts in
                 accum3 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct, dur, up, down) ] in
 
     let table1 = Tcp.table dbdir "1min" in
@@ -148,7 +148,7 @@ let load dbdir create fname =
             aggreg_all
             [ fun (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct, dur, up, down) ->
                 Table.append table1 (vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct, dur, up, down) ;
-                let ts = round_timestamp 600_000 ts
+                let ts = round_timestamp 600_000L ts
                 and clt, _mask = clt in
                 let clt = cidr_of_inetaddr Subnet.subnets clt in
                 accum2 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct, dur, up, down) ] in
@@ -157,7 +157,7 @@ let load dbdir create fname =
 
     let append0 ((vlan, clte, clt, srve, srv, _cltp, srvp, ts, syns, ct, dur, up, down) as v) =
         Table.append table0 v ;
-        let ts = round_timestamp 60_000 ts in
+        let ts = round_timestamp 60_000L ts in
         accum1 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct, dur, up, down) in
 
     let flush_all () =

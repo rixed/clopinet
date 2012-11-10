@@ -142,7 +142,7 @@ let load dbdir create fname =
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
                               Table.append table2 (vlan, clte, clt, srve, srv, err, ts, distr, name) ;
-                              let ts = round_timestamp 3600_000 ts in
+                              let ts = round_timestamp 3600_000L ts in
                               accum3 (vlan, clte, clt, srve, srv, err, ts, "") distr ] in
 
     let table1 = Dns.table dbdir "1min" in
@@ -151,7 +151,7 @@ let load dbdir create fname =
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
                               Table.append table1 (vlan, clte, clt, srve, srv, err, ts, distr, name) ;
-                              let ts = round_timestamp 600_000 ts in
+                              let ts = round_timestamp 600_000L ts in
                               (* TODO: keep only the last host name + TLD in the name *)
                               accum2 (vlan, clte, clt, srve, srv, err, ts, name) distr ] in
 
@@ -162,7 +162,7 @@ let load dbdir create fname =
         let clt, mask = clt in
         assert (mask = 32 || mask = 128) ; (* the mask is supposed to be total *)
         let clt = cidr_of_inetaddr Subnet.subnets clt
-        and ts = round_timestamp 60_000 ts in
+        and ts = round_timestamp 60_000L ts in
         accum1 (vlan, clte, clt, srve, srv, err, ts, name) distr in
 
     let flush_all () =

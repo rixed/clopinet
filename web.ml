@@ -161,7 +161,7 @@ let load dbdir create fname =
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
                               Table.append table2 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
-                              let ts = round_timestamp 3600_000 ts in
+                              let ts = round_timestamp 3600_000L ts in
                               accum3 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ] in
 
     let table1 = Web.table dbdir "1min" in
@@ -170,7 +170,7 @@ let load dbdir create fname =
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
                               Table.append table1 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
-                              let ts = round_timestamp 600_000 ts in
+                              let ts = round_timestamp 600_000L ts in
                               accum2 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ] in
 
     let table0 = Web.table dbdir "queries" in
@@ -184,7 +184,7 @@ let load dbdir create fname =
         Table.append table0 v ;
         let clt, _mask = clt in
         let clt = cidr_of_inetaddr Subnet.subnets clt
-        and ts = round_timestamp 60_000 ts
+        and ts = round_timestamp 60_000L ts
         and url = shorten_url url in
         accum1 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr in
 

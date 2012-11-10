@@ -3,6 +3,18 @@ TODO stack
 
 * Un netgraph DNS et TCP
 
+* Pour simplifier le netgraph, une métrique virtuelle avec :
+  - vlan, mac+ip source, mac+ip dest, mac+ip proto (filtre: vlan, etc)
+  - un type (dns, traffic, web, tcp...) (filtre: multiselect)
+  - un nombre de requètes source vers dest (filtre: #query min)
+  - un flag ok ou nok (filtre: ok/nok/both)
+  - une string pour identifier quoi (agrégeable), en option (pour agréger 
+	plus) (filtre: substring match + checkbox pour activer la collecte)
+et c'est ça qu'on grapherait dans netgraph.
+
+* Une config permettant d'associer des couleurs à des hosts (basé sur mac ou 
+ip), et qu'on utiliserait pour colorer des lignes ou des nodes svg.
+
 * Benchmark hashtbl vs Maplot with runcgi
 
 * Filters for http method, vlan, etc, should be multiselect or
@@ -39,6 +51,9 @@ should be Abs of ts | Rel of float.
 * A max packet size chart, as an histogram
 
 * An Interval type
+
+* A metric for notifications (displayed on graphs and tables and netgraph (in 
+a separate window)
 
 * In all time charts where the selected period spans no more than 10 days,
 display in chart background the night times with a sligh dark-blue bgcolor.
