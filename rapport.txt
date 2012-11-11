@@ -110,6 +110,12 @@ La recherche se fait de la sorte :
 Cette op�ration peut, tr�s facilement sans aucun lock, �tre ex�cut� 
 simultan�ment par plusieurs threads.
 
+Chaque enregistrement est ensuite examiné et ses composantes sont comparé
+aux fitres choisis. Cette opération de filtrage est le principal poste de
+dépense de cpu après la désérialisation, mais peut etre facilement
+optimisé en compilant une version spécialisée du filtre à chaque 
+requete..
+
 * Diff�rents niveaux de d�tail
 
 On r�alise simplement plusieurs nivaux de d�tail dans plusieurs base 
@@ -141,6 +147,15 @@ volum�trie que netflow.
 grossierait, presque proportionnellement, donc dans les 20G par jour (en 
 consid�rant qu'on a les 10 minutes de pointe), soit pour trois jours 60G
 (au del� de 3 jours on ne concerve pas ce LoD a priori).
+
+1.2) Choix entre une seule métric et types variants OU plsieurs métriques
+
+Avantage du type variant: plus rapide lorsqu'on ne s'intéresse quà la
+partie générique, plus simple lorsqu'on veut tous type de transaction.
+Inconvénients : chaque tx est impactée par le changemen de version d'une
+seule (à moins de versionner indépendament la partie générique et
+la partie spécifique), impossible de manipuler les fichiers d'une tx
+isolément, et surtout impossible d'avoir des niveaux de détail distincts.
 
 1.3) Comparaison avec la base nova
 

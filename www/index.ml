@@ -640,8 +640,8 @@ struct
         module TblNameField = struct
             module Type = Enum (TblNames)
             let display_name = "DB table"
-            let uniq_name = "db-table"
-            let persistant = false
+            let uniq_name = "vol-table"
+            let persistant = true
         end
         module MinTraffic = struct
             module Type = OptInteger (NoLimit)
@@ -727,14 +727,14 @@ struct
 
     module Web = struct
         module TblNames = struct
-            let name = "db-tables"
+            let name = "web-tables"
             let options = [| "queries";"1min";"10mins";"1hour" |]
         end
         module TblNameField = struct
             module Type = Enum (TblNames)
             let display_name = "DB table"
-            let uniq_name = "db-table"
-            let persistant = false
+            let uniq_name = "web-table"
+            let persistant = true
         end
         module HttpStatus = struct
             module Type = OptInteger (struct let min = Some 100 let max = Some 999 end)
@@ -807,8 +807,8 @@ struct
         module TblNameField = struct
             module Type = Enum (TblNames)
             let display_name = "DB table"
-            let uniq_name = "db-table"
-            let persistant = false
+            let uniq_name = "dns-table"
+            let persistant = true
         end
         module Error = struct
             module Type = OptInteger (struct let min = Some 0 let max = Some 255 end)
