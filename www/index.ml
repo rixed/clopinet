@@ -87,26 +87,27 @@ struct
     let make_graph_page title form graph =
         let content =
             [ h1 title ;
-              div ~id:"filter" ~attrs:(if graph = [] then ["class","expanded"] else [])
+              div ~id:"filter"
                 [ div ~id:"filter-form" [ form ] ;
                   div ~id:"filter-handle" [] ] ;
               div ~id:"data" graph ;
+              if graph = [] then raw "No data" else
               script "\n\
-                    var filter = document.getElementById('filter');\n\
-                    var handle = document.getElementById('filter-handle');\n\
-                    var form = document.getElementById('filter-form');\n\
-                    var data = document.getElementById('data');\n\
-                    function show() {\n\
-                        form.style.width = null;\n\
-                        form.style.visibility = 'visible';\n\
-                    }\n\
-                    function hide() {\n\
-                        form.style.width = '0';\n\
-                        form.style.visibility = 'hidden';\n\
-                    }\n\
-                    hide();\n\
-                    filter.addEventListener('mouseover', show, false);\n\
-                    data.addEventListener('mouseover', hide, false);\n\
+                  var filter = document.getElementById('filter');\n\
+                  var handle = document.getElementById('filter-handle');\n\
+                  var form = document.getElementById('filter-form');\n\
+                  var data = document.getElementById('data');\n\
+                  function show() {\n\
+                      form.style.width = null;\n\
+                      form.style.visibility = 'visible';\n\
+                  }\n\
+                  function hide() {\n\
+                      form.style.width = '0';\n\
+                      form.style.visibility = 'hidden';\n\
+                  }\n\
+                  hide();\n\
+                  filter.addEventListener('mouseover', show, false);\n\
+                  data.addEventListener('mouseover', hide, false);\n\
               " ] in
         make_app_page content
 
