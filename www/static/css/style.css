@@ -5,11 +5,15 @@
 
 html {
 	font-family: 'Anaheim', sans-serif;
+    background-color: #e8e8e8;
 }
 
-/* Layout */
 
-/* Layout is now a table. */
+/*
+   Layout
+ */
+
+/* Menu */
 
 #menu {
 	display: block;
@@ -102,6 +106,27 @@ form th {
 	font-family: 'BenchNine', sans-serif;
 }
 
+/* Filter Form */
+
+#filter {
+    position: absolute;
+    top: 160px;
+    left: 0px;
+    padding: 10px 10px 10px 10px;
+    background-color: #300535;
+    color: #d0ffe8;
+    opacity: 0.8;
+    border-radius: 0px 10px 10px 0px;
+    box-shadow: 6px 9px 3px #ccc;
+	z-index: 50;
+}
+#filter-handle {
+	width: 20px;
+}
+#filter th, #filter td {
+    color: #d0ffe8;
+}
+
 /* Result tables */
 
 table {
@@ -140,17 +165,15 @@ table.tops tr {
 	height: 0.5em;
 }
 
-/* Eye candy */
+/* Svg graph */
 
-html {
-    background-color: #e8e8e8;
+#data {
 }
 
 svg {
     border-width: 1.5px;
     border-style: solid;
     border-color: #fff #ccc #ccc #fff;
-    margin-left: 15px;
     margin-bottom: 15px;
     box-shadow: 6px 6px 4px #ccc;
     background-color: #f5f5f5;

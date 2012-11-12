@@ -87,7 +87,27 @@ struct
     let make_graph_page title form graph =
         let content =
             [ h1 title ;
-              table [ tr [ td [form] ; td ~attrs:["width","100%"] graph ] ] ] in
+              div ~id:"filter" ~attrs:(if graph = [] then ["class","expanded"] else [])
+                [ div ~id:"filter-form" [ form ] ;
+                  div ~id:"filter-handle" [] ] ;
+              div ~id:"data" graph ;
+              script "\n\
+                    var filter = document.getElementById('filter');\n\
+                    var handle = document.getElementById('filter-handle');\n\
+                    var form = document.getElementById('filter-form');\n\
+                    var data = document.getElementById('data');\n\
+                    function show() {\n\
+                        form.style.width = null;\n\
+                        form.style.visibility = 'visible';\n\
+                    }\n\
+                    function hide() {\n\
+                        form.style.width = '0';\n\
+                        form.style.visibility = 'hidden';\n\
+                    }\n\
+                    hide();\n\
+                    filter.addEventListener('mouseover', show, false);\n\
+                    data.addEventListener('mouseover', hide, false);\n\
+              " ] in
         make_app_page content
 
     let table_of_datasets datasets =
@@ -143,8 +163,7 @@ struct
             Printf.fprintf os " ]\n}\n" ;
             IO.close_out os in
         [ chart_div ;
-          tag "script" ~attrs:["type","text/javascript"]
-            [ raw ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
+          script ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
 var options = {\n\
     title:'"^title^"',\n\
     width:'100%',\n\
@@ -155,7 +174,7 @@ var options = {\n\
     legend:{textStyle:{fontSize:9}}\n\
 };\n\
 var chart = new google.visualization.AreaChart(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ] ]
+chart.draw(data, options);\n") ]
 
     let top_chart lab datasets units =
         let js =
@@ -170,15 +189,14 @@ chart.draw(data, options);\n") ] ]
             Printf.fprintf os " \n}\n" ;
             IO.close_out os in
         [ chart_div ;
-          tag "script" ~attrs:["type","text/javascript"]
-            [ raw ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
+          script ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
 var options = {\n\
     showRowNumber:true,\n\
     sortColumn:1,\n\
     sortAscending:false\n\
 };\n\
 var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ] ]
+chart.draw(data, options);\n") ]
 
     let color_scale =
         [ 0.0, [| 0.0; 0.5; 1.0 |] ;
@@ -333,7 +351,11 @@ chart.draw(data, options);\n") ] ]
                         (*path ~stroke:col ~stroke_width:sw
                              (moveto (pos_of k1) ^ lineto (pos_of k2))*)])::p)
                     n p) datasets [] in
-            [ div ~id:"netgraph" (* so that we can reliably use getBoundingClientRect on this item (FF seams confused by svg) *)
+            (* FF seams confused by svg when implementing getBoundingClientRect.
+               That's why we introduce this "netgraph" div here, so that we can
+               reliably get SVG's bounding box position (this works iif the div
+               box actually stick to svg's boundary). *)
+            [ div ~id:"netgraph"
               [ svg ~width:svg_width ~height:svg_height
                   [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
                       [ g svg_edges ;
@@ -358,8 +380,7 @@ chart.draw(data, options);\n") ] ]
             Printf.fprintf os " \n}\n" ;
             IO.close_out os in
         [ chart_div ;
-          tag "script" ~attrs:["type","text/javascript"]
-            [ raw ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
+          script ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
 var options = {\n\
     width:'100%',\n\
     height:600,\n\
@@ -368,7 +389,7 @@ var options = {\n\
     sortAscending:false\n\
 };\n\
 var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ] ]
+chart.draw(data, options);\n") ]
 
     let resp_times_chart title time_step start datasets =
         let os = IO.output_string () in
@@ -391,8 +412,7 @@ chart.draw(data, options);\n") ] ]
         Printf.fprintf os " ]\n}\n" ;
         let js = IO.close_out os in
         [ chart_div ;
-          tag "script" ~attrs:["type","text/javascript"]
-            [ raw ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
+          script ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
 var options = {\n\
     title:'"^title^"',\n\
     /*width:'100%',*/\n\
@@ -412,7 +432,7 @@ var options = {\n\
     legend:{textStyle:{fontSize:9}}\n\
 };\n\
 var chart = new google.visualization.ComboChart(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ] ]
+chart.draw(data, options);\n") ]
 
 end
 
@@ -931,7 +951,7 @@ struct
                         | _ (* default, apps *) ->
                             app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what time_step dbdir tblname in
                     if datasets = [] then
-                        [ cdata "No data" ]
+                        []
                     else
                         let what = if what = PacketCount then "Packets" else "Bytes" in
                         View.bandwidth_chart ("Traffic - "^what^"/sec") time_step start datasets
@@ -951,7 +971,7 @@ struct
                         | _ (* ip *) ->
                             ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir tblname in
                     if Hashtbl.is_empty datasets then
-                        [ cdata "No data" ]
+                        []
                     else
                         let is_bytes = what = Volume in
                         View.peers_chart ~is_bytes datasets @
@@ -969,7 +989,7 @@ struct
                     let show_ip = group_by <> 2 and show_mac = group_by <> 1 in
                     let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_mac show_ip dbdir tblname in
                     if Hashtbl.is_empty datasets then
-                        [ cdata "No data" ]
+                        []
                     else
                         View.peers_graph datasets Forms.Traffic.LayoutType.options.(layout)
                 | _ -> [] in
@@ -999,7 +1019,7 @@ struct
                             "Port", app_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir tblname in
 
                     if Hashtbl.is_empty datasets then
-                        [ cdata "No data" ]
+                        []
                     else
                         let units = if what = PacketCount then "Packets" else "Bytes" in
                         View.top_chart key datasets units
