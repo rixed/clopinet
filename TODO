@@ -3,6 +3,10 @@ TODO stack
 
 * Un netgraph DNS et TCP
 
+* Un graph pour les métriques HTTP/DNS qui permet de grapher en fonction du 
+temps la volumétrie (soit nombre de requète, soit volume, soit durée) group by
+un paramètre (ip src, ip dst, hostname, hostname+url, noms requit...)
+
 * Pour simplifier le netgraph, une métrique virtuelle avec :
   - vlan, mac+ip source, mac+ip dest, mac+ip proto (filtre: vlan, etc)
   - un type (dns, traffic, web, tcp...) (filtre: multiselect)
