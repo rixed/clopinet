@@ -357,7 +357,7 @@ chart.draw(data, options);\n") ]
                reliably get SVG's bounding box position (this works iif the div
                box actually stick to svg's boundary). *)
             [ div ~id:"netgraph"
-              [ svg ~width:svg_width ~height:svg_height
+              [ svg
                   [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
                       [ g svg_edges ;
                         g ~attrs:["style","text-anchor:middle; dominant-baseline:central" ;
