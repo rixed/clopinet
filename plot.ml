@@ -252,9 +252,9 @@ struct
                     cumul_y m k r1 r1 y
                 ) else (
                     (* We should split value more accurately here *)
-                    let dt = r2-r1 |> succ |> float_of_int in
+                    let dt = r2-r1 |> float_of_int in
                     let y' = y /. dt in
-                    cumul_y m k r1 r2 y'
+                    cumul_y m k r1 (r2 - 1) y'
                 ))
                 (fun () -> Maplot.empty)
                 (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
