@@ -39,7 +39,7 @@ function refresh_chart(form) {
 
 /* function for SVG circle-graph */
 
-function peer_select(evt, peer_name)
+function peer_select(evt, peer_name, up, down)
 {
     var classname = evt.target.getAttribute("id");
     var all = document.getElementsByClassName(classname);
@@ -47,9 +47,14 @@ function peer_select(evt, peer_name)
         all[i].setAttribute("fill", "rgb(255,150,5)");
         all[i].setAttribute("fill-opacity", 1);
     }
+    // fill in infos for this peer
+    document.getElementById('selected-peer-name').innerHTML = peer_name;
+    document.getElementById('selected-peer-info').innerHTML =
+        'up:&nbsp;'+up+'</br>'+
+        'down:&nbsp;'+down;
 }
 
-function peer_unselect(evt, peer_name)
+function peer_unselect(evt)
 {
     var classname = evt.target.getAttribute("id");
     var all = document.getElementsByClassName(classname);

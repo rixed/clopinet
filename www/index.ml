@@ -211,15 +211,12 @@ chart.draw(data, options);\n") ]
 
     let peers_chart ?(is_bytes=false) datasets =
         let string_of_val = if is_bytes then string_of_volume else string_of_number in
-        let inner_rad = 3.5 *. svg_height /. 10. in
+        let inner_rad = 0.3 *. svg_height in
         let inner_x = svg_height/.2. and inner_y = svg_height/.2. in
         let inner r x y = (x -. inner_x) *. r +. inner_x,
                           (y -. inner_y) *. r +. inner_y in
         let x_of_ang ang = inner_rad *. cos ang +. inner_x
         and y_of_ang ang = inner_rad *. sin ang +. inner_y in
-        let legend_x = svg_height +. 50.
-        and legend_y = 50. in
-        let legend_height = svg_height -. 2.*. legend_y in
         (* Build a list of all peers *)
         let other_volume = Hashtbl.find datasets ("other", "") in
         let tot_volume = ref 0. and max_volume = ref 0. in
@@ -242,15 +239,10 @@ chart.draw(data, options);\n") ]
                 p, "peer"^string_of_int i, a) peers in
         let get_by_name p =
             List.find_map (fun ((p', _, _) as r) -> if p = p' then Some r else None) peers in
-        [ svg ~width:svg_width ~height:svg_height
-              [ (* legend *)
-                g (rect ~fill:"none" ~stroke_width:1. ~stroke:"#ef0" legend_x legend_y 4. legend_height ::
-                   texts ~fill:"#bbb" ~stroke:"#aaa" (legend_x +. 20.) (legend_y +. 20.)
-                       [ string_of_val !tot_volume, 20. ;
-                         Printf.sprintf "%.1f%% of total"
-                           (100.*. !tot_volume /. (other_volume +. !tot_volume)), 16. ]) ;
-                (* Traffic *)
-                g (Hashtbl.fold (fun (p1, p2) v l ->
+        [ table ~attrs:["class","peers"] [ tr [ td
+            [ svg ~width:svg_height ~height:svg_height
+                [ (* Traffic *)
+                  g (Hashtbl.fold (fun (p1, p2) v l ->
                      try (
                          let _, c1, a1 = get_by_name p1
                          and _, c2, a2 = get_by_name p2 in
@@ -272,24 +264,31 @@ chart.draw(data, options);\n") ]
                          (g [ path ~attrs:["class",c1^" "^c2] ~fill:col ~stroke:col ~stroke_opacity:opac ~stroke_width:0. ~fill_opacity:opac d ]) :: l
                      ) with Not_found -> l)
                      datasets []) ;
-                (* The peers *)
-                g (List.map (fun (p, pclass, a) ->
+                  (* The peers *)
+                  g (List.map (fun (p, pclass, a) ->
                     let x, y = x_of_ang a, y_of_ang a in
-                    let c = Hashtbl.fold (fun (p1, p2) _ l ->
+                    let class_list, tot_up, tot_down = Hashtbl.fold (fun (p1, p2) v ((tot_class, up, down) as l) ->
                         if p = p1 then
-                            let _, c, _ = get_by_name p2 in l^" "^c
+                            let _, c, _ = get_by_name p2 in tot_class^" "^c, up +. v, down
                         else if p = p2 then
-                            let _, c, _ = get_by_name p1 in l^" "^c
-                        else l) datasets pclass in
+                            let _, c, _ = get_by_name p1 in tot_class^" "^c, up, down +. v
+                        else l) datasets (pclass, 0., 0.) in
                     let a' = (mod_float (a +. pi/.2.) pi) -. pi/.2. in
                     let anchor = if a < 0.5*.pi || a > 1.5*.pi then "start" else "end" in
                        g ~attrs:["transform","translate("^string_of_float x^","^string_of_float y^") "^
                                              "rotate("^string_of_float (to_deg a') ^")" ;
-                                 "onmouseover","peer_select(evt, '"^pclass^"')" ;
-                                 "onmouseout", "peer_unselect(evt, '"^pclass^"')" ]
-                         [ text ~attrs:["class",c ; "id",pclass] ~style:("text-anchor:"^anchor^"; dominant-baseline:central")
+                                 "onmouseover","peer_select(evt, '"^p^"', '"^string_of_volume tot_up^"', '"^string_of_volume tot_down^"')" ;
+                                 "onmouseout", "peer_unselect(evt)" ]
+                         [ text ~attrs:["class",class_list ; "id",pclass] ~style:("text-anchor:"^anchor^"; dominant-baseline:central")
                                 ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_width:0. p ]
-                     ) peers) ] ]
+                     ) peers) ] ] ;
+            td
+                [ div ~attrs:["class","peers-info"]
+                    [ h2 (string_of_val !tot_volume) ;
+                      h3 (Printf.sprintf "%.1f%% of total"
+                           (100.*. !tot_volume /. (other_volume +. !tot_volume))) ;
+                      h4 ~id:"selected-peer-name" "" ;
+                      p ~id:"selected-peer-info" [] ] ] ] ] ]
  
     let peers_graph datasets layout =
         (* Get max volume *)

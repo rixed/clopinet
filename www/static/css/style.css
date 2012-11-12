@@ -169,6 +169,25 @@ table.tops tr {
 
 #data {
 }
+table.peers {
+    margin-left: auto;
+    margin-right: auto;
+}
+div.peers-info {
+    min-width: 200px;
+    padding-left: 20px;
+}
+div.peers-info h2 {
+    text-align: left;
+}
+div.peers-info h3 {
+    text-align: left;
+}
+div.peers-info h4 {
+    text-align: left;
+}
+div.peers-info p {
+}
 
 svg {
     border-width: 1.5px;
