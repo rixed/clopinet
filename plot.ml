@@ -319,42 +319,45 @@ struct
              * value to the map (which size must not exceed n), either by updating the
              * previously bound value (if k is already bound in m) or by reducing all
              * values of m until eventualy one reach 0 and we can remove it and insert
-             * what's left from k. Return the new map and it's new size. *)
-            let update1 m s k v =
-                try Maplot.update_exn m k ((+.) v), s
+             * what's left from k. Return the new map, it's new size and new min. *)
+            let update1 m sz mi k v =
+                try Maplot.update_exn m k ((+.) v), sz, mi
                 with Not_found ->
-                    if s < n then (
-                        Maplot.bind m k v, s+1
+                    if sz < n then (
+                        Maplot.bind m k v, sz+1, min mi v
                     ) else (
                         (* the map cannot grow: reduce all entries by either v (if it fits) or the min *)
-                        (* TODO: a faster way to know the min value stored in m *)
-                        let min, _k_min = Maplot.fold_left (fun (min, kmin) k v ->
-                            if v < min then v, k else min, kmin)
-                            (max_float, k) m in
-                        if min >= v then (
+                        if mi >= v then (
                             (* m swallow v entirely *)
-                            Maplot.map (fun _k v' -> v' -. v) m, s
+                            Maplot.map (fun _k v' -> v' -. v) m, sz, mi -. v
                         ) else (
                             (* reduce by min and remove all entries reaching 0 *)
-                            let s' = ref s in
+                            let sz' = ref sz and mi' = ref max_float in
                             let m' = Maplot.filter_map (fun _k v' ->
-                                if v' > min then Some (v' -. min)
-                                            else (decr s' ; None)) m in
+                                if v' > mi then (
+                                    let new_v' = v' -. mi in
+                                    if new_v' < !mi' then mi' := new_v' ;
+                                    Some new_v'
+                                ) else (
+                                    decr sz' ;
+                                    None
+                                )) m in
                             (* add k with what's left from v *)
-                            Maplot.bind m' k (v -. min), !s'+1
+                            let new_v = v -. mi in
+                            Maplot.bind m' k new_v, !sz'+1, min !mi' new_v
                         )
                     ) in
             (* First pass: find all keys that have more than n/Nth of the value (and others) *)
-            let result, _s = fold
-                (fun (k, v) (m, s) ->
-                    update1 m s k v)
-                (fun () -> Maplot.empty, 0)
-                (fun (m1, s1) (m2, _s2) ->
+            let result, _sz, _mi = fold
+                (fun (k, v) (m, sz, mi) ->
+                    update1 m sz mi k v)
+                (fun () -> Maplot.empty, 0, max_float)
+                (fun (m1, sz1, mi1) (m2, _sz2, _mi2) ->
                     (* Merge the small m2 into the big m1 *)
-                    Maplot.fold_left (fun (m1, s1) k2 v2 ->
+                    Maplot.fold_left (fun (m1, sz1, mi1) k2 v2 ->
                         (* FIXME: we should add k2 to v2 even if m1 grows larger than s1 *)
-                        update1 m1 s1 k2 v2)
-                        (m1, s1) m2) in
+                        update1 m1 sz1 mi1 k2 v2)
+                        (m1, sz1, mi1) m2) in
             result
 
         let pass2 result fold n =
