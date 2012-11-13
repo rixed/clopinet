@@ -6,6 +6,7 @@ make index.opt
 
 export REQUEST_METHOD="GET"
 export HTTP_COOKIE="password=secret; login=admin"
-export QUERY_STRING="action=main%2Ftraffic%2Fpeers&filter.start=2011-12-13+09%3A47%3A31.000&filter.stop=2011-12-13+09%3A47%3A34.000&filter.vlan=&filter.eth-src=&filter.eth-dest=&filter.eth-proto=&filter.ip-src=&filter.ip-dst=&filter.ip-proto=&filter.port=&filter.db-table=2&filter.Y=0&filter.groupby=1&filter.series=100"
+export QUERY_STRING="action=main%2Ftraffic%2Fgraph&filter.start=-1d&filter.stop=-0d&filter.vlan=&filter.db-table=2&filter.show_in_network=2"
+export QUERY_STRING="action=Traffic%2Fpeers&filter.start=2011-12-13+09%3A47%3A20&filter.stop=2011-12-13+09%3A47%3A22&filter.vlan=&filter.eth-src=&filter.eth-dest=&filter.eth-proto=&filter.ip-src=&filter.ip-dst=&filter.ip=&filter.ip-proto=&filter.port=&filter.vol-table=0&filter.Y=0&filter.groupby=1&filter.series=1000"
 
 ./index.opt

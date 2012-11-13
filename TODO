@@ -19,8 +19,6 @@ et c'est ça qu'on grapherait dans netgraph.
 * Une config permettant d'associer des couleurs à des hosts (basé sur mac ou 
 ip), et qu'on utiliserait pour colorer des lignes ou des nodes svg.
 
-* Benchmark hashtbl vs Maplot with runcgi
-
 * Filters for http method, vlan, etc, should be multiselect or
 accept syntax such as "3,5,67-78", and these params should be returned
 as functions. The only exception is ip srv which is used as an index.
@@ -33,9 +31,7 @@ for this IP).
 
 * in the netgraph, client side search engine for IP/Mac
 
-* Hide search form in CSS to have more space for graph
-
-* Add metric for TCP, Sql, VoIP, ARP, ...
+* Add metric for Sql, VoIP, ARP, ...
 
 * Remove all non-ip traffic when we ask an IP peer graph
 
