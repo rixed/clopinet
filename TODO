@@ -92,9 +92,10 @@ the index handling (Dns0.dump is too complex wrt. index)
 distributed querying
 
 
-* IP proto devrait être une selectbox
+* IP proto should be a selectbox
 
 
 * nettrack language should provide special function to create a new capfile,
   add a packet to it, discard it, save it, etc. Ie. a capture type with most
   operations implemented in C.
+

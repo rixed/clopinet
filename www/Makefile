@@ -1,6 +1,10 @@
 top_srcdir = ..
 
-SOURCES  = color.ml index.ml
+SOURCES  = \
+    color.ml \
+    my_view.ml \
+	my_forms.ml \
+    index.ml \
 
 REQUIRES = owww mlrrd
 
@@ -12,7 +16,7 @@ index.cgi: index.opt
 	ln -f $< $@
 
 # for some reason the same rules from make.common reverse the elemtns of %^ (!??)
-index.opt: color.cmx index.cmx
+index.opt: $(XOBJECTS)
 	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES) $(PKG_NAME)" $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $^
 
 .PHONY: httpd

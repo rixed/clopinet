@@ -14,9 +14,9 @@ override CFLAGS        += -O2 -std=c99 -W -Wall
 
 .PHONY: opt clean clean-spec install uninstall reinstall doc clear dep
 
-ifdef PKG_NAME
 OBJECTS  = $(SOURCES:.ml=.cmo)
 XOBJECTS = $(OBJECTS:.cmo=.cmx)
+ifdef PKG_NAME
 ARCHIVE  = $(PKG_NAME).cma
 XARCHIVE = $(ARCHIVE:.cma=.cmxa)
 CLIBNAME = $(PKG_NAME)
