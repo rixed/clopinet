@@ -78,6 +78,7 @@ tuple%.ml: maketuple.opt
 distribution.cmo: tuple5.cmo
 
 clean-spec:
+	$(MAKE) -C www clean
 	rm -f mlrrd.top
 
 loc:
