@@ -56,7 +56,12 @@ let check_timestamp () =
     assert (of_string "2012-10-25 11" = 1351155600000L) ;
     assert (of_string "2012-10-25" = 1351116000000L) ;
     assert (to_string 1351156980000L = "2012-10-25 11:23:00.000") ;
-    assert_exc (Failure "Cannot consume all input") of_string "2012-10-25 11:23:02 glop"
+    assert_exc (Failure "Cannot consume all input") of_string "2012-10-25 11:23:02 glop" ;
+    (* check time+interval format *)
+    assert (of_string "2012-10-25 +2months" = of_string "2012-12-25") ;
+    assert (of_string "2012-10-25 -3w 4d" = of_string "2012-09-30") ;
+    assert (of_string "2012-10-25 - 3w 4d " = of_string "2012-09-30") ;
+    assert (of_string "2012-10-25 -3w4d" = of_string "2012-09-30")
 
 let check_interval () =
     let open Interval in

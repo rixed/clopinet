@@ -573,168 +573,6 @@ struct
     include Datatype_of(EthAddr_base)
 end
 
-module Timestamp = struct
-    include UInteger64 (* for number of milliseconds *)
-    let name = "timestamp"
-    let read_txt ic =
-        let s = UInteger64.read_txt ic in
-        let ms =
-            if peek_eof2nl ic = '.' then (
-                (* floating point notation *)
-                TxtInput.swallow ic ;
-                let rec read_next_digit value nb_digits =
-                    let to_digit c = Char.code c - Char.code '0' in (* FIXME: move me in Batteries *)
-                    let c = peek_eof2nl ic in
-                    if Char.is_digit c then (
-                        TxtInput.swallow ic ;
-                        let c = to_digit c in
-                        let value' = value + match nb_digits with
-                            | 0 -> c*100
-                            | 1 -> c*10
-                            | 2 -> c*1
-                            | 3 -> if c > 5 then 1 else 0
-                            | _ -> 0 in
-                        read_next_digit value' (succ nb_digits)
-                    ) else value in
-                read_next_digit 0 0
-            ) else (
-                swallow_all ' ' ic ;
-                try_swallow_one 's' ic ;
-                swallow_all ' ' ic ;
-                let ms = ref (try UInteger.read_txt ic with End_of_file -> 0) in
-                swallow_all ' ' ic ;
-                let c = peek_eof2nl ic in
-                if c = 'u' then (
-                    (* microseconds!*)
-                    TxtInput.swallow ic ;
-                    ms := (!ms+499) / 1000
-                ) else if c = 'm' then
-                    TxtInput.swallow ic ;
-                try_swallow_one 's' ic ;
-                !ms
-            ) in
-        Int64.add (Int64.mul s 1000L)
-                  (Int64.of_int ms)
-
-    let seconds t = Int64.div t 1000L
-    let milliseconds t = Int64.rem t 1000L
-    let of_unixfloat ts = Int64.of_float (1000. *. ts)
-    let to_unixfloat t = (Int64.to_float t) *. 0.001
-
-    let zero = 0L
-    let add = Int64.add
-    let sub = Int64.sub
-    let idiv t i =
-        let i64 = Int64.of_int i in
-        Int64.div t i64
-    let imul t i =
-        let i64 = Int64.of_int i in
-        Int64.mul t i64
-    let mul _ _ = failwith "Cannot mul timestamps!"
-
-    (* Helper to build a Timestamp.t from a user friendly string *)
-    exception Invalid_date of (int * int * int * int * int * float)
-    exception Invalid_unit of char
-
-    let of_tm_nocheck y mo d h mi s =
-        let open Unix in
-        let s_f, s_i = modf s in
-        let tm = { tm_sec = int_of_float s_i ;
-                   tm_min = mi ; tm_hour = h ;
-                   tm_mday = d ; tm_mon = mo-1 ;
-                   tm_year = y - 1900 ;
-                   (* rest is ignored by mktime *)
-                   tm_wday = 0 ; tm_yday = 0 ; tm_isdst = false } in
-        let ts, _ = mktime tm in
-        of_unixfloat (ts +. s_f)
-
-    let of_tm y mo d h mi s =
-        if y > 2100 || y < 2000 || mo < 1 || mo > 12 ||
-           d < 1 || d > 31 || h > 24 || mi > 60 || s > 60. then
-           raise (Invalid_date (y, mo, d, h, mi, s)) ;
-        of_tm_nocheck y mo d h mi s
-
-    let of_datestring str =
-        let open Unix in
-        let to_min   y mo d h mi = of_tm y mo d h mi 0. in
-        let to_hour  y mo d h    = of_tm y mo d h 0  0. in
-        let to_day   y mo d      = of_tm y mo d 0 0  0. in
-        let to_month y mo        = of_tm y mo 1 0 0  0. in
-        let to_year  y           = of_tm y 1  1 0 0  0. in
-        let today_full h mi s =
-            let tm = localtime (time ()) in
-            of_tm (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday h mi s in
-        let today_to_min  h mi = today_full h mi 0. in
-        let today_to_hour h    = today_full h 0 0. in
-        try (
-            try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f%!" of_tm
-            with End_of_file -> (
-                try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u%!" to_min
-                with End_of_file ->
-                    try Scanf.sscanf str "%4u-%2u-%2u %2u%!" to_hour
-                    with End_of_file ->
-                        try Scanf.sscanf str "%4u-%2u-%2u%!" to_day
-                        with End_of_file ->
-                            try Scanf.sscanf str "%4u-%2u%!" to_month
-                            with End_of_file ->
-                                Scanf.sscanf str "%4u%!" to_year)
-        ) with _ -> (
-            try Scanf.sscanf str "%2u:%2u:%f%!" today_full
-            with End_of_file ->
-                try Scanf.sscanf str "%2u:%2u%!" today_to_min
-                with End_of_file ->
-                    Scanf.sscanf str "%2u%!" today_to_hour
-        )
-
-    let of_interval str =
-        let open Unix in
-        let rel_to_now s i u =
-            let now = localtime (time ()) in
-            let i = if s = "-" then ~-i else i in
-            let u = Char.lowercase u in
-            if u <> 'y' && u <> 'm' && u <> 'd' &&
-               u <> 'h' && u <> 'n' && u <> 's' then
-                raise (Invalid_unit u) ;
-            of_tm_nocheck
-                  (now.tm_year + 1900 + if u = 'y' then i else 0)
-                  (now.tm_mon  +    1 + if u = 'm' then i else 0)
-                  (now.tm_mday        + if u = 'd' then i else 0)
-                  (now.tm_hour        + if u = 'h' then i else 0)
-                  (now.tm_min         + if u = 'n' then i else 0)
-                 ((now.tm_sec         + if u = 's' then i else 0) |> float_of_int)
-            in
-        Scanf.sscanf str "%1[+-]%u %c%!" rel_to_now
-
-    let of_string str : t =
-        try of_datestring str
-        with _ ->
-            try of_interval str
-            with _ -> of_string str
-
-    let to_string (t : t) =
-        let open Unix in
-        let tm = localtime (to_unixfloat t) in
-        let s = (float_of_int tm.tm_sec) +. (milliseconds t |> Int64.to_float)*.0.001 in
-        Printf.sprintf "%04u-%02u-%02u %02u:%02u:%06.3f"
-            (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday
-            tm.tm_hour tm.tm_min s
-
-    let write_txt oc t =
-        let str = to_string t in
-        Output.string oc str
-end
-
-let round_timestamp ?(ceil=false) n t =
-    let r = Int64.rem t n in
-    let t' = Int64.sub t r in
-    if ceil && r <> 0L then Int64.add t' n else t'
-
-let round_time_interval n start stop =
-    let start = round_timestamp n start
-    and stop = round_timestamp ~ceil:true n stop in
-    if stop <> start then start, stop else start, Int64.add start n
-
-
 (**
   Time Interval, expressed in userfriendly time units
   (which actual sizes may depends on the point of reference)
@@ -813,19 +651,21 @@ module Interval_base = struct
     let read_txt ic =
         let years = ref 0 and months = ref 0 and weeks = ref 0
         and days = ref 0 and hours = ref 0 and mins = ref 0
-        and secs = ref 0 and msecs = ref 0
-        and set_v r v =
+        and secs = ref 0 and msecs = ref 0 and some_set = ref false in
+        let set_v r v =
             if !r <> 0 then raise Parse_error ;
+            some_set := true ;
             r := v in
 
         let rec loop () =
+            swallow_all ' ' ic ;
             let n = UInteger.read_txt ic in
             swallow_all ' ' ic ;
             if TxtInput.is_eof ic then (
                 (* no unit means seconds *)
                 set_v secs n
             ) else (
-                let u = read_txt_until ic " \n\t" |> String.lowercase in
+                let u = read_txt_until ic "0123456789 \n\t" |> String.lowercase in
                 swallow_all ' ' ic ;
                 if String.length u = 1 then match u.[0] with
                     | 'y' -> set_v years n
@@ -847,8 +687,11 @@ module Interval_base = struct
             ) ;
             loop () in
         try loop () with End_of_file ->
-            { years = !years ; months = !months ; weeks = !weeks ; days = !days ;
-              hours = !hours ; mins = !mins ; secs = !secs ; msecs = !msecs }
+            if !some_set then
+                { years = !years ; months = !months ; weeks = !weeks ; days = !days ;
+                  hours = !hours ; mins = !mins ; secs = !secs ; msecs = !msecs }
+            else
+                raise End_of_file
 end
 module Interval : sig
     (* Trick to have the record fields known when opening Interval in addition
@@ -867,6 +710,178 @@ let zero_interval =
     let open Interval in
     { years = 0 ; months = 0 ; weeks = 0 ; days = 0 ;
       hours = 0 ; mins = 0 ; secs = 0 ; msecs = 0 }
+
+let reverse_interval i =
+    let open Interval in
+    { years = -i.years ; months = -i.months ; weeks = -i.weeks ;
+      days = -i.days ; hours = -i.hours ; mins = -i.mins ;
+      secs = -i.secs ; msecs = -i.msecs }
+
+(**
+  Timestamp
+ *)
+
+module Timestamp = struct
+    include UInteger64 (* for number of milliseconds *)
+    let name = "timestamp"
+    let read_txt ic =
+        let s = UInteger64.read_txt ic in
+        let ms =
+            if peek_eof2nl ic = '.' then (
+                (* floating point notation *)
+                TxtInput.swallow ic ;
+                let rec read_next_digit value nb_digits =
+                    let to_digit c = Char.code c - Char.code '0' in (* FIXME: move me in Batteries *)
+                    let c = peek_eof2nl ic in
+                    if Char.is_digit c then (
+                        TxtInput.swallow ic ;
+                        let c = to_digit c in
+                        let value' = value + match nb_digits with
+                            | 0 -> c*100
+                            | 1 -> c*10
+                            | 2 -> c*1
+                            | 3 -> if c > 5 then 1 else 0
+                            | _ -> 0 in
+                        read_next_digit value' (succ nb_digits)
+                    ) else value in
+                read_next_digit 0 0
+            ) else (
+                swallow_all ' ' ic ;
+                try_swallow_one 's' ic ;
+                swallow_all ' ' ic ;
+                let ms = ref (try UInteger.read_txt ic with End_of_file -> 0) in
+                swallow_all ' ' ic ;
+                let c = peek_eof2nl ic in
+                if c = 'u' then (
+                    (* microseconds!*)
+                    TxtInput.swallow ic ;
+                    ms := (!ms+499) / 1000
+                ) else if c = 'm' then
+                    TxtInput.swallow ic ;
+                try_swallow_one 's' ic ;
+                !ms
+            ) in
+        Int64.add (Int64.mul s 1000L)
+                  (Int64.of_int ms)
+
+    let seconds t = Int64.div t 1000L
+    let milliseconds t = Int64.rem t 1000L
+    let of_unixfloat ts = Int64.of_float (1000. *. ts)
+    let to_unixfloat t = (Int64.to_float t) *. 0.001
+
+    let zero = 0L
+    let add = Int64.add
+    let sub = Int64.sub
+    let idiv t i =
+        let i64 = Int64.of_int i in
+        Int64.div t i64
+    let imul t i =
+        let i64 = Int64.of_int i in
+        Int64.mul t i64
+    let mul _ _ = failwith "Cannot mul timestamps!"
+
+    (* Helper to build a Timestamp.t from a user friendly string *)
+    exception Invalid_date of (int * int * int * int * int * float)
+    exception Invalid_unit of char
+
+    let of_tm_nocheck y mo d h mi s =
+        let open Unix in
+        let s_f, s_i = modf s in
+        let tm = { tm_sec = int_of_float s_i ;
+                   tm_min = mi ; tm_hour = h ;
+                   tm_mday = d ; tm_mon = mo-1 ;
+                   tm_year = y - 1900 ;
+                   (* rest is ignored by mktime *)
+                   tm_wday = 0 ; tm_yday = 0 ; tm_isdst = false } in
+        let ts, _ = mktime tm in
+        of_unixfloat (ts +. s_f)
+
+    let of_tm y mo d h mi s =
+        if y > 2100 || y < 2000 || mo < 1 || mo > 12 ||
+           d < 1 || d > 31 || h > 24 || mi > 60 || s > 60. then
+            raise (Invalid_date (y, mo, d, h, mi, s)) ;
+        of_tm_nocheck y mo d h mi s
+
+    let to_tm t =
+        Unix.localtime (to_unixfloat t)
+
+    let add_interval t i =
+        let open Unix in
+        let open Interval in
+        let tm = to_tm t in
+        of_tm_nocheck (tm.tm_year + 1900 + i.years)
+                      (tm.tm_mon + 1 + i.months)
+                      (tm.tm_mday + i.days + 7*i.weeks)
+                      (tm.tm_hour + i.hours)
+                      (tm.tm_min + i.mins)
+                      (float_of_int tm.tm_sec +.
+                       (milliseconds t |> Int64.to_float) *. 0.001 +.
+                       float_of_int i.secs +.
+                       (float_of_int i.msecs *. 0.001))
+
+    let of_datestring str =
+        let open Unix in
+        let of_tm'   y mo d h mi s r = of_tm y mo d h mi s, r in
+        let to_min   y mo d h mi r   = of_tm y mo d h mi 0., r in
+        let to_hour  y mo d h r      = of_tm y mo d h 0  0., r in
+        let to_day   y mo d r        = of_tm y mo d 0 0  0., r in
+        let to_month y mo r          = of_tm y mo 1 0 0  0., r in
+        let to_year  y r             = of_tm y 1  1 0 0  0., r in
+        let today_full h mi s r =
+            let tm = localtime (time ()) in
+            of_tm (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday h mi s, r in
+        let today_to_min  h mi r = today_full h mi 0. r in
+        let today_to_hour h r    = today_full h 0 0. r in
+        try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f%s@\n" of_tm'
+        with _ -> try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u%s@\n" to_min
+        with _ -> try Scanf.sscanf str "%4u-%2u-%2u %2u%s@\n" to_hour
+        with _ -> try Scanf.sscanf str "%4u-%2u-%2u%s@\n" to_day
+        with _ -> try Scanf.sscanf str "%4u-%2u%s@\n" to_month
+        with _ -> try Scanf.sscanf str "%4u%s@\n" to_year
+        with _ -> try Scanf.sscanf str "%2u:%2u:%f%s@\n" today_full
+        with _ -> try Scanf.sscanf str "%2u:%2u%s@\n" today_to_min
+        with _ -> Scanf.sscanf str "%2u%s@\n" today_to_hour
+
+    let of_interval str =
+        Scanf.sscanf str " %1[+-] %s@\n" (fun s i ->
+            let i = Interval.of_string i in
+            if s = "+" then i else reverse_interval i)
+
+    let of_string str : t =
+        try let t, rest = of_datestring str in
+            if rest = "" then (
+                t
+            ) else (
+                let i = of_interval rest in
+                add_interval t i
+            )
+        with _ -> try let i = of_interval str in
+                  add_interval (of_unixfloat (Unix.time ())) i
+        with _ -> of_string str
+
+    let to_string (t : t) =
+        let open Unix in
+        let tm = to_tm t in
+        let s = (float_of_int tm.tm_sec) +. (milliseconds t |> Int64.to_float)*.0.001 in
+        Printf.sprintf "%04u-%02u-%02u %02u:%02u:%06.3f"
+            (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday
+            tm.tm_hour tm.tm_min s
+
+    let write_txt oc t =
+        let str = to_string t in
+        Output.string oc str
+end
+
+let round_timestamp ?(ceil=false) n t =
+    let r = Int64.rem t n in
+    let t' = Int64.sub t r in
+    if ceil && r <> 0L then Int64.add t' n else t'
+
+let round_time_interval n start stop =
+    let start = round_timestamp n start
+    and stop = round_timestamp ~ceil:true n stop in
+    if stop <> start then start, stop else start, Int64.add start n
+
 
 (*
    Functors to easily assemble more complex types
