@@ -1,0 +1,4 @@
+#!/bin/sh
+
+make mlrrd.top
+OCAMLPATH=../ exec rlwrap ./mlrrd.top -rectypes
