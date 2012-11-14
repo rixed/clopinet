@@ -45,8 +45,8 @@ struct
         let inp = TxtInput.of_string str in
         let v = B.read_txt inp in
         (* Check that we've consumed the whole string *)
-        try ignore (TxtInput.peek inp) ; failwith "Cannot consume all input"
-        with End_of_file -> v
+        if not (TxtInput.is_eof inp) then failwith "Cannot consume all input" ;
+        v
     let to_string (t : B.t) =
         let buf = Buffer.create 32 in
         B.write_txt (Output.of_buffer buf) t ;
@@ -98,6 +98,7 @@ struct
 end
 
 let read_txt_until ic delim =
+    if TxtInput.is_eof ic then raise End_of_file else
     let rec aux p =
         try (
             let b = TxtInput.peek ic in
@@ -108,8 +109,7 @@ let read_txt_until ic delim =
                 aux (b :: p)
             )
         ) with End_of_file ->
-            if p = [] then raise End_of_file
-            else string_of_list (List.rev p) in
+            string_of_list (List.rev p) in
     aux []
 
 let peek_sign ic =
@@ -227,6 +227,7 @@ module Integer_base = struct
         )
     let read = deser_varint
     let read_txt ic =
+        if TxtInput.is_eof ic then raise End_of_file else
         let neg = peek_sign ic in
         let rec aux v =
             let d = peek_eof2nl ic in
@@ -253,6 +254,7 @@ module UInteger : NUMBER with type t = int =
 struct
     include Integer
     let read_txt ic =
+        if TxtInput.is_eof ic then raise End_of_file else
         let rec aux v =
             let d = peek_eof2nl ic in
             if Char.is_digit d then (
@@ -329,6 +331,7 @@ module UInteger32_base = struct
     let write_txt oc i = Printf.sprintf "%lu" i |> Output.string oc
     let read = deser32
     let read_txt ic =
+        if TxtInput.is_eof ic then raise End_of_file else
         let rec aux v =
             let d = peek_eof2nl ic in
             if d < '0' || d > '9' then v else (
@@ -372,6 +375,7 @@ module UInteger64_base = struct
     let write_txt oc i = Printf.sprintf "%Lu" i |> Output.string oc
     let read = deser64
     let read_txt ic =
+        if TxtInput.is_eof ic then raise End_of_file else
         let rec aux ?(first=false) v =
             let d = try TxtInput.peek ic with End_of_file when not first -> '\n' in (* any non digit char would do *)
             if d < '0' || d > '9' then v else (
@@ -663,23 +667,23 @@ module Timestamp = struct
         let today_to_min  h mi = today_full h mi 0. in
         let today_to_hour h    = today_full h 0 0. in
         try (
-            try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f" of_tm
+            try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f%!" of_tm
             with End_of_file -> (
-                try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u" to_min
+                try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u%!" to_min
                 with End_of_file ->
-                    try Scanf.sscanf str "%4u-%2u-%2u %2u" to_hour
+                    try Scanf.sscanf str "%4u-%2u-%2u %2u%!" to_hour
                     with End_of_file ->
-                        try Scanf.sscanf str "%4u-%2u-%2u" to_day
+                        try Scanf.sscanf str "%4u-%2u-%2u%!" to_day
                         with End_of_file ->
-                            try Scanf.sscanf str "%4u-%2u" to_month
+                            try Scanf.sscanf str "%4u-%2u%!" to_month
                             with End_of_file ->
-                                Scanf.sscanf str "%4u" to_year)
+                                Scanf.sscanf str "%4u%!" to_year)
         ) with _ -> (
-            try Scanf.sscanf str "%2u:%2u:%f" today_full
+            try Scanf.sscanf str "%2u:%2u:%f%!" today_full
             with End_of_file ->
-                try Scanf.sscanf str "%2u:%2u" today_to_min
+                try Scanf.sscanf str "%2u:%2u%!" today_to_min
                 with End_of_file ->
-                    Scanf.sscanf str "%2u" today_to_hour
+                    Scanf.sscanf str "%2u%!" today_to_hour
         )
 
     let of_interval str =
@@ -699,7 +703,7 @@ module Timestamp = struct
                   (now.tm_min         + if u = 'n' then i else 0)
                  ((now.tm_sec         + if u = 's' then i else 0) |> float_of_int)
             in
-        Scanf.sscanf str "%1[+-]%u %c" rel_to_now
+        Scanf.sscanf str "%1[+-]%u %c%!" rel_to_now
 
     let of_string str : t =
         try of_datestring str
@@ -729,6 +733,140 @@ let round_time_interval n start stop =
     let start = round_timestamp n start
     and stop = round_timestamp ~ceil:true n stop in
     if stop <> start then start, stop else start, Int64.add start n
+
+
+(**
+  Time Interval, expressed in userfriendly time units
+  (which actual sizes may depends on the point of reference)
+ *)
+
+module Interval_base = struct
+    type t = { years : int ; months : int ; weeks : int ; days : int ;
+               hours : int ; mins : int ; secs : int ; msecs : int }
+
+    let name = "interval"
+
+    let compare t1 t2 =
+        (* We do not try to equals different units when their equivalence is not trivial. *)
+        (* FIXME: try to compute the overall ms number and if the diff is big
+         * enought use it *)
+        let w_2_ms t =
+            let ( + ) = Int64.add and ( * ) = Int64.mul and l = Int64.of_int in
+              l t.msecs + l t.secs * 1_000L + l t.mins * 60_000L
+            + l t.hours * 3600_000L + l t.days * 86_400L + l t.weeks * 604_800L in
+        let y_2_m t = t.years * 12 + t.months in
+        let m1 = y_2_m t1 and m2 = y_2_m t2 in
+        if m1 > m2 then 1 else
+        if m1 < m2 then -1 else
+        if t1.weeks > t2.weeks then 1 else
+        if t1.weeks < t2.weeks then -1 else
+        let ms1 = w_2_ms t1 and ms2 = w_2_ms t2 in
+        if ms1 > ms2 then 1 else
+        if ms2 < ms1 then -1 else
+        0
+
+    let equal t1 t2 =
+        compare t1 t2 = 0
+
+    let hash t = t.years + t.months + t.weeks + t.days + t.hours + t.mins + t.secs + t.msecs
+
+    let write oc t =
+        ser_varint oc t.years ;
+        ser_varint oc t.months ;
+        ser_varint oc t.weeks ;
+        ser_varint oc t.days ;
+        ser_varint oc t.hours ;
+        ser_varint oc t.mins ;
+        ser_varint oc t.secs ;
+        ser_varint oc t.msecs
+
+    let write_txt oc t =
+        let started = ref false in
+        let w v u =
+            if v > 0 then (
+                started := true ;
+                Printf.sprintf "%u %s%s" v u (if v > 1 then "s" else "") |>
+                Output.string oc
+            ) in
+        w t.years  "year" ;
+        w t.months "month" ;
+        w t.weeks  "week" ;
+        w t.days   "day" ;
+        w t.hours  "hour" ;
+        w t.mins   "min" ;
+        w t.secs   "sec" ;
+        w t.msecs  "msec"
+
+    let read ic =
+        let years  = deser_varint ic in
+        let months = deser_varint ic in
+        let weeks  = deser_varint ic in
+        let days   = deser_varint ic in
+        let hours  = deser_varint ic in
+        let mins   = deser_varint ic in
+        let secs   = deser_varint ic in
+        let msecs  = deser_varint ic in
+        { years ; months ; weeks ; days ; hours ; mins ; secs ; msecs }
+
+    exception Parse_error
+
+    let read_txt ic =
+        let years = ref 0 and months = ref 0 and weeks = ref 0
+        and days = ref 0 and hours = ref 0 and mins = ref 0
+        and secs = ref 0 and msecs = ref 0
+        and set_v r v =
+            if !r <> 0 then raise Parse_error ;
+            r := v in
+
+        let rec loop () =
+            let n = UInteger.read_txt ic in
+            swallow_all ' ' ic ;
+            if TxtInput.is_eof ic then (
+                (* no unit means seconds *)
+                set_v secs n
+            ) else (
+                let u = read_txt_until ic " \n\t" |> String.lowercase in
+                swallow_all ' ' ic ;
+                if String.length u = 1 then match u.[0] with
+                    | 'y' -> set_v years n
+                    | 'w' -> set_v weeks n
+                    | 'd' -> set_v days n
+                    | 'h' -> set_v hours n
+                    | 'm' -> set_v mins n
+                    | 's' -> set_v secs n
+                    | _ -> raise Parse_error else
+                if String.starts_with u "year"  then set_v years  n else
+                if String.starts_with u "month" then set_v months n else
+                if String.starts_with u "week"  then set_v weeks  n else
+                if String.starts_with u "day"   then set_v days   n else
+                if String.starts_with u "hour"  then set_v hours  n else
+                if String.starts_with u "min"   then set_v mins   n else
+                if String.starts_with u "sec"   then set_v secs   n else
+                if String.starts_with u "msec" || u = "ms" then set_v msecs  n else
+                raise Parse_error
+            ) ;
+            loop () in
+        try loop () with End_of_file ->
+            { years = !years ; months = !months ; weeks = !weeks ; days = !days ;
+              hours = !hours ; mins = !mins ; secs = !secs ; msecs = !msecs }
+end
+module Interval : sig
+    (* Trick to have the record fields known when opening Interval in addition
+     * to Interval_base *)
+    include DATATYPE with type t := Interval_base.t
+    type t = Interval_base.t =
+        { years : int ; months : int ; weeks : int ; days : int ;
+          hours : int ; mins : int ; secs : int ; msecs : int }
+    end =
+struct
+    include Interval_base
+    include Datatype_of(Interval_base)
+end
+
+let zero_interval =
+    let open Interval in
+    { years = 0 ; months = 0 ; weeks = 0 ; days = 0 ;
+      hours = 0 ; mins = 0 ; secs = 0 ; msecs = 0 }
 
 (*
    Functors to easily assemble more complex types

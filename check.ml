@@ -58,6 +58,23 @@ let check_timestamp () =
     assert (to_string 1351156980000L = "2012-10-25 11:23:00.000") ;
     assert_exc (Failure "Cannot consume all input") of_string "2012-10-25 11:23:02 glop"
 
+let check_interval () =
+    let open Interval in
+    (* nothing specified -> seconds *)
+    assert (of_string "42" = { zero_interval with secs = 42 }) ;
+    (* check various units *)
+    assert (of_string "42years" = { zero_interval with years = 42 }) ;
+    assert (of_string "42 year" = { zero_interval with years = 42 }) ;
+    assert (of_string "42y" = { zero_interval with years = 42 }) ;
+    assert (of_string "42 y" = { zero_interval with years = 42 }) ;
+    assert (of_string "42 weeks" = { zero_interval with weeks = 42 }) ;
+    assert (of_string "42s" = { zero_interval with secs = 42 }) ;
+    assert (of_string "42 ms" = { zero_interval with msecs = 42 }) ;
+    assert (of_string "42 msec" = { zero_interval with msecs = 42 }) ;
+    assert (of_string "42 msecs" = { zero_interval with msecs = 42 }) ;
+    assert (of_string "6y 4months 42 secs" =
+        { zero_interval with years = 6 ; months = 4 ; secs = 42 })
+
 module TestOption = Option (Integer8)
 let check_option () =
     let open TestOption in
@@ -113,6 +130,7 @@ let _ =
     check_cidr () ;
     check_mac () ;
     check_timestamp () ;
+    check_interval () ;
     check_option () ;
     check_serial () ;
     print_string "Ok\n"

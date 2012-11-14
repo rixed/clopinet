@@ -77,3 +77,7 @@ let hexdigit t =
         10 + Char.code c - Char.code 'A'
     )
 
+let is_eof t =
+    try ignore (peek t) ; false
+    with End_of_file -> true
+
