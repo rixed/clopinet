@@ -61,7 +61,8 @@ let check_timestamp () =
     assert (of_string "2012-10-25 +2months" = of_string "2012-12-25") ;
     assert (of_string "2012-10-25 -3w 4d" = of_string "2012-09-30") ;
     assert (of_string "2012-10-25 - 3w 4d " = of_string "2012-09-30") ;
-    assert (of_string "2012-10-25 -3w4d" = of_string "2012-09-30")
+    assert (of_string "2012-10-25 -3w4d" = of_string "2012-09-30") ;
+    assert (compare (of_string "-1d") (of_string "+ 2 w") = -1)
 
 let check_interval () =
     let open Interval in

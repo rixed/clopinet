@@ -1,6 +1,8 @@
 TODO stack
 ----------
 
+* use Interval in the various forms like time_step
+
 * Un netgraph DNS et TCP
 
 * Un graph pour les métriques HTTP/DNS qui permet de grapher en fonction du 
@@ -49,8 +51,6 @@ should be Abs of ts | Rel of float.
 * A queries chart as a cloud of dots
 
 * A max packet size chart, as an histogram
-
-* An Interval type
 
 * A metric for notifications (displayed on graphs and tables and netgraph (in 
 a separate window)
