@@ -340,9 +340,9 @@ Or just run: junkie -c this_file
         (on full-parse)
         (older 60000000))])))
 
-(define nt-tcp (nt:compile "tcp-sockets"
-  '(
-    [(client-ip ip)
+; To report all TCP cnx establishment
+(define nt-tcp (nt:compile "tcp-cnxs"
+  '([(client-ip ip)
      (server-ip ip)
      (client-mac mac)
      (server-mac mac)
@@ -351,72 +351,20 @@ Or just run: junkie -c this_file
      (vlan uint)
      (sock-syn timestamp)
      (sock-ack timestamp)
-     (nb-syns uint)
-     (sock-closed timestamp) ; actually merely the TS of the last packet seen
-     (pld-up uint)
-     (pld-down uint)]
-    [(tcp-connecting
-       (on-timeout (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t0\\t0\\t0\\t0\\t0\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+     (nb-syns uint)]
+    [(tcp-opened
+       (on-timeout (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\n\",
                         (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
                         " client-port ", " server-port ",
                         timeval_2_str(" sock-syn "), " nb-syns ",
-                        " (sock-closed - sock-syn) ", " (sock-closed - sock-syn) ", " (sock-closed - sock-syn) ",
-                        " pld-up ", " pld-down ");\n"))
-       (index-size 10000)
-       (timeout 100000000)) ; timeout outstanding connections after 100s
-     (tcp-opened
-       (on-timeout (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t%d\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
-                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                        eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
-                        eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
-                        " client-port ", " server-port ",
-                        timeval_2_str(" sock-syn "), " nb-syns ",
-                        " (if (nb-syns > 0) 1 0) ",
-                        " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ",
-                        " (sock-closed - sock-syn) ", " (sock-closed - sock-syn) ", " (sock-closed - sock-syn) ",
-                        " pld-up ", " pld-down ");\n"))
+                        " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ");\n"))
        (index-size 20000)
        ; timeout an outstanding tcp socket after 600s
        (timeout 600000000))]
     ; edges
-    [(root tcp-opened ; as a last ressort, start in opened states if we missed the syn
-        (match (cap eth ip tcp) (if (tcp.src-port > tcp.dst-port)
-                                    (do
-                                      (client-port := tcp.src-port)
-                                      (client-ip := ip.src)
-                                      (client-mac := eth.src)
-                                      (server-port := tcp.dst-port)
-                                      (server-ip := ip.dst)
-                                      (server-mac := eth.dst)
-                                      (vlan := eth.vlan)
-                                      (sock-syn := cap.ts)
-                                      (sock-ack := cap.ts)
-                                      (nb-syns := 0)
-                                      (pld-up := tcp.payload)
-                                      (pld-down := 0)
-                                      (sock-closed := cap.ts)
-                                      #t)
-                                    ; else
-                                    (do
-                                      (client-port := tcp.dst-port)
-                                      (client-ip := ip.dst)
-                                      (client-mac := eth.dst)
-                                      (server-port := tcp.src-port)
-                                      (server-ip := ip.src)
-                                      (server-mac := eth.src)
-                                      (vlan := eth.vlan)
-                                      (sock-syn := cap.ts)
-                                      (sock-ack := cap.ts)
-                                      (nb-syns := 0)
-                                      (pld-up := 0)
-                                      (pld-down := tcp.payload)
-                                      (sock-closed := cap.ts)
-                                      #t)))
-        (dst-index-on () (hash client-ip client-port server-ip server-port))
-        spawn)
-     (root tcp-connecting
+    [(root tcp-connecting
         (match (cap eth ip tcp) (if
                                   tcp.syn
                                   (do
@@ -430,9 +378,6 @@ Or just run: junkie -c this_file
                                     (sock-syn := cap.ts)
                                     (sock-ack := cap.ts)
                                     (nb-syns := 1)
-                                    (pld-up := tcp.payload)
-                                    (pld-down := 0)
-                                    (sock-closed := cap.ts)
                                     #t)))
         (dst-index-on () (hash client-ip client-port server-ip server-port))
         spawn)
@@ -445,9 +390,7 @@ Or just run: junkie -c this_file
                             (tcp.src-port == client-port)
                             (tcp.dst-port == server-port))
                           (do
-                            ; TODO: and payload
                             (nb-syns := (nb-syns + 1))
-                            (sock-closed := cap.ts)
                             #t)))
         (src-index-on (ip tcp) (hash ip.src tcp.src-port ip.dst tcp.dst-port))
         grab)
@@ -460,9 +403,7 @@ Or just run: junkie -c this_file
                             (tcp.src-port == server-port)
                             (tcp.dst-port == client-port))
                           (do
-                            ; TODO: and payload
                             (nb-syns := (nb-syns + 1))
-                            (sock-closed := cap.ts)
                             #t)))
         (src-index-on (ip tcp) (hash ip.dst tcp.dst-port ip.src tcp.src-port))
         grab)
@@ -476,13 +417,10 @@ Or just run: junkie -c this_file
                             (tcp.dst-port == server-port))
                           (do
                             (sock-ack := cap.ts)
-                            (pld-up := (pld-up + tcp.payload))
-                            (sock-closed := cap.ts)
                             #t)))
         (src-index-on (ip tcp) (hash ip.src tcp.src-port ip.dst tcp.dst-port))
         (dst-index-on () (hash client-ip client-port server-ip server-port))
-        grab)
-     (tcp-opened tcp-opened ; change in uploaded payload
+        grab)])))
         (match (cap ip tcp) (if
                           (and
                             (ip.src == client-ip)
