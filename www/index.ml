@@ -27,7 +27,7 @@ struct
             View.make_app_page [ h1 "Authentification" ;
                                  form "login" (Forms.Login.edit "login" login) ] in
         let may_add_err = function
-            | Error (err, inp) -> View.add_err (inp^":&nbsp;"^err)
+            | Error (err, inp) -> View.add_err (inp^": "^err)
             | Value _ -> () in
         match login with
         | Value name, (Value passwd, ()) ->
@@ -74,7 +74,7 @@ struct
             let filters_form = form "Traffic/bandwidth" (Forms.Traffic.Bandwidth.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value time_step, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))))) ->
-                    let time_step = Int64.mul 1000L (Int64.of_int time_step)
+                    let time_step = Interval.to_ms time_step
                     and tblname = Forms.Traffic.TblNames.options.(tblname)
                     and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
@@ -209,7 +209,7 @@ struct
             let filters_form = form "Web/resptime" (Forms.Web.RespTime.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ())))))))))))))) ->
-                    let time_step = Int64.mul 1000L (Int64.of_int time_step)
+                    let time_step = Interval.to_ms time_step
                     and tblname = Forms.Web.TblNames.options.(tblname) in
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max in
@@ -255,14 +255,12 @@ struct
                 | _ -> [] in
             View.make_graph_page "DNS Top Requests" filters_form disp_graph
 
-            
-
         let resp_time args =
             let filters = Forms.Dns.RespTime.from_args "filter" args in
             let filters_form = form "DNS/resptime" (Forms.Dns.RespTime.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value tx_min, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ()))))))))))) ->
-                    let time_step = Int64.mul 1000L (Int64.of_int time_step)
+                    let time_step = Interval.to_ms time_step
                     and tblname = Forms.Dns.TblNames.options.(tblname) in
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max in

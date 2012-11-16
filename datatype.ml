@@ -700,22 +700,30 @@ module Interval : sig
     type t = Interval_base.t =
         { years : int ; months : int ; weeks : int ; days : int ;
           hours : int ; mins : int ; secs : int ; msecs : int }
+    val zero  : t
+    val to_ms : t -> Int64.t
+    val reverse : t -> t
     end =
 struct
     include Interval_base
     include Datatype_of(Interval_base)
+
+    let zero =
+        { years = 0 ; months = 0 ; weeks = 0 ; days = 0 ;
+          hours = 0 ; mins = 0 ; secs = 0 ; msecs = 0 }
+
+    let to_ms t =
+        (* for this we consider 'default' length to variable time units *)
+        let ( + ) = Int64.add and ( * ) = Int64.mul and l = Int64.of_int in
+          l t.msecs + l t.secs * 1_000L + l t.mins * 60_000L
+        + l t.hours * 3600_000L + l t.days * 86_400L + l t.weeks * 604_800L
+        + l t.months * 2_628_000_000L + l t.years * 31_557_600_000L
+
+    let reverse t =
+        { years = -t.years ; months = -t.months ; weeks = -t.weeks ;
+          days = -t.days ; hours = -t.hours ; mins = -t.mins ;
+          secs = -t.secs ; msecs = -t.msecs }
 end
-
-let zero_interval =
-    let open Interval in
-    { years = 0 ; months = 0 ; weeks = 0 ; days = 0 ;
-      hours = 0 ; mins = 0 ; secs = 0 ; msecs = 0 }
-
-let reverse_interval i =
-    let open Interval in
-    { years = -i.years ; months = -i.months ; weeks = -i.weeks ;
-      days = -i.days ; hours = -i.hours ; mins = -i.mins ;
-      secs = -i.secs ; msecs = -i.msecs }
 
 (**
   Timestamp
@@ -845,7 +853,7 @@ module Timestamp = struct
     let of_interval str =
         Scanf.sscanf str " %1[+-] %s@\n" (fun s i ->
             let i = Interval.of_string i in
-            if s = "+" then i else reverse_interval i)
+            if s = "+" then i else Interval.reverse i)
 
     let of_string str : t =
         try let t, rest = of_datestring str in

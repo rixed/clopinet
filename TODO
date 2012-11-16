@@ -1,7 +1,8 @@
 TODO stack
 ----------
 
-* use Interval in the various forms like time_step
+* Add IP-server, IP-client in the various graphs were an IP is accepted
+  (using the same simple way to find out which is which)
 
 * Un netgraph DNS et TCP
 
