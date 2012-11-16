@@ -421,31 +421,138 @@ Or just run: junkie -c this_file
         (src-index-on (ip tcp) (hash ip.src tcp.src-port ip.dst tcp.dst-port))
         (dst-index-on () (hash client-ip client-port server-ip server-port))
         grab)])))
+
+; To report all TCP/UDP data transfers (for callflow)
+(define nt-l4data (nt:compile "l4-data"
+  '([(src-ip ip)
+     (dst-ip ip)
+     (src-mac mac)
+     (dst-mac mac)
+     (src-port uint)
+     (dst-port uint)
+     (ip-proto uint)
+     (vlan uint)
+     (start timestamp)
+     (stop timestamp)
+     (nb-pkts uint)
+     (pld uint)]
+    [(tcp-tx
+       (on-timeout (pass "printf(\"DT\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+                        eth_addr_2_str(" src-mac "), ip_addr_2_str(" src-ip "),
+                        eth_addr_2_str(" dst-mac "), ip_addr_2_str(" dst-ip "),
+                        " ip-proto ", " src-port ", " dst-port ",
+                        timeval_2_str(" start "), timeval_2_str(" stop "),
+                        " nb-pkts ", " pld ");\n"))
+       (index-size 20000)
+       ; timeout an outstanding tcp tx after 500ms
+       (timeout 500000))
+     (udp-tx
+       (on-timeout (pass "printf(\"DT\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+                        eth_addr_2_str(" src-mac "), ip_addr_2_str(" src-ip "),
+                        eth_addr_2_str(" dst-mac "), ip_addr_2_str(" dst-ip "),
+                        " ip-proto ", " src-port ", " dst-port ",
+                        timeval_2_str(" start "), timeval_2_str(" stop "),
+                        " nb-pkts ", " pld ");\n"))
+       (index-size 20000)
+       ; timeout an outstanding udp tx after 500ms
+       (timeout 500000))
+     (dt-end
+       (on-entry (pass "printf(\"DT\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+                        eth_addr_2_str(" src-mac "), ip_addr_2_str(" src-ip "),
+                        eth_addr_2_str(" dst-mac "), ip_addr_2_str(" dst-ip "),
+                        " ip-proto ", " src-port ", " dst-port ",
+                        timeval_2_str(" start "), timeval_2_str(" stop "),
+                        " nb-pkts ", " pld ");\n")))]
+    ; edges
+    [(root tcp-tx
+        (match (cap eth ip tcp) (if
+                                  (tcp.payload > 0)
+                                  (do
+                                    (src-port := tcp.src-port)
+                                    (src-ip := ip.src)
+                                    (src-mac := eth.src)
+                                    (dst-port := tcp.dst-port)
+                                    (dst-ip := ip.dst)
+                                    (dst-mac := eth.dst)
+                                    (vlan := eth.vlan)
+                                    (ip-proto := ip.proto)
+                                    (start := cap.ts)
+                                    (stop := cap.ts)
+                                    (nb-pkts := 1)
+                                    (pld := tcp.payload)
+                                    #t)))
+        (dst-index-on () (hash src-ip src-port dst-ip dst-port))
+        spawn)
+     (tcp-tx tcp-tx ; new packet in same direction
         (match (cap ip tcp) (if
-                          (and
-                            (ip.src == client-ip)
-                            (ip.dst == server-ip)
-                            (tcp.src-port == client-port)
-                            (tcp.dst-port == server-port))
-                          (do
-                            (pld-up := (pld-up + tcp.payload))
-                            (sock-closed := cap.ts)
-                            #t)))
+                              (and
+                                (tcp.payload > 0)
+                                (ip.src == src-ip)
+                                (ip.dst == dst-ip)
+                                (tcp.src-port == src-port)
+                                (tcp.dst-port == dst-port))
+                              (do
+                                (stop := cap.ts)
+                                (pld := (pld + tcp.payload))
+                                #t)))
         (src-index-on (ip tcp) (hash ip.src tcp.src-port ip.dst tcp.dst-port))
-        grab) ; because the previous nodes nor remaining states can't match
-     (tcp-opened tcp-opened ; change in downloaded payload
-        (match (cap ip tcp) (if
-                          (and
-                            (ip.src == server-ip)
-                            (ip.dst == client-ip)
-                            (tcp.src-port == server-port)
-                            (tcp.dst-port == client-port))
-                          (do
-                            (pld-down := (pld-down + tcp.payload))
-                            (sock-closed := cap.ts)
-                            #t)))
+        grab)
+     (tcp-tx dt-end ; packet in the other direction
+        (match (ip tcp) (and
+                          (tcp.payload > 0)
+                          (ip.src == dst-ip)
+                          (ip.dst == src-ip)
+                          (tcp.src-port == dst-port)
+                          (tcp.dst-port == src-port)))
         (src-index-on (ip tcp) (hash ip.dst tcp.dst-port ip.src tcp.src-port))
-        grab)]))) ; because the previous nodes nor remaining states can't match
+        ; no grab
+        )
+     (root udp-tx
+        (match (cap eth ip udp) (if
+                                  (udp.payload > 0)
+                                  (do
+                                    (src-port := udp.src-port)
+                                    (src-ip := ip.src)
+                                    (src-mac := eth.src)
+                                    (dst-port := udp.dst-port)
+                                    (dst-ip := ip.dst)
+                                    (dst-mac := eth.dst)
+                                    (vlan := eth.vlan)
+                                    (ip-proto := ip.proto)
+                                    (start := cap.ts)
+                                    (stop := cap.ts)
+                                    (nb-pkts := 1)
+                                    (pld := udp.payload)
+                                    #t)))
+        (dst-index-on () (hash src-ip src-port dst-ip dst-port))
+        spawn)
+     (udp-tx udp-tx ; new packet in same direction
+        (match (cap ip udp) (if
+                              (and
+                                (udp.payload > 0)
+                                (ip.src == src-ip)
+                                (ip.dst == dst-ip)
+                                (udp.src-port == src-port)
+                                (udp.dst-port == dst-port))
+                              (do
+                                (stop := cap.ts)
+                                (pld := (pld + udp.payload))
+                                #t)))
+        (src-index-on (ip udp) (hash ip.src udp.src-port ip.dst udp.dst-port))
+        grab)
+     (udp-tx dt-end ; packet in the other direction
+        (match (ip udp) (and
+                          (udp.payload > 0)
+                          (ip.src == dst-ip)
+                          (ip.dst == src-ip)
+                          (udp.src-port == dst-port)
+                          (udp.dst-port == src-port)))
+        (src-index-on (ip udp) (hash ip.dst udp.dst-port ip.src udp.src-port))
+        ; no grab
+        )])))
 
 (set-collapse-vlans #f)
 (set-collapse-ifaces #f)
@@ -454,4 +561,5 @@ Or just run: junkie -c this_file
 (nettrack-start nt-dns)
 (nettrack-start nt-eth)
 (nettrack-start nt-tcp)
+(nettrack-start nt-l4data)
 
