@@ -1,6 +1,10 @@
 TODO stack
 ----------
 
+* A numeric input that accept various multipliers like K/M/G
+
+* Callflow view using DT and TCP metrics (and later, others as well)
+
 * Add IP-server, IP-client in the various graphs were an IP is accepted
   (using the same simple way to find out which is which)
 
@@ -22,6 +26,10 @@ et c'est ça qu'on grapherait dans netgraph.
 * Une config permettant d'associer des couleurs à des hosts (basé sur mac ou 
 ip), et qu'on utiliserait pour colorer des lignes ou des nodes svg.
 
+* Et une config pour nommer des filtres?
+
+* Aussi pouvoir déclencher des pcap
+
 * Filters for http method, vlan, etc, should be multiselect or
 accept syntax such as "3,5,67-78", and these params should be returned
 as functions. The only exception is ip srv which is used as an index.
@@ -40,8 +48,6 @@ for this IP).
 
 * Apart in place where we have Y per secs, keep integers instead of floats
   for volumes.
-
-* Timestamp should recognize some keywords such as now.
 
 * Timestamp read as relative date should be kept that way (ie. Timestamp
 should be Abs of ts | Rel of float.

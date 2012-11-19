@@ -75,6 +75,8 @@ struct
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value time_step, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))))) ->
                     let time_step = Interval.to_ms time_step
+                    and start = My_time.to_timeval start
+                    and stop  = My_time.to_timeval stop
                     and tblname = Forms.Traffic.TblNames.options.(tblname)
                     and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
@@ -98,6 +100,8 @@ struct
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
+                    and start = My_time.to_timeval start
+                    and stop  = My_time.to_timeval stop
                     and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
                         | 0 (* mac *) ->
@@ -119,8 +123,10 @@ struct
             let filters_form = form "Traffic/graph" (Forms.Traffic.Graph.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value eth_proto, (Value ip_proto, (Value port, (Value min_volume, (Value layout, (Value tblname, (Value group_by, ()))))))))) ->
-                    let tblname = Forms.Traffic.TblNames.options.(tblname) in
-                    let show_ip = group_by <> 2 and show_mac = group_by <> 1 in
+                    let tblname = Forms.Traffic.TblNames.options.(tblname)
+                    and start = My_time.to_timeval start
+                    and stop  = My_time.to_timeval stop
+                    and show_ip = group_by <> 2 and show_mac = group_by <> 1 in
                     let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_mac show_ip dbdir tblname in
                     if Hashtbl.is_empty datasets then
                         []
@@ -135,6 +141,8 @@ struct
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
+                    and start = My_time.to_timeval start
+                    and stop  = My_time.to_timeval stop
                     and what = if what = 0 then Volume else PacketCount in
                     let key, datasets = match group_by with
                         | 1 (* src-mac *) ->
@@ -180,6 +188,8 @@ struct
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max
                     and n = BatOption.default 30 n
+                    and start = My_time.to_timeval start
+                    and stop  = My_time.to_timeval stop
                     and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
                     let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
                     let field_display_names =
@@ -210,8 +220,10 @@ struct
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ())))))))))))))) ->
                     let time_step = Interval.to_ms time_step
-                    and tblname = Forms.Web.TblNames.options.(tblname) in
-                    let rt_min = BatOption.map s2m rt_min
+                    and start = My_time.to_timeval start
+                    and stop  = My_time.to_timeval stop
+                    and tblname = Forms.Web.TblNames.options.(tblname)
+                    and rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
                     View.resp_times_chart "Web - Average Response Time (sec)" time_step start datasets
@@ -233,6 +245,8 @@ struct
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value error, (Value qname, (Value n, (Value sort_order, ())))))))))))) ->
                     let rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max
+                    and start = My_time.to_timeval start
+                    and stop  = My_time.to_timeval stop
                     and n = BatOption.default 30 n
                     and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
                     let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir n sort_order in
@@ -261,8 +275,10 @@ struct
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value tx_min, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ()))))))))))) ->
                     let time_step = Interval.to_ms time_step
-                    and tblname = Forms.Dns.TblNames.options.(tblname) in
-                    let rt_min = BatOption.map s2m rt_min
+                    and tblname = Forms.Dns.TblNames.options.(tblname)
+                    and start = My_time.to_timeval start
+                    and stop  = My_time.to_timeval stop
+                    and rt_min = BatOption.map s2m rt_min
                     and rt_max = BatOption.map s2m rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
                     View.resp_times_chart "DNS - Average Response Time (sec)" time_step start datasets

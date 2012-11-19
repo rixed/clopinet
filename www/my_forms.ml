@@ -72,13 +72,13 @@ module Login = RecordOf (ConsOf (FieldOf (LoginField))
                                 (NulType)))
 
 module StartField = struct
-    module Type = InputOfDatatype(Timestamp)
+    module Type = My_time.Mandatory
     let display_name = "start"
     let uniq_name = "start"
     let persistant = true
 end
 module StopField = struct
-    module Type = InputOfDatatype(Timestamp)
+    module Type = My_time.Mandatory
     let display_name = "stop"
     let uniq_name = "stop"
     let persistant = true

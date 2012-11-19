@@ -621,9 +621,9 @@ module Interval_base = struct
     let write_txt oc t =
         let started = ref false in
         let w v u =
-            if v > 0 then (
+            if v <> 0 then (
                 started := true ;
-                Printf.sprintf "%u %s%s" v u (if v > 1 then "s" else "") |>
+                Printf.sprintf "%d %s%s" v u (if v > 1 then "s" else "") |>
                 Output.string oc
             ) in
         w t.years  "year" ;
@@ -659,13 +659,13 @@ module Interval_base = struct
 
         let rec loop () =
             swallow_all ' ' ic ;
-            let n = UInteger.read_txt ic in
+            let n = Integer.read_txt ic in
             swallow_all ' ' ic ;
             if TxtInput.is_eof ic then (
                 (* no unit means seconds *)
                 set_v secs n
             ) else (
-                let u = read_txt_until ic "0123456789 \n\t" |> String.lowercase in
+                let u = read_txt_until ic "+-0123456789 \n\t" |> String.lowercase in
                 swallow_all ' ' ic ;
                 if String.length u = 1 then match u.[0] with
                     | 'y' -> set_v years n
@@ -702,7 +702,6 @@ module Interval : sig
           hours : int ; mins : int ; secs : int ; msecs : int }
     val zero  : t
     val to_ms : t -> Int64.t
-    val reverse : t -> t
     end =
 struct
     include Interval_base
@@ -718,11 +717,6 @@ struct
           l t.msecs + l t.secs * 1_000L + l t.mins * 60_000L
         + l t.hours * 3600_000L + l t.days * 86_400_000L + l t.weeks * 604_800_000L
         + l t.months * 2_628_000_000L + l t.years * 31_557_600_000L
-
-    let reverse t =
-        { years = -t.years ; months = -t.months ; weeks = -t.weeks ;
-          days = -t.days ; hours = -t.hours ; mins = -t.mins ;
-          secs = -t.secs ; msecs = -t.msecs }
 end
 
 (**
@@ -827,6 +821,8 @@ module Timestamp = struct
                        float_of_int i.secs +.
                        (float_of_int i.msecs *. 0.001))
 
+    let now () = of_unixfloat (Unix.time ())
+
     let of_datestring str =
         let open Unix in
         let of_tm'   y mo d h mi s r = of_tm y mo d h mi s, r in
@@ -840,6 +836,7 @@ module Timestamp = struct
             of_tm (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday h mi s, r in
         let today_to_min  h mi r = today_full h mi 0. r in
         let today_to_hour h r    = today_full h 0 0. r in
+        if String.starts_with str "now" then now (), String.lchop ~n:3 str else
         try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f%s@\n" of_tm'
         with _ -> try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u%s@\n" to_min
         with _ -> try Scanf.sscanf str "%4u-%2u-%2u %2u%s@\n" to_hour
@@ -850,21 +847,16 @@ module Timestamp = struct
         with _ -> try Scanf.sscanf str "%2u:%2u%s@\n" today_to_min
         with _ -> Scanf.sscanf str "%2u%s@\n" today_to_hour
 
-    let of_interval str =
-        Scanf.sscanf str " %1[+-] %s@\n" (fun s i ->
-            let i = Interval.of_string i in
-            if s = "+" then i else Interval.reverse i)
-
     let of_string str : t =
         try let t, rest = of_datestring str in
             if rest = "" then (
                 t
             ) else (
-                let i = of_interval rest in
+                let i = Interval.of_string rest in
                 add_interval t i
             )
-        with _ -> try let i = of_interval str in
-                  add_interval (of_unixfloat (Unix.time ())) i
+        with _ -> try let i = Interval.of_string str in
+                  add_interval (now ()) i
         with _ -> of_string str
 
     let to_string (t : t) =
