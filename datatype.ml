@@ -591,7 +591,7 @@ module Interval_base = struct
         let w_2_ms t =
             let ( + ) = Int64.add and ( * ) = Int64.mul and l = Int64.of_int in
               l t.msecs + l t.secs * 1_000L + l t.mins * 60_000L
-            + l t.hours * 3600_000L + l t.days * 86_400L + l t.weeks * 604_800L in
+            + l t.hours * 3600_000L + l t.days * 86_400_000L + l t.weeks * 604_800_000L in
         let y_2_m t = t.years * 12 + t.months in
         let m1 = y_2_m t1 and m2 = y_2_m t2 in
         if m1 > m2 then 1 else
@@ -716,7 +716,7 @@ struct
         (* for this we consider 'default' length to variable time units *)
         let ( + ) = Int64.add and ( * ) = Int64.mul and l = Int64.of_int in
           l t.msecs + l t.secs * 1_000L + l t.mins * 60_000L
-        + l t.hours * 3600_000L + l t.days * 86_400L + l t.weeks * 604_800L
+        + l t.hours * 3600_000L + l t.days * 86_400_000L + l t.weeks * 604_800_000L
         + l t.months * 2_628_000_000L + l t.years * 31_557_600_000L
 
     let reverse t =
