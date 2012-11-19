@@ -80,6 +80,9 @@ clean-spec:
 	$(MAKE) -C www clean
 	rm -f mlrrd.top
 
+dep-spec:
+	$(MAKE) -C www dep
+
 loc:
 	@ls *.ml *.mli www/*.ml -1 | grep -v tuple | xargs cat | wc -l
 

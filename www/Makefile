@@ -1,10 +1,11 @@
 top_srcdir = ..
 
 SOURCES  = \
-    color.ml \
-    my_view.ml \
+	color.ml \
+	my_view.ml \
+	my_time.ml \
 	my_forms.ml \
-    index.ml \
+	index.ml \
 
 REQUIRES = owww mlrrd
 
