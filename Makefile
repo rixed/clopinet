@@ -27,13 +27,14 @@ SOURCES  = \
 	traffic.ml \
 	tcp.ml \
 	web.ml \
-	dns.ml
+	dns.ml \
+	flow.ml
 
 C_SOURCES = ll_serial.c
 
 EXAMPLES_BYTE = \
 	dns_exe.byte web_exe.byte tcp_exe.byte \
-	traffic_exe.byte runtest.byte \
+	traffic_exe.byte flow_exe.byte runtest.byte \
 
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)

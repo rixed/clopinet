@@ -30,7 +30,8 @@ Or just run: junkie -c this_file
                         " (qry-stop - qry-start) ", " (qry-stop - qry-start) ", " (qry-stop - qry-start) ",
                         " qry-host ", " url ");\n")))
      (web-qry
-       (index-size 5024))]
+       (index-size 5024))
+     (timeout 60000000)]
     ; edges
     [(root web-qry
         (match (cap eth ip tcp http) (if
@@ -83,7 +84,8 @@ Or just run: junkie -c this_file
                         " (qry-stop - qry-start) ", " (qry-stop - qry-start) ", " (qry-stop - qry-start) ",
                         " qry-name ");\n")))
      (dns-query
-       (index-size 5024))]
+       (index-size 5024))
+     (timeout 60000000)]
     ; edges
     [(root dns-query
         (match (cap eth ip dns) (if
@@ -353,16 +355,24 @@ Or just run: junkie -c this_file
      (sock-ack timestamp)
      (nb-syns uint)]
     [(tcp-opened
-       (on-timeout (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\n\",
+       (on-entry (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\n\",
                         (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
                         " client-port ", " server-port ",
                         timeval_2_str(" sock-syn "), " nb-syns ",
-                        " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ");\n"))
+                        " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ");\n")))
+     (tcp-connecting
+       (on-timeout (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\n\",
+                         (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
+                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
+                         " client-port ", " server-port ",
+                         timeval_2_str(" sock-syn "), " nb-syns ",
+                         " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ");\n"))
        (index-size 20000)
-       ; timeout an outstanding tcp socket after 600s
-       (timeout 600000000))]
+       ; timeout an outstanding SYN after 80s
+       (timeout 80000000))]
     ; edges
     [(root tcp-connecting
         (match (cap eth ip tcp) (if
@@ -376,7 +386,7 @@ Or just run: junkie -c this_file
                                     (server-mac := eth.dst)
                                     (vlan := eth.vlan)
                                     (sock-syn := cap.ts)
-                                    (sock-ack := cap.ts)
+                                    (sock-ack := cap.ts) ; FIXME: 0 instead
                                     (nb-syns := 1)
                                     #t)))
         (dst-index-on () (hash client-ip client-port server-ip server-port))
