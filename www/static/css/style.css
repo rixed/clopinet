@@ -53,7 +53,7 @@ html {
 }
 #menu > ul * ul {
     background-color: #444;
-	opacity: 0.8;
+	opacity: 0.9;
 	z-index: 100;
 }
 #notifs {
@@ -134,6 +134,33 @@ form th {
 }
 #filter th, #filter td {
     color: #d0ffe8;
+}
+
+/* Login and other stand alone forms */
+
+div#page {
+    text-align: center;
+    width: 100%;
+}
+
+div#page > form {
+    display: inline-block;
+    margin-left: auto;
+    margin-right: auto;
+    padding-top: 2em;
+}
+
+/* Notifs */
+
+div#notifs p {
+    padding: 0.5em 1em 0.5em 2em;
+    font-weight: bold;
+}
+p.ok {
+    background-color: #6e8;
+}
+p.nok {
+    background-color: #e68;
 }
 
 /* Result tables */

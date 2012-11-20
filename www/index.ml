@@ -26,9 +26,6 @@ struct
         let login_page () =
             View.make_app_page [ h1 "Authentification" ;
                                  form "login" (Forms.Login.edit "login" login) ] in
-        let may_add_err = function
-            | Error (err, inp) -> View.add_err (inp^": "^err)
-            | Value _ -> () in
         match login with
         | Value name, (Value passwd, ()) ->
             if auth name passwd <> None then (
@@ -42,9 +39,7 @@ struct
                 View.add_err "Login failure" ;
                 login_page ()
             )
-        | x, (y, ()) ->
-            may_add_err x ;
-            may_add_err y ;
+        | _ ->
             login_page ()
 
     let logout _args =

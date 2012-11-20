@@ -35,7 +35,7 @@ let add_msg_with_class c txt =
 let add_msg = add_msg_with_class "ok"
 let add_err = add_msg_with_class "nok"
 
-let msgs () = div ~attrs:["id","notifs"] !msgs
+let msgs () = div ~id:"notifs" !msgs
 
 (* Google charts *)
 
