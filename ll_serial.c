@@ -82,7 +82,13 @@ struct obuf {
     uint8_t buf[OBUFLEN];
 };
 
-static void obuf_ctor(struct obuf *ob, char const *fname, bool trunc)
+/* Rather than including linux/falloc.h, define FALLOC_FL_KEEP_SIZE here in
+ * case it's not fixed in fcntl.h yet (see
+ * http://marc.info/?l=linux-man&m=131732812512316&w=2) */
+#ifndef FALLOC_FL_KEEP_SIZE
+#   define FALLOC_FL_KEEP_SIZE 1
+#endif
+static void obuf_ctor(struct obuf *ob, char const *fname, bool trunc, off_t prealloc)
 {
 #   ifndef O_CLOEXEC
 #       define O_CLOEXEC 0
@@ -93,6 +99,11 @@ static void obuf_ctor(struct obuf *ob, char const *fname, bool trunc)
     ob->fd = open(fname, O_WRONLY|O_CREAT|O_CLOEXEC|O_LARGEFILE|(trunc ? O_TRUNC:O_APPEND), 0644);
     if (ob->fd < 0) {
         sys_error("open");
+    } else if (prealloc > 0) {
+        if (0 > fallocate(ob->fd, FALLOC_FL_KEEP_SIZE, 0, prealloc)) {
+            // do not interrupt the program for this, but complains loudly
+            fprintf(stderr, "!!%s!!\n", strerror(errno));
+        }
     }
     ob->next = 0;
 }
@@ -139,13 +150,13 @@ static struct custom_operations obuf_ops = {
     .deserialize = custom_deserialize_default,
 };
 
-value obuf_open(value fname, value trunc)
+value obuf_open(value fname, value trunc, value prealloc)
 {
-    CAMLparam2(fname, trunc);
+    CAMLparam3(fname, trunc, prealloc);
     CAMLlocal1(custom);
     custom = caml_alloc_custom(&obuf_ops, sizeof(struct obuf), 0, 1);
     struct obuf *ob = Data_custom_val(custom);
-    obuf_ctor(ob, String_val(fname), Bool_val(trunc));
+    obuf_ctor(ob, String_val(fname), Bool_val(trunc), Long_val(prealloc));
     CAMLreturn(custom);
 }
 

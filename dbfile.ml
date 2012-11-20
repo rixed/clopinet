@@ -15,9 +15,9 @@ let dir tdir hnum =
 let path tdir hnum snum =
     Printf.sprintf "%s/%d" (dir tdir hnum) snum
 
-let get ?prev tdir hnum snum =
+let get ?prev prealloc tdir hnum snum =
     let fopen i =
-        let oc = Serial.make_obuf (path tdir hnum snum) false in
+        let oc = Serial.make_obuf (path tdir hnum snum) false prealloc in
         (* FIXME: in ll_serial, lock opened obufs!
             (* Lock from the current pos up to the end of file.
              * specs says: "lock all bytes starting at the location specified by l_whence

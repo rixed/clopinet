@@ -209,7 +209,7 @@ let append t x =
             rotate t hnum h_cache
         )
     ) ;
-    let file, oc = Dbfile.get ?prev:h_cache.file t.dir hnum h_cache.max_snum in
+    let file, oc = Dbfile.get ?prev:h_cache.file max_file_size t.dir hnum h_cache.max_snum in
     h_cache.file <- Some file ;
     t.val_writer oc x ;
     h_cache.aggr <- Some (t.aggregator x h_cache.aggr) ;
