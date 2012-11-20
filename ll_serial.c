@@ -149,12 +149,12 @@ value obuf_open(value fname, value trunc)
     CAMLreturn(custom);
 }
 
-void obuf_close(value custom)
+value obuf_close(value custom)
 {
     CAMLparam1(custom);
     struct obuf *ob = Data_custom_val(custom);
     obuf_dtor(ob);
-    CAMLreturn0;
+    CAMLreturn(Val_unit);
 }
 
 /*
@@ -251,12 +251,12 @@ value ibuf_open(value fname)
     CAMLreturn(custom);
 }
 
-void ibuf_close(value custom)
+value ibuf_close(value custom)
 {
     CAMLparam1(custom);
     struct ibuf *ib = Data_custom_val(custom);
     ibuf_dtor(ib);
-    CAMLreturn0;
+    CAMLreturn(Val_unit);
 }
 
 /*
@@ -276,7 +276,7 @@ value wrap_read##width(value custom) \
 }
 
 #define UNBOXED_WRITE(width) \
-void wrap_write##width(value custom, value v_) \
+value wrap_write##width(value custom, value v_) \
 { \
     CAMLparam2(custom, v_); \
     struct obuf *ob = Data_custom_val(custom); \
@@ -284,7 +284,7 @@ void wrap_write##width(value custom, value v_) \
     uint##width##_t v = Long_val(v_); /* Won't work on big endian */ \
     memcpy(ob->buf + ob->next, &v, width/8); \
     ob->next += width/8; \
-    CAMLreturn0; \
+    CAMLreturn(Val_unit); \
 }
 
 #define BOXED_READ(width) \
@@ -302,7 +302,7 @@ value wrap_read##width(value custom) \
 }
 
 #define BOXED_WRITE(width) \
-void wrap_write##width(value custom, value v_) \
+value wrap_write##width(value custom, value v_) \
 { \
     CAMLparam2(custom, v_); \
     struct obuf *ob = Data_custom_val(custom); \
@@ -310,7 +310,7 @@ void wrap_write##width(value custom, value v_) \
     uint##width##_t v = Int##width##_val(v_); \
     memcpy(ob->buf + ob->next, &v, width/8); \
     ob->next += width/8; \
-    CAMLreturn0; \
+    CAMLreturn(Val_unit); \
 }
 
 UNBOXED_READ(8)
@@ -331,13 +331,13 @@ value wrap_read1(value custom)
     CAMLreturn(Val_bool(v));
 }
 
-void wrap_write1(value custom, value v)
+value wrap_write1(value custom, value v)
 {
     CAMLparam2(custom, v);
     struct obuf *ob = Data_custom_val(custom);
     obuf_make_room(ob, 1);
     ob->buf[ob->next ++] = Bool_val(v);
-    CAMLreturn0;
+    CAMLreturn(Val_unit);
 }
 
 static unsigned long read_varuint(struct ibuf *ib)
@@ -421,12 +421,12 @@ static void write_varint(struct obuf *ob, long n)
     write_varuint(ob, (labs(n) << 1U) + (n < 0));
 }
 
-void wrap_write_varint(value custom, value v_)
+value wrap_write_varint(value custom, value v_)
 {
     CAMLparam2(custom, v_);
     struct obuf *ob = Data_custom_val(custom);
     write_varint(ob, Long_val(v_));
-    CAMLreturn0;
+    CAMLreturn(Val_unit);
 }
 
 value wrap_read_string(value custom)
@@ -443,7 +443,7 @@ value wrap_read_string(value custom)
     CAMLreturn(ret);
 }
 
-void wrap_write_string(value custom, value s)
+value wrap_write_string(value custom, value s)
 {
     CAMLparam2(custom, s);
     struct obuf *ob = Data_custom_val(custom);
@@ -452,7 +452,7 @@ void wrap_write_string(value custom, value s)
     obuf_make_room(ob, len);
     memcpy(ob->buf + ob->next, String_val(s), len);
     ob->next += len;
-    CAMLreturn0;
+    CAMLreturn(Val_unit);
 }
 
 // Read a tuple of bytes
@@ -470,7 +470,7 @@ value wrap_read_chars(value custom, value len_)
     CAMLreturn(ret);
 }
 
-void wrap_write_chars(value custom, value t)
+value wrap_write_chars(value custom, value t)
 {
     CAMLparam2(custom, t);
     struct obuf *ob = Data_custom_val(custom);
@@ -481,5 +481,5 @@ void wrap_write_chars(value custom, value t)
         assert(v < 256 && v >= 0);
         ob->buf[ob->next++] = v;
     }
-    CAMLreturn0;
+    CAMLreturn(Val_unit);
 }
