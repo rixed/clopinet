@@ -13,5 +13,6 @@
 *.top
 *.db
 *.cgi
+*.log
 tuple*.ml
 nohup.out
