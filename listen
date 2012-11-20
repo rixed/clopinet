@@ -2,5 +2,5 @@
 
 intf="$1"
 
-rm junkie.log
+sudo rm -f junkie.log 2>/dev/null
 sudo -E junkie -c junkie.scm -l junkie.log -i "$intf" | ./junkie2db test.db
