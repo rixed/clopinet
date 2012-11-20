@@ -207,6 +207,17 @@ struct
     let mul t1 t2 = t1 *. t2
 end
 
+let handle_num_suffix ic =
+    swallow_all ' ' ic ;
+    let suffix = match peek_eof2nl ic with
+        | 'k' -> 1_000
+        | 'K' -> 1_024
+        | 'M' -> 1_000_000
+        | 'G' -> 1_000_000_000
+        | _ -> 1 in
+    if suffix > 1 then TxtInput.swallow ic ;
+    suffix
+
 exception Overflow
 module Integer_base = struct
     type t = int
@@ -236,7 +247,9 @@ module Integer_base = struct
                 let new_v = v*10 + (int_of_char d - Char.code '0') in
                 if new_v < v then raise Overflow else aux new_v
             ) in
-        (if neg then (~-) else identity) (aux 0)
+        let n = aux 0 in
+        let n = n * handle_num_suffix ic in
+        (if neg then (~-) else identity) n
 end
 module Integer : NUMBER with type t = int =
 struct
@@ -262,7 +275,8 @@ struct
                 let new_v = v*10 + (int_of_char d - Char.code '0') in
                 if new_v < v then raise Overflow else aux new_v
             ) else v in
-        aux 0
+        let n = aux 0 in
+        n * handle_num_suffix ic
 end
 
 (* FIXME: use phantom types to prevent this uint8 to be compatible with an uint16? *)
@@ -339,7 +353,9 @@ module UInteger32_base = struct
                 let new_v = Int32.add (Int32.mul v 10l) (Int32.of_int (int_of_char d - Char.code '0')) in
                 if new_v < v then raise Overflow else aux new_v
             ) in
-        aux 0l
+        let n = aux 0l in
+        Int32.mul n (handle_num_suffix ic |> Int32.of_int)
+
 end
 module UInteger32 : NUMBER with type t = Int32.t =
 struct
@@ -376,14 +392,15 @@ module UInteger64_base = struct
     let read = deser64
     let read_txt ic =
         if TxtInput.is_eof ic then raise End_of_file else
-        let rec aux ?(first=false) v =
-            let d = try TxtInput.peek ic with End_of_file when not first -> '\n' in (* any non digit char would do *)
+        let rec aux v =
+            let d = peek_eof2nl ic in
             if d < '0' || d > '9' then v else (
                 TxtInput.swallow ic ;
                 let new_v = Int64.add (Int64.mul v 10L) (Int64.of_int (int_of_char d - Char.code '0')) in
                 if new_v < v then raise Overflow else aux new_v
             ) in
-        aux ~first:true 0L
+        let n = aux 0L in
+        Int64.mul n (handle_num_suffix ic |> Int64.of_int)
 end
 module UInteger64 : NUMBER with type t = Int64.t =
 struct

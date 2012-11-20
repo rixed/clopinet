@@ -1,6 +1,9 @@
 TODO stack
 ----------
 
+* A config file for setting agr levels and max age of files (available from
+web, so should not need recompilation)
+
 * A numeric input that accept various multipliers like K/M/G
 
 * Callflow view using DT and TCP metrics (and later, others as well)
@@ -49,9 +52,6 @@ for this IP).
 * Apart in place where we have Y per secs, keep integers instead of floats
   for volumes.
 
-* Timestamp read as relative date should be kept that way (ie. Timestamp
-should be Abs of ts | Rel of float.
-
 * Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr *or*
   make all these available from cmd line
 
@@ -60,7 +60,8 @@ should be Abs of ts | Rel of float.
 * A max packet size chart, as an histogram
 
 * A metric for notifications (displayed on graphs and tables and netgraph (in 
-a separate window)
+a separate window), with restarts write new ones (added from junkie2db for 
+instance)
 
 * In all time charts where the selected period spans no more than 10 days,
 display in chart background the night times with a sligh dark-blue bgcolor.

@@ -31,7 +31,14 @@ let check_ints () =
     assert (of_string "-0" = 0) ;
     assert (of_string "-10" = ~-10) ;
     assert_exc Overflow of_string "-129" ;
-    assert_exc Overflow of_string "128"
+    assert_exc Overflow of_string "128" ;
+    (* Check preffixes *)
+    let open Integer in
+    assert (of_string "42k" = 42_000) ;
+    assert (of_string "42K" = 43_008) ;
+    assert (of_string "42M" = 42_000_000) ;
+    assert (of_string "42G" = 42_000_000_000) ;
+    assert_exc (Failure "Cannot consume all input") of_string "42m"
     (* TODO: more int checks *)
 
 let check_cidr () =
