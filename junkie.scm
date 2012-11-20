@@ -30,8 +30,8 @@ Or just run: junkie -c this_file
                         " (qry-stop - qry-start) ", " (qry-stop - qry-start) ", " (qry-stop - qry-start) ",
                         " qry-host ", " url ");\n")))
      (web-qry
-       (index-size 5024))
-     (timeout 60000000)]
+       (index-size 5024)
+       (timeout 60000000))]
     ; edges
     [(root web-qry
         (match (cap eth ip tcp http) (if
@@ -84,8 +84,8 @@ Or just run: junkie -c this_file
                         " (qry-stop - qry-start) ", " (qry-stop - qry-start) ", " (qry-stop - qry-start) ",
                         " qry-name ");\n")))
      (dns-query
-       (index-size 5024))
-     (timeout 60000000)]
+       (index-size 5024)
+       (timeout 60000000))]
     ; edges
     [(root dns-query
         (match (cap eth ip dns) (if
@@ -506,6 +506,7 @@ Or just run: junkie -c this_file
                                 (tcp.dst-port == dst-port))
                               (do
                                 (stop := cap.ts)
+                                (nb-pkts := (nb-pkts + 1))
                                 (pld := (pld + tcp.payload))
                                 #t)))
         (src-index-on (ip tcp) (hash ip.src tcp.src-port ip.dst tcp.dst-port))
@@ -549,6 +550,7 @@ Or just run: junkie -c this_file
                                 (udp.dst-port == dst-port))
                               (do
                                 (stop := cap.ts)
+                                (nb-pkts := (nb-pkts + 1))
                                 (pld := (pld + udp.payload))
                                 #t)))
         (src-index-on (ip udp) (hash ip.src udp.src-port ip.dst udp.dst-port))
