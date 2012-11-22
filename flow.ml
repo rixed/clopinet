@@ -1,6 +1,7 @@
 open Bricabrac
 open Datatype
 open Metric
+module Hashtbl = BatHashtbl
 
 let verbose = ref false
 
@@ -106,6 +107,89 @@ struct
         fold ?start ?stop ?vlan ?mac_src ?mac_dst ?ip_src ?ip_dst ?ip ?ip_proto ?port_src ?port_dst ?port dbdir name (fun x _ -> f x) ignore dummy_merge
 
 end
+
+(* Queries *)
+
+                    (*  start    *   stop      * peer1  *  peer2 * descr  * volume * group *)
+type callflow_item = Timestamp.t * Timestamp.t * string * string * string * float * string
+
+let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst dbdir =
+    let string_of_port proto port = try Unix.((getservbyport port proto).s_name) with Not_found -> string_of_int port in
+    let flow_of_tuple ((_vl, _mac_s, ip_s, _mac_d, ip_d, ip_proto, port_s, port_d, ts1, ts2, pkts, pld) : Flow.t) : callflow_item =
+        ts1, ts2,
+        InetAddr.to_string ip_s, InetAddr.to_string ip_d,
+        (let proto = try Unix.((getprotobynumber ip_proto).p_name) with Not_found -> "" in
+        Printf.sprintf "%s%s%s&#x2192;%s (%dpkt%s/%s)"
+            proto (if String.length proto > 0 then "/" else "")
+            (string_of_port proto port_s) (string_of_port proto port_d)
+            pkts (if pkts > 1 then "s" else "")
+            (string_of_volume (float_of_int pld))),
+        float_of_int pld,
+        Traffic.label_of_app_key (ip_proto, min port_s port_d) in
+    let start, stop = min start stop, max start stop in
+    (* The list of IPs we already used as source (avoids looping).
+       FIXME: not very accurate if we start with a restriction on ip_dst or ip_proto... *)
+    let srcs = Hashtbl.create 71 in
+
+    let rec add_flows prevs ip_start ?ip_dst ?ip_proto ?port_src ?port_dst start stop =
+        (* Add to prevs the flows from ip_start to any other host, and from
+         * these hosts to ip_start, occuring between ts_start and ts_stop *)
+        if Hashtbl.mem srcs ip_start then (
+            prevs
+        ) else
+        let flows, peers =
+            Flow.fold ~start ~stop ?vlan ~ip_src:(cidr_singleton ip_start) ?ip_dst
+                      ?ip_proto ?port_src ?port_dst dbdir "flows"
+                      (fun ((_vl, _mac_s, _ip_s, _mac_d, ip_d, ip_prot, port_s, port_d, ts1, _ts2, _pkts, _pld) as x) (flows, ip_2_tsmin) ->
+                          let peer = ip_d,ip_prot,port_s,port_d
+                          and ts1 = Timestamp.max start ts1 in
+                          (match Hashtbl.find_option ip_2_tsmin peer with
+                          | None -> Hashtbl.add ip_2_tsmin peer ts1
+                          | Some ts ->
+                              if Timestamp.compare ts1 ts < 0 then (
+                                  Hashtbl.replace ip_2_tsmin peer ts1
+                              )) ;
+                          (* FIXME: a trimed down version of x? *)
+                          ((flow_of_tuple x) :: flows, ip_2_tsmin))
+                      (fun () -> [], Hashtbl.create 31)
+                      (fun (f1, h1) (f2, h2) -> (* expect (f1, h1) to be larger than (f2, h2) *)
+                          Hashtbl.iter (fun peer2 ts2 ->
+                            match Hashtbl.find_option h1 peer2 with
+                            | None -> Hashtbl.add h1 peer2 ts2
+                            | Some ts1 ->
+                                if Timestamp.compare ts2 ts1 < 0 then
+                                    Hashtbl.replace h1 peer2 ts2) h2 ;
+                          List.rev_append f2 f1, h1) in
+        (* At this point flows has the flows from ip_start to any dest, with
+         * peers being a hash from (ip,proto,ports) to min_ts. Let's add the flow in the
+         * other dorection, starting after tsmin of this peer: *)
+        let flows, peers =
+            Hashtbl.fold (fun (ip,ip_proto,port_dst (* <-inversed-> *),port_src) ts_min (flows, peers) ->
+                let other_dir, ts_max =
+                    Flow.fold ~start:ts_min ~stop ?vlan ~ip_src:(cidr_singleton ip) ~ip_dst:(cidr_singleton ip_start)
+                              ~ip_proto ~port_src ~port_dst dbdir "flows"
+                              (fun ((_vl, _mac_s, _ip_s, _mac_d, _ip_d, _ip_prot, _port_s, _port_d, _ts1, ts2, _pkts, _pld) as x) (flows, tsmax) ->
+                                  let ts2 = Timestamp.min stop ts2 in
+                                  flow_of_tuple x :: flows, Timestamp.max tsmax ts2)
+                              (fun () -> [], ts_min)
+                              (fun (f1, ts1) (f2, ts2) -> (* expect f1 to be larger than f2 *)
+                                List.rev_append f2 f1, Timestamp.max ts1 ts2) in
+                let this_peer = ip,
+                                Timestamp.min ts_min ts_max,
+                                Timestamp.max ts_min ts_max in
+                List.rev_append other_dir flows,
+                this_peer :: peers)
+                peers
+                (flows, []) in
+        (* Now flows have flows in both ways between ip_start and all it's
+         * peers, and for in peers we have a list of all peers with their ts min
+         * and max. Lets recurse! *)
+        Hashtbl.add srcs ip_start true ;
+        List.fold_left (fun flows (ip_start,start,stop) ->
+            add_flows flows ip_start start stop)
+            (List.rev_append flows prevs) peers
+    in
+    add_flows [] ip_start ?ip_dst ?ip_proto ?port_src ?port_dst start stop
 
 (* Load new data into the database *)
 

@@ -125,11 +125,29 @@ module IpField = struct
     let uniq_name = "ip"
     let persistant = false
 end
+module IpStartField = struct
+    module Type = InputOfDatatype(InetAddr)
+    let display_name = "Starting IP"
+    let uniq_name = "ip-start"
+    let persistant = true
+end
 module IpProtoField = struct
     module Type = OptInputOfDatatype(Integer8)
     let display_name = "IP proto"
     let uniq_name = "ip-proto"
     let persistant = false
+end
+module L4SrcPortField = struct
+    module Type = OptInputOfDatatype(Integer16)
+    let display_name = "src port"
+    let uniq_name = "src-port"
+    let persistant = true
+end
+module L4DstPortField = struct
+    module Type = OptInputOfDatatype(Integer16)
+    let display_name = "dst port"
+    let uniq_name = "dst-port"
+    let persistant = true
 end
 module L4PortField = struct
     module Type = OptInputOfDatatype(Integer16)
@@ -436,3 +454,17 @@ module Dns = struct
                           (ConsOf (FieldOf (SortOrder))
                                   (NulType))))))))))))))
 end
+
+module Flow = struct
+    module Callflow = RecordOf (ConsOf (FieldOf (StartField))
+                               (ConsOf (FieldOf (StopField))
+                               (ConsOf (FieldOf (VlanField))
+                               (ConsOf (FieldOf (IpStartField))
+                               (ConsOf (FieldOf (IpDstField))
+                               (ConsOf (FieldOf (IpProtoField))
+                               (ConsOf (FieldOf (L4SrcPortField))
+                               (ConsOf (FieldOf (L4DstPortField))
+                                       (NulType)))))))))
+end
+
+

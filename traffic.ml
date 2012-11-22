@@ -1,6 +1,7 @@
 open Bricabrac
 open Datatype
 open Metric
+module Hashtbl = BatHashtbl
 
 (* FIXME: factorize all this with DNS, or generate this? *)
 

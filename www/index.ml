@@ -165,6 +165,23 @@ struct
 
     end
 
+    module Flow =
+    struct
+        include Flow
+        let dbdir = dbdir^"/flow"
+        let callflow args =
+            let filters = Forms.Flow.Callflow.from_args "filter" args in
+            let filters_form = form "Traffic/callflow" (Forms.Flow.Callflow.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value ip_start, (Value ip_dst, (Value ip_proto, (Value port_src, (Value port_dst, ()))))))) ->
+                    let start = My_time.to_timeval start
+                    and stop  = My_time.to_timeval stop in
+                    let datasets = get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst dbdir in
+                    View.callflow_chart datasets
+                | _ -> [] in
+            View.make_graph_page "Call Flow" filters_form disp_graph
+    end
+
     module Web =
     struct
         include Web
@@ -196,7 +213,7 @@ struct
                           "Response Time (&#x00B5s)" ;
                           "URL" ] in
                     View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, port, meth, err, ts, (_, _, _, rt, _), host, url) ->
-                        [ View.string_of_vlan vlan ;
+                        [ string_of_vlan vlan ;
                           EthAddr.to_string eclt ;
                           Cidr.to_string clt ;
                           EthAddr.to_string esrv ;
@@ -252,7 +269,7 @@ struct
                           "Error Code" ; "Timestamp" ;
                           "Response Time (&#x00B5s)" ; "Query Name" ] in
                     View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, err, ts, (_, _, _, rt, _), name) ->
-                        [ View.string_of_vlan vlan ;
+                        [ string_of_vlan vlan ;
                           EthAddr.to_string eclt ;
                           Cidr.to_string clt ;
                           EthAddr.to_string esrv ;
@@ -301,6 +318,8 @@ let _ =
             Ctrl.ensure_logged Ctrl.Traffic.graph
         | ["Traffic"; "tops"] ->
             Ctrl.ensure_logged Ctrl.Traffic.tops
+        | ["Traffic"; "callflow"] ->
+            Ctrl.ensure_logged Ctrl.Flow.callflow
         | ["Web"; "resptime"] ->
             Ctrl.ensure_logged Ctrl.Web.resp_time
         | ["Web"; "top"] ->

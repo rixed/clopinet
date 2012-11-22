@@ -1,3 +1,4 @@
+open Batteries
 open Datatype
 open Flow
 
@@ -36,6 +37,14 @@ let main =
         "-ip-src", String (fun s -> ip_src := Some (Cidr.of_string s)), "limit to these sources" ;
         "-ip-dst", String (fun s -> ip_dst := Some (Cidr.of_string s)), "limit to these dests" ;
         "-port-src", String (fun s -> port_src := Some (UInteger16.of_string s)), "limit to these source ports" ;
-        "-port-dst", String (fun s -> port_dst := Some (UInteger16.of_string s)), "limit to these dest ports" ]
+        "-port-dst", String (fun s -> port_dst := Some (UInteger16.of_string s)), "limit to these dest ports" ;
+        "-query", String (fun s -> Flow.(get_callflow (BatOption.get !start) (BatOption.get !stop)
+                                                ?vlan:!vlan (InetAddr.of_string s)
+                                                ?ip_proto:!ip_proto ?port_src:!port_src ?port_dst:!port_dst !dbdir |>
+                                   List.iter (fun (ts1, ts2, ip1, ip2, descr, _vol, group) ->
+                                       Printf.printf "%s->%s @ [%s:%s], %s (%s)\n"
+                                           ip1 ip2
+                                           (Timestamp.to_string ts1) (Timestamp.to_string ts2)
+                                           descr group))), "List flows from this IP" ]
         (fun x -> raise (Bad x))
         "Operate the traffic DB")

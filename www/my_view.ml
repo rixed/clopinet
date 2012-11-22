@@ -1,30 +1,10 @@
 module StdScanf = Scanf (* opening Batteries will somewhat overwrite the stdlib exception... *)
 open Batteries
+module Timestamp = Datatype.Timestamp
+module UInteger64 = Datatype.UInteger64
 
 open Html
 include View
-
-(* Misc *)
-
-let string_of_vlan = function
-    | None -> ""
-    | Some v -> string_of_int v
-
-let multiples_bytes = [| ""; "KiB"; "MiB"; "GiB"; "TiB"; "PiB" |]
-let multiples = [| ""; "k"; "M"; "G"; "T"; "P" |]
-let unpower v =
-    let rec aux e v =
-        if e >= Array.length multiples -1 || v < 1024. then
-            e, v
-        else
-            aux (succ e) (v/.1024.) in
-    aux 0 v
-let string_of_volume v =
-    let e, v = unpower v in
-    Printf.sprintf "%.2f %s" v multiples_bytes.(e)
-let string_of_number v =
-    let e, v = unpower v in
-    Printf.sprintf "%.2f %s" v multiples.(e)
 
 (* notification system *)
 
@@ -55,7 +35,7 @@ let header () =
 
 let menu () =
     let html_of_entry e1 e2 = tag "li" [ tag "a" ~attrs:["href","?action="^e1^"/"^e2] [cdata e2] ]
-    and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "tops"; "graph"] ;
+    and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "tops"; "graph"; "callflow"] ;
                          "DNS", ["resptime"; "top"] ;
                          "Web", ["resptime"; "top"] ;
                          "Admin", ["logout"] ] in
@@ -203,7 +183,7 @@ let to_deg rad = 180. *. rad /. pi
 let svg_width = 800. and svg_height = 600.
 
 let peers_chart ?(is_bytes=false) datasets =
-    let string_of_val = if is_bytes then string_of_volume else string_of_number in
+    let string_of_val = if is_bytes then Datatype.string_of_volume else Datatype.string_of_number in
     let inner_rad = 0.3 *. svg_height in
     let inner_x = svg_height/.2. and inner_y = svg_height/.2. in
     let inner r x y = (x -. inner_x) *. r +. inner_x,
@@ -270,7 +250,7 @@ let peers_chart ?(is_bytes=false) datasets =
                 let anchor = if a < 0.5*.pi || a > 1.5*.pi then "start" else "end" in
                    g ~attrs:["transform","translate("^string_of_float x^","^string_of_float y^") "^
                                          "rotate("^string_of_float (to_deg a') ^")" ;
-                             "onmouseover","peer_select(evt, '"^p^"', '"^string_of_volume tot_up^"', '"^string_of_volume tot_down^"')" ;
+                             "onmouseover","peer_select(evt, '"^p^"', '"^Datatype.string_of_volume tot_up^"', '"^Datatype.string_of_volume tot_down^"')" ;
                              "onmouseout", "peer_unselect(evt)" ]
                      [ text ~attrs:["class",class_list ; "id",pclass] ~style:("text-anchor:"^anchor^"; dominant-baseline:central")
                             ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_width:0. p ]
@@ -427,4 +407,93 @@ legend:{textStyle:{fontSize:9}}\n\
 var chart = new google.visualization.ComboChart(document.getElementById('chart_div'));\n\
 chart.draw(data, options);\n") ]
 
+(* Dataset is a list of (ts1, ts2, peer1, peer2, descr, group), where group is used for coloring *)
+let callflow_chart datasets =
+    (* build the hash of all peers and set their X location and time range *)
+    let left_margin = 50. and peer_width = 100.
+    and first_ts = ref Int64.max_int and last_ts = ref Int64.zero and bw_max = ref 0. in
+    (* TODO: order by ts2-ts1 (starting ip should thus stay at left *)
+    let peers = Hashtbl.create 71 (* ip -> (ref x, ts_min, ts_max) *) in
+    let y_of_ts ts =
+        let dt = Timestamp.sub !last_ts !first_ts |> Int64.to_float
+        and y = Timestamp.sub ts !first_ts |> Int64.to_float in
+        (* scale from 0 to svg_height *)
+        (y *. svg_height) /. dt in
+    let x_ref_of_peer ip =
+        let x, _, _ = Hashtbl.find peers ip in x in
+    let x_of_peer ip = !(x_ref_of_peer ip) in
+    let update_peer ip ts1 ts2 =
+        if Timestamp.compare ts1 !first_ts < 0 then first_ts := ts1 ;
+        if Timestamp.compare ts2 !last_ts > 0 then last_ts := ts2 ;
+        match Hashtbl.find_option peers ip with
+        | None ->
+            Hashtbl.add peers ip (ref 0., ts1, ts2) ;
+        | Some (x, ts1',ts2') ->
+            Hashtbl.replace peers ip (x, Timestamp.min ts1 ts1', Timestamp.max ts2 ts2') in
+    List.iter (fun (ts1,ts2,ip1,ip2,_,vol,_) ->
+        update_peer ip1 ts1 ts2 ;
+        update_peer ip2 ts1 ts2 ;
+        if ts2 > ts1 then
+            let bw = vol /. (Timestamp.sub ts2 ts1 |> Int64.to_float) in
+            if bw > !bw_max then bw_max := bw)
+        datasets ;
+    (* Find out x of peers, ordering them from taller to smaller *)
+    let peer_durations : (float ref * Timestamp.t) array =
+        Hashtbl.enum peers /@
+        (fun (_ip, (x, ts_min, ts_max)) -> x, Timestamp.sub ts_max ts_min) |>
+        Array.of_enum in
+    Array.sort (fun (_x1, dt1) (_x2, dt2) ->
+        ~- (Timestamp.compare dt1 dt2))
+        peer_durations ;
+    Array.iteri (fun i (x, _dt) ->
+        x := left_margin +. float_of_int i *. peer_width) peer_durations ;
+    (* Show timeline for each peer (TODO: better allocation of X space) *)
+    let svg_peers =
+        let padding_y = 10. in
+        (* A set of columns, one for each IP *)
+        Hashtbl.fold (fun ip (x, ts1, ts2) p ->
+            let y1 = y_of_ts ts1 -. padding_y and y2 = y_of_ts ts2 +. padding_y in
+            (g [ line ~stroke:"#000" ~stroke_width:2. (!x, y1) (!x, y2) ;
+                 text ~x:!x ~y:(y1-.10.)
+                      ~style:("text-anchor:middle; dominant-baseline:central")
+                      ~font_size:13.
+                      ip ]) :: p)
+            peers []
+    and svg_flows =
+        (* flows from source to dest *)
+        let dw = 1. (* otherwise arrow of 0 width would looks ugly *) in
+        List.map (fun (ts1, ts2, ip_s, ip_d, descr, vol, group) ->
+            let y1 = y_of_ts ts1 and y2 = y_of_ts ts2
+            and x1 = x_of_peer ip_s and x2 = x_of_peer ip_d in
+            let dx = abs_float (x1 -. x2) and dt = y2 -. y1 in
+            let hx = min (peer_width *. 0.2) (peer_width *. 0.05 +. dt *. 0.1) in
+            let hy = hx *. 0.5 in
+            let hx = if x2 >= x1 then hx else -.hx in
+            let inclin = min 20. (hy *. (0.001 *. dx)) in
+            let fill_opacity = (* proportionnal to bandwidth *)
+                if dt > 0. then
+                    let bw = vol /. dt in min 1. (0.1 +. (bw /. !bw_max))
+                else
+                    0.6
+            and fill = Color.(random_of_string group |> to_html) in
+            g [ path ~stroke:fill ~stroke_width:0.5 ~stroke_opacity:0.7 ~fill_opacity ~fill (
+                   moveto (x1, y1 -. dw -. inclin) ^
+                   lineto (x2 -. hx, y1 -. dw +. inclin) ^
+                   lineto (x2 -. hx, y1 -. dw -. hy +. inclin) ^
+                   lineto (x2, y1 +. inclin) ^
+                   lineto (x2, y2 +. inclin) ^
+                   lineto (x2 -. hx, y2 +. dw +. hy +. inclin) ^
+                   lineto (x2 -. hx, y2 +. dw +. inclin) ^
+                   lineto (x1, y2 +. dw -. inclin) ^
+                   closepath
+                ) ;
+                text ~x:((3.*.x1+.x2)*.0.25) ~y:(y1-.5.) ~style:("text-anchor:middle; dominant-baseline:central") ~font_size:6.
+                     descr ]
+        ) datasets in
+    [ div ~id:"callflow"
+      [ svg
+          [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
+              [ g svg_flows ;
+                g svg_peers ] ] ] ;
+      script "svg_explorer('callflow', 'scaler');" ]
 

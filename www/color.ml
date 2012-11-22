@@ -26,4 +26,20 @@ let get s v =
                 start_c +. r *. (stop_c -. start_c))
                 stop_col in
     aux (0., [||]) s |> to_html
+
+let nb_random_colors = 64
+let random_colors =
+    let frac v = fst (modf v) in
+    Enum.from_loop
+        (102, 311, 67)
+        (fun (r,g,b) ->
+            [| frac (float_of_int r /.255.) ;
+               frac (float_of_int g /.255.) ;
+               frac (float_of_int b /.255.) |],
+            (r + 133, g + 39, b + 247)) |>
+    Enum.take nb_random_colors |>
+    Array.of_enum
+
+let random_of_string str =
+    let i = Hashtbl.hash str in random_colors.(i mod nb_random_colors)
     

@@ -218,6 +218,26 @@ let handle_num_suffix ic =
     if suffix > 1 then TxtInput.swallow ic ;
     suffix
 
+let string_of_vlan = function
+    | None -> ""
+    | Some v -> string_of_int v
+
+let multiples_bytes = [| "B"; "KiB"; "MiB"; "GiB"; "TiB"; "PiB" |]
+let multiples = [| ""; "k"; "M"; "G"; "T"; "P" |]
+let unpower v =
+    let rec aux e v =
+        if e >= Array.length multiples -1 || v < 1024. then
+            e, v
+        else
+            aux (succ e) (v/.1024.) in
+    aux 0 v
+let string_of_volume v =
+    let e, v = unpower v in
+    Printf.sprintf "%.*f%s" (if fst (modf v) < 0.01 then 0 else 2) v multiples_bytes.(e)
+let string_of_number v =
+    let e, v = unpower v in
+    Printf.sprintf "%.*f%s" (if fst (modf v) < 0.01 then 0 else 2) v multiples.(e)
+
 exception Overflow
 module Integer_base = struct
     type t = int
@@ -500,15 +520,19 @@ let in_cidr (addr : Unix.inet_addr) ((net : Unix.inet_addr), mask) =
 let inter_cidr (((net1 : Unix.inet_addr), _mask1) as cidr1) (((net2 : Unix.inet_addr), _mask2) as cidr2) =
     in_cidr net1 cidr2 || in_cidr net2 cidr1
 
+
+let masklen_of (t : Unix.inet_addr) =
+    let s = Obj.magic t in String.length s * 8
+
 (* Usefull function to degrade an InetAddr into a subnet.
   Returns IP*mask *)
 let cidr_of_inetaddr subnets ip =
-    let masklen_of (t : Unix.inet_addr) =
-        let s = Obj.magic t in String.length s * 8 in
     let net, mask =
         try List.find (in_cidr ip) subnets
         with Not_found -> ip, masklen_of ip in
     net, mask
+
+let cidr_singleton ip = ip, masklen_of ip
 
 open Bitstring
 let fold_ips ((netaddr : Unix.inet_addr), mask) f p =
@@ -798,6 +822,9 @@ module Timestamp = struct
         let i64 = Int64.of_int i in
         Int64.mul t i64
     let mul _ _ = failwith "Cannot mul timestamps!"
+
+    let min = min
+    let max = max
 
     (* Helper to build a Timestamp.t from a user friendly string *)
     exception Invalid_date of (int * int * int * int * int * float)
