@@ -380,6 +380,8 @@ let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_m
             (fun (t1, t2, _, vlan, mac_src, mac_dst, mac_proto, mac_pld, _, ip_src, ip_dst, _, _, _, _, _) p ->
                 let y = float_of_int mac_pld in
                 let _, _, y = Plot.clip_y ~start ~stop t1 t2 y in
+                (* FIXME: wait till Plot.netgraph is done before converting keys
+                 * to string representation !*)
                 let p = if show_mac then (
                         let src, dst, y = if EthAddr.compare mac_src mac_dst <= 0 then mac_src, mac_dst, y
                                                                                   else mac_dst, mac_src, ~-.y in
@@ -399,8 +401,16 @@ let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_m
                 ) else p)
             i m
         in
-    Plot.netgraph ?min_volume fold
-
+    let graph = Plot.netgraph fold (+.) in
+    match min_volume with
+    | None ->
+        graph
+    | Some min_volume ->
+        let min_volume = float_of_int min_volume in
+        Hashtbl.filter_map (fun _k1 n ->
+            let n' = Hashtbl.filter (fun y -> y >= min_volume) n in
+            if Hashtbl.is_empty n' then None
+            else Some n') graph
 
 (* Lod1: Accumulated over 10mins *)
 (* Lod2: round timestamp to hour *)

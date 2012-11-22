@@ -102,7 +102,7 @@ static void obuf_ctor(struct obuf *ob, char const *fname, bool trunc, off_t prea
     } else if (prealloc > 0) {
         if (0 > fallocate(ob->fd, FALLOC_FL_KEEP_SIZE, 0, prealloc)) {
             // do not interrupt the program for this, but complains loudly
-            fprintf(stderr, "!!%s!!\n", strerror(errno));
+            fprintf(stderr, "Cannot fallocate on %s: !!%s!!\n", fname, strerror(errno));
         }
     }
     ob->next = 0;

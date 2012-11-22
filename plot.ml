@@ -173,24 +173,26 @@ let hash_update_with_default def h k f =
     with Not_found ->
         Hashtbl.add h k def
 
-(* returns a hash of node *)
-let netgraph ?min_volume fold =
+(* Given a fold function yielding key1, key2 (ordered), user_data,
+ * returns a hash of key1 to a map of key2 to the user_values,
+ * aggregated with [aggr user_value1 user_value2]. *)
+let netgraph fold aggr =
     let update_h h k1 k2 v =
         let peers = hash_find_or_insert h k1 (fun () ->
             Hashtbl.create 3) in
         hash_update_with_default v
             peers k2
-            ((+.) v) in
+            (aggr v) in
     let update_h_node h k1 peers =
         try let prev_peers = Hashtbl.find h k1 in
             (* merge peers into prev_peers *)
             Hashtbl.iter (fun k2 v ->
                 hash_update_with_default v
                     prev_peers k2
-                    ((+.) v)) peers
+                    (aggr v)) peers
         with Not_found ->
             Hashtbl.add h k1 peers in
-    let graph = fold (fun k1 k2 v h ->
+    fold (fun k1 k2 v h ->
         update_h h k1 k2 v ;
         h)
         (fun () -> Hashtbl.create 31)
@@ -198,16 +200,7 @@ let netgraph ?min_volume fold =
             Hashtbl.iter (fun k1 n ->
                 (* add k1->n into h1 *)
                 update_h_node h1 k1 n) h2 ;
-            h1) in
-    match min_volume with
-    | None ->
-        graph
-    | Some min_volume ->
-        let min_volume = float_of_int min_volume in
-        Hashtbl.filter_map (fun _k1 n ->
-            let n' = Hashtbl.filter (fun y -> y >= min_volume) n in
-            if Hashtbl.is_empty n' then None
-            else Some n') graph
+            h1)
 
 module DataSet (Key : DATATYPE) =
 struct

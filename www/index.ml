@@ -24,7 +24,7 @@ struct
     let login args =
         let login = Forms.Login.from_args "login" args in
         let login_page () =
-            View.make_app_page [ h1 "Authentification" ;
+            View.make_app_page [ h1 "Hello! Who are you?" ;
                                  form "login" (Forms.Login.edit "login" login) ] in
         match login with
         | Value name, (Value passwd, ()) ->
