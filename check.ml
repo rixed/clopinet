@@ -87,7 +87,9 @@ let check_interval () =
     assert (of_string "42 msec" = { zero with msecs = 42 }) ;
     assert (of_string "42 msecs" = { zero with msecs = 42 }) ;
     assert (of_string "6y 4months 42 secs" =
-        { zero with years = 6 ; months = 4 ; secs = 42 })
+        { zero with years = 6 ; months = 4 ; secs = 42 }) ;
+    (* check we display something for 0 interval *)
+    assert (String.length (to_string zero) > 0)
 
 module TestOption = Option (Integer8)
 let check_option () =

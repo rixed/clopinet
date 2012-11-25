@@ -1,6 +1,18 @@
 TODO stack
 ----------
 
+* An html legend next to the callflow svg, with y mouse coordinate translated
+  into time, and info on selected peer timeline (IP...?) + http link to other
+  infos related to this peer
+
+* Passer tous les RT en ms dans la base (et faire ecrire des floats à junkie)
+
+* TCP resptimes
+
+* User prefs with svg dimensions, wether to resolve IPs/MACs...
+
+* callflow: when mouse if over an arrow display time in legend
+
 * A config file for setting agr levels and max age of files (available from
 web, so should not need recompilation)
 
@@ -37,13 +49,14 @@ ip), et qu'on utiliserait pour colorer des lignes ou des nodes svg.
 accept syntax such as "3,5,67-78", and these params should be returned
 as functions. The only exception is ip srv which is used as an index.
 
-* in the netgraph, display roles or IPs, as the port the IP is server for (ie
+* in the netgraph legend, display roles or IPs, as the port the IP is server 
+* for (ie
 traffic decomposition by srv port - or a button to open a page with this info 
 for this IP).
 
-* in the netgraph, display MTU/traffic per link
+* in the netgraph legend, display MTU/traffic per link
 
-* in the netgraph, client side search engine for IP/Mac
+* in the netgraph legend, client side search engine for IP/Mac
 
 * Add metric for Sql, VoIP, ARP, ...
 
@@ -66,6 +79,9 @@ instance)
 * In all time charts where the selected period spans no more than 10 days,
 display in chart background the night times with a sligh dark-blue bgcolor.
 Same spirit: add a vertical bar at current time.
+
+* User authentication is the job of the web server not mine. Remove 
+login/logout.
 
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
@@ -106,4 +122,7 @@ distributed querying
 * nettrack language should provide special function to create a new capfile,
   add a packet to it, discard it, save it, etc. Ie. a capture type with most
   operations implemented in C.
+
+
+* Auth avec PAM bien sur
 

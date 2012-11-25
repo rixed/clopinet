@@ -674,7 +674,8 @@ module Interval_base = struct
         w t.hours  "hour" ;
         w t.mins   "min" ;
         w t.secs   "sec" ;
-        w t.msecs  "msec"
+        w t.msecs  "msec" ;
+        if not !started then Output.char oc '0'
 
     let read ic =
         let years  = deser_varint ic in
