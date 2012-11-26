@@ -142,7 +142,7 @@ struct
                         get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
                                      ~dns_dbdir:(dbdir^"/dns") ~web_dbdir:(dbdir^"/web")
                                      ~tcp_dbdir:(dbdir^"/tcp") flow_dbdir in
-                    View.callflow_chart datasets
+                    View.callflow_chart (InetAddr.to_string ip_start) datasets
                 | _ -> [] in
             View.make_graph_page "Call Flow" filters_form disp_graph
     end

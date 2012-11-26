@@ -415,7 +415,7 @@ var chart = new google.visualization.ComboChart(document.getElementById('chart_d
 chart.draw(data, options);\n") ]
 
 (* Dataset is a list of (ts1, ts2, peer1, peer2, descr, group), where group is used for coloring *)
-let callflow_chart (datasets : Flow.callflow_item list) =
+let callflow_chart start (datasets : Flow.callflow_item list) =
     let left_margin = 50. and peer_width = 100.
     and first_ts = ref Int64.max_int and last_ts = ref Int64.zero
     and bw_max = ref 0. and tot_svg_height = ref svg_height
@@ -480,15 +480,17 @@ let callflow_chart (datasets : Flow.callflow_item list) =
     let h = ((Int64.to_float (Timestamp.sub !last_ts !first_ts)) *. min_dt_pix) /.
             Int64.to_float !min_dt in
     tot_svg_height := max svg_height h ;
-    (* Find out x of peers, ordering them from taller to smaller *)
-    let peer_durations : (float ref * Timestamp.t) array =
+    (* Find out x of peers, ordering them from taller to smaller, with the given source as first *)
+    let peer_durations =
         Hashtbl.enum peers /@
-        (fun (_ip, (x, ts_min, ts_max)) -> x, Timestamp.sub ts_max ts_min) |>
+        (fun ((_ip, (_x, ts_min, ts_max)) as peer) -> peer, Timestamp.sub ts_max ts_min) |>
         Array.of_enum in
-    Array.sort (fun (_x1, dt1) (_x2, dt2) ->
+    Array.sort (fun (p1, dt1) (p2, dt2) ->
+        if fst p1 = start then -1 else
+        if fst p2 = start then 1 else
         ~- (Timestamp.compare dt1 dt2))
         peer_durations ;
-    Array.iteri (fun i (x, _dt) ->
+    Array.iteri (fun i ((_ip, (x, _ts_min, _ts_max)), _dt) ->
         x := left_margin +. float_of_int i *. peer_width) peer_durations ;
     (* Show timeline for each peer (TODO: better allocation of X space) *)
     let peer_y_padding = 20. in
