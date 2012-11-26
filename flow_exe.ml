@@ -41,10 +41,10 @@ let main =
         "-query", String (fun s -> Flow.(get_callflow (BatOption.get !start) (BatOption.get !stop)
                                                 ?vlan:!vlan (InetAddr.of_string s)
                                                 ?ip_proto:!ip_proto ?port_src:!port_src ?port_dst:!port_dst !dbdir |>
-                                   List.iter (fun (ts1, ts2, ip1, ip2, descr, _vol, group) ->
-                                       Printf.printf "%s->%s @ [%s:%s], %s (%s)\n"
-                                           ip1 ip2
-                                           (Timestamp.to_string ts1) (Timestamp.to_string ts2)
-                                           descr group))), "List flows from this IP" ]
+                                   List.iter (fun (ts1, ts2, ip1, ip2, descr, group, _spec) ->
+                                           Printf.printf "%s->%s @ [%s:%s], %s (%s)\n"
+                                               ip1 ip2
+                                               (Timestamp.to_string ts1) (Timestamp.to_string ts2)
+                                               descr group))), "List flows from this IP" ]
         (fun x -> raise (Bad x))
         "Operate the traffic DB")

@@ -110,11 +110,34 @@ end
 
 (* Queries *)
 
-                    (*  start    *   stop      * peer1  *  peer2 * descr  * volume * group *)
-type callflow_item = Timestamp.t * Timestamp.t * string * string * string * float * string
+type callflow_item_spec = Dt of float (* volume *) | Tx of string (* resp *)
+type callflow_item =
+   (*  start    *   stop      * peer1  *  peer2 * descr  * group *)
+    Timestamp.t * Timestamp.t * string * string * string * string * callflow_item_spec
 
-let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst dbdir =
+let clip start stop (x : Flow.t) =
+    let ratio tot rem v =
+        Int64.div (Int64.mul rem (Int64.of_int v)) tot |> Int64.to_int in
+    let clip_lo ((vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, ts1, ts2, pkts, pld) as x) =
+        if Timestamp.compare ts1 start >= 0 then x else (
+            let tot = Timestamp.sub ts2 ts1
+            and rem = Timestamp.sub start ts1 in
+            (vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, start, ts2, ratio tot rem pkts, ratio tot rem pld)
+        )
+    and clip_hi ((vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, ts1, ts2, pkts, pld) as x) =
+        if Timestamp.compare ts2 stop <= 0 then x else (
+            let tot = Timestamp.sub ts2 ts1
+            and rem = Timestamp.sub ts2 stop in
+            (vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, ts1, stop, ratio tot rem pkts, ratio tot rem pld)
+        ) in
+    clip_lo x |> clip_hi
+
+let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst ?dns_dbdir ?web_dbdir ?tcp_dbdir dbdir =
     let string_of_port proto port = try Unix.((getservbyport port proto).s_name) with Not_found -> string_of_int port in
+    let ts2_of_rt ts1 (rt_count, _rt_min, _rt_max, rt_avg, _rt_sigma) =
+        assert (rt_count = 1) ;
+        let dt = Int64.of_float (rt_avg *. 0.001) in (* micro to milliseconds *)
+        Timestamp.add ts1 dt in
     let flow_of_tuple ((_vl, _mac_s, ip_s, _mac_d, ip_d, ip_proto, port_s, port_d, ts1, ts2, pkts, pld) : Flow.t) : callflow_item =
         ts1, ts2,
         InetAddr.to_string ip_s, InetAddr.to_string ip_d,
@@ -124,8 +147,26 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
             (string_of_port proto port_s) (string_of_port proto port_d)
             pkts (if pkts > 1 then "s" else "")
             (string_of_volume (float_of_int pld))),
-        float_of_int pld,
-        Traffic.label_of_app_key (ip_proto, min port_s port_d) in
+        Traffic.label_of_app_key (ip_proto, min port_s port_d),
+        Dt (float_of_int pld)
+    and flow_of_dns (_vlan, _clte, clt, _srve, srv, err, ts, rt, name) =
+        ts, ts2_of_rt ts rt,
+        InetAddr.to_string (fst clt), InetAddr.to_string srv,
+        Printf.sprintf "%s?" name,
+        "DNS",
+        Tx (Dns.string_of_err err)
+    and flow_of_web (_vlan, _clte, clt, _srve, srv, _srvp, meth, err, ts, rt, host, url) =
+        ts, ts2_of_rt ts rt,
+        InetAddr.to_string (fst clt), InetAddr.to_string srv,
+        Web.string_of_request meth host url,
+        "WEB",
+        Tx (Printf.sprintf "status: %d" err)
+    and flow_of_tcp (_vlan, _clte, clt, _srve, srv, cltp, srvp, ts, syns, ct) =
+        ts, ts2_of_rt ts ct,
+        InetAddr.to_string (fst clt), InetAddr.to_string srv,
+        Printf.sprintf "SYN %d&#x2192;%d" cltp srvp,
+        "TCP",
+        Tx (if syns > 2 then Printf.sprintf "%d SYNs" syns else "") in
     let start, stop = min start stop, max start stop in
     (* The list of IPs we already used as source (avoids looping).
        FIXME: not very accurate if we start with a restriction on ip_dst or ip_proto... *)
@@ -149,8 +190,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
                               if Timestamp.compare ts1 ts < 0 then (
                                   Hashtbl.replace ip_2_tsmin peer ts1
                               )) ;
-                          (* FIXME: a trimed down version of x? *)
-                          ((flow_of_tuple x) :: flows, ip_2_tsmin))
+                          ((flow_of_tuple (clip start stop x)) :: flows, ip_2_tsmin))
                       (fun () -> [], Hashtbl.create 31)
                       (fun (f1, h1) (f2, h2) -> (* expect (f1, h1) to be larger than (f2, h2) *)
                           Hashtbl.iter (fun peer2 ts2 ->
@@ -170,7 +210,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
                               ~ip_proto ~port_src ~port_dst dbdir "flows"
                               (fun ((_vl, _mac_s, _ip_s, _mac_d, _ip_d, _ip_prot, _port_s, _port_d, _ts1, ts2, _pkts, _pld) as x) (flows, tsmax) ->
                                   let ts2 = Timestamp.min stop ts2 in
-                                  flow_of_tuple x :: flows, Timestamp.max tsmax ts2)
+                                  flow_of_tuple (clip start stop x) :: flows, Timestamp.max tsmax ts2)
                               (fun () -> [], ts_min)
                               (fun (f1, ts1) (f2, ts2) -> (* expect f1 to be larger than f2 *)
                                 List.rev_append f2 f1, Timestamp.max ts1 ts2) in
@@ -182,11 +222,30 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
                 peers
                 (flows, []) in
         (* Now flows have flows in both ways between ip_start and all it's
-         * peers, and for in peers we have a list of all peers with their ts min
-         * and max. Lets recurse! *)
+         * peers, and in peers we have a list of all peers with their ts min
+         * and max. Look for all transactions we can find for these peers,
+         * and recurse! *)
         Hashtbl.add srcs ip_start true ;
-        List.fold_left (fun flows (ip_start,start,stop) ->
-            add_flows flows ip_start start stop)
+        List.fold_left (fun flows (ip, start, stop) ->
+            let empty_flows () = []
+            and merge_flows f1 f2 = List.rev_append f2 f1 in
+            let dns_flows = BatOption.map_default (fun dbdir ->
+                Dns.Dns.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir "queries" (fun dns flows ->
+                    flow_of_dns dns :: flows)
+                    empty_flows merge_flows) [] dns_dbdir
+            and web_flows = BatOption.map_default (fun dbdir ->
+                Web.Web.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir "queries" (fun web flows ->
+                    flow_of_web web :: flows)
+                    empty_flows merge_flows) [] web_dbdir
+            and tcp_flows = BatOption.map_default (fun dbdir ->
+                Tcp.Tcp.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir "sockets" (fun tcp flows ->
+                    flow_of_tcp tcp :: flows)
+                    empty_flows merge_flows) [] tcp_dbdir
+            in
+            let all_flows = List.rev_append dns_flows flows |>
+                            List.rev_append web_flows |>
+                            List.rev_append tcp_flows in
+            add_flows all_flows ip start stop)
             (List.rev_append flows prevs) peers
     in
     add_flows [] ip_start ?ip_dst ?ip_proto ?port_src ?port_dst start stop

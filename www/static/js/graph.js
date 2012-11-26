@@ -66,6 +66,18 @@ function peer_unselect(evt)
     }
 }
 
+/* Functions to explore the netgraph */
+
+function node_select(evt, peer_name)
+{
+    document.getElementById('selected-peer-name').innerHTML = peer_name;
+    document.getElementById('selected-peer-info').innerHTML = '??';
+}
+
+function node_unselect(evt)
+{
+}
+
 /* Function to navigate svg graphs */
 
 // Given the id of some svg:g, make it zoomable via the mouse
@@ -88,7 +100,7 @@ function svg_explorer(svg_id, controler_id)
 
         var prev_zoom = zoom;
         zoom *= 1 + dir*0.3;
-        if (zoom < 0.3) zoom = 0.3;
+        if (zoom < 0.03) zoom = 0.03;
 
         var rect = svg.getBoundingClientRect(), root = document.documentElement;
         var cursor_x = e.clientX - rect.left - root.scrollLeft;
@@ -143,3 +155,31 @@ function svg_explorer(svg_id, controler_id)
         return false;
     }, false);
 }
+
+/* function for callflow graph */
+
+function has_class(elmt, class_name)
+{
+    return elmt.getAttribute("class").indexOf(class_name) > -1;
+}
+
+function timeline_select(evt, peer_name)
+{
+    var all = document.getElementsByClassName("fitem");
+    for (var i = 0; i < all.length; i++) {
+        all[i].setAttribute("opacity",
+            has_class(all[i], peer_name) ? 1 : 0.01);
+    }
+    // fill in infos for this peer
+    document.getElementById('selected-peer-name').innerHTML = peer_name;
+    document.getElementById('selected-peer-info').innerHTML = '??';
+}
+
+function timeline_unselect(evt, peer_name)
+{
+    var all = document.getElementsByClassName("fitem");
+    for (var i = 0; i < all.length; i++) {
+        all[i].setAttribute("opacity", 1);
+    }
+}
+

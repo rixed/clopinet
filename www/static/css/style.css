@@ -103,7 +103,6 @@ h1 {
     background-color: #fff;
     padding: 0.5em 0 0.5em 2em;
     border-bottom: 1px solid #000;
-    margin-bottom: 1em;
 }
 
 /* Forms */
@@ -205,24 +204,25 @@ table.tops tr {
 
 #data {
 }
-table.peers {
-    margin-left: auto;
-    margin-right: auto;
+table.svg, table.svg tr td:first-child, table.svg svg {
+    height: 100%;
+    width: 100%;
 }
-div.peers-info {
+
+div.svg-info {
     min-width: 200px;
     padding-left: 20px;
 }
-div.peers-info h2 {
+div.svg-info h2 {
     text-align: left;
 }
-div.peers-info h3 {
+div.svg-info h3 {
     text-align: left;
 }
-div.peers-info h4 {
+div.svg-info h4 {
     text-align: left;
 }
-div.peers-info p {
+div.svg-info p {
 }
 
 svg {

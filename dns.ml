@@ -4,6 +4,9 @@ open Metric
 
 let verbose = ref false
 
+let string_of_err err =
+    if err = 0 then "" else Printf.sprintf "err: %d" err
+
 (* Lod0: the full request record *)
 
 module Dns =

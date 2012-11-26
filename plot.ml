@@ -381,3 +381,20 @@ struct
     end
 
 end
+
+let grid_interv n start stop =
+    let dv = stop -. start in
+    (* find the round value closest to dv/n (by round we mean 1, 5, 10...) *)
+    let l = dv /. float_of_int n in
+    let f = 10. ** floor (log10 l) in
+    let i = floor (l /. f) in
+    if i < 2.5 then f else
+    if i < 7.5 then 5. *. f else
+    10. *. f
+
+(* Given a range of values [start:stop], returns an enum of approximativelay [n] round intermediate values *)
+let grid n start stop =
+    let interv = grid_interv n start stop in
+    let lo = interv *. floor (start /. interv) in
+    Enum.seq lo ((+.) interv) ((>=) stop)
+

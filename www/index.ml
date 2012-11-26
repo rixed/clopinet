@@ -168,7 +168,7 @@ struct
     module Flow =
     struct
         include Flow
-        let dbdir = dbdir^"/flow"
+        let flow_dbdir = dbdir^"/flow"
         let callflow args =
             let filters = Forms.Flow.Callflow.from_args "filter" args in
             let filters_form = form "Traffic/callflow" (Forms.Flow.Callflow.edit "filter" filters) in
@@ -176,7 +176,10 @@ struct
                 | Value start, (Value stop, (Value vlan, (Value ip_start, (Value ip_dst, (Value ip_proto, (Value port_src, (Value port_dst, ()))))))) ->
                     let start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop in
-                    let datasets = get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst dbdir in
+                    let datasets =
+                        get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
+                                     ~dns_dbdir:(dbdir^"/dns") ~web_dbdir:(dbdir^"/web")
+                                     ~tcp_dbdir:(dbdir^"/tcp") flow_dbdir in
                     View.callflow_chart datasets
                 | _ -> [] in
             View.make_graph_page "Call Flow" filters_form disp_graph

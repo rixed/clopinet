@@ -11,6 +11,11 @@ let http_methods = [| "GET"; "HEAD"; "POST"; "CONNECT"; "PUT";
                       "OPTIONS"; "TRACE"; "DELETE" |]
 let string_of_method = Array.get http_methods
 
+let string_of_request meth host url =
+    Printf.sprintf "%s http://%s/%s" (string_of_method meth) host url
+
+let string_of_err err =
+    if err = 200 then "" else Printf.sprintf "err: %d" err
 
 (* Lod0: the full request record: client, server, method (int), status-code, ts, rt, host, url *)
 
