@@ -38,7 +38,7 @@ let menu () =
     and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "tops"; "graph"; "callflow"] ;
                          "DNS", ["resptime"; "top"] ;
                          "Web", ["resptime"; "top"] ;
-                         "Admin", ["logout"] ] in
+                         "Admin", ["preferences"] ] in
     span ~id:"menu" [
         tag "ul" (List.map (fun (section, links) ->
             tag "li" [ p [ raw section ] ;

@@ -21,44 +21,6 @@ struct
         let msg = "yo!" in
         View.make_app_page [cdata msg]
 
-    let login args =
-        let login = Forms.Login.from_args "login" args in
-        let login_page () =
-            View.make_app_page [ h1 "Hello! Who are you?" ;
-                                 form "login" (Forms.Login.edit "login" login) ] in
-        match login with
-        | Value name, (Value passwd, ()) ->
-            if auth name passwd <> None then (
-                View.add_msg "Login OK" ;
-                (* TODO: this should not be in dispatch! *)
-                (* TODO: better auth with a nonce *)
-                Dispatch.add_cookie "login" name ;
-                Dispatch.add_cookie "password" passwd ;
-                main args
-            ) else (
-                View.add_err "Login failure" ;
-                login_page ()
-            )
-        | _ ->
-            login_page ()
-
-    let logout _args =
-        Dispatch.add_cookie "login" "" ;
-        Dispatch.add_cookie "password" "" ;
-        View.make_app_page [ p [ cdata "You are now logged out" ] ]
-
-    let ensure_logged runner args =
-        match Hashtbl.find_option args "login",
-              Hashtbl.find_option args "password" with
-        | None, _ | _, None -> login args
-        | Some name, Some passwd ->
-            if auth name passwd <> None then (
-                runner args
-            ) else (
-                View.add_err "Bad login" ;
-                login args
-            )
-
     (* DB search pages *)
     module Traffic =
     struct
@@ -307,29 +269,25 @@ end
 let _ =
     Dispatch.run (function
         | ["info"] -> Ctrl.Info.run
-        | [""] | ["login"] ->
-            Ctrl.login
-        | ["main"] ->
-            Ctrl.ensure_logged Ctrl.main
-        | ["Admin"; "logout"] ->
-            Ctrl.logout
+        | [""] | ["main"] ->
+            Ctrl.main
         | ["Traffic"; "bandwidth"] ->
-            Ctrl.ensure_logged Ctrl.Traffic.bandwidth
+            Ctrl.Traffic.bandwidth
         | ["Traffic"; "peers"] ->
-            Ctrl.ensure_logged Ctrl.Traffic.peers
+            Ctrl.Traffic.peers
         | ["Traffic"; "graph"] ->
-            Ctrl.ensure_logged Ctrl.Traffic.graph
+            Ctrl.Traffic.graph
         | ["Traffic"; "tops"] ->
-            Ctrl.ensure_logged Ctrl.Traffic.tops
+            Ctrl.Traffic.tops
         | ["Traffic"; "callflow"] ->
-            Ctrl.ensure_logged Ctrl.Flow.callflow
+            Ctrl.Flow.callflow
         | ["Web"; "resptime"] ->
-            Ctrl.ensure_logged Ctrl.Web.resp_time
+            Ctrl.Web.resp_time
         | ["Web"; "top"] ->
-            Ctrl.ensure_logged Ctrl.Web.top
+            Ctrl.Web.top
         | ["DNS"; "resptime"] ->
-            Ctrl.ensure_logged Ctrl.Dns.resp_time
+            Ctrl.Dns.resp_time
         | ["DNS"; "top"] ->
-            Ctrl.ensure_logged Ctrl.Dns.top
+            Ctrl.Dns.top
         | _ -> Ctrl.Invalid.run)
 

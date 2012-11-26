@@ -54,23 +54,6 @@ module NoLimit = struct
     let max = None
 end
 
-module LoginField = struct
-    module Type = Input.String (struct let min = Some 1 let max = Some 100 end)
-    let display_name = "name"
-    let uniq_name = "name"
-    let persistant = false
-end
-module PasswdField = struct
-    module Type = Input.Password (struct let min = Some 3 let max = Some 100 end)
-    let display_name = "password"
-    let uniq_name = "password"
-    let persistant = false
-end
-
-module Login = RecordOf (ConsOf (FieldOf (LoginField))
-                        (ConsOf (FieldOf (PasswdField))
-                                (NulType)))
-
 module StartField = struct
     module Type = My_time.Mandatory
     let display_name = "start"
