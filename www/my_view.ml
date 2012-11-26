@@ -261,7 +261,8 @@ let peers_chart ?(is_bytes=false) datasets =
                   h3 (Printf.sprintf "%.1f%% of total"
                        (100.*. !tot_volume /. (other_volume +. !tot_volume))) ;
                   h4 ~id:"selected-peer-name" "" ;
-                  p ~id:"selected-peer-info" [] ] ] ] ] ]
+                  p ~id:"selected-peer-info" [] ;
+                  p ~id:"selected-peer-links" [] ] ] ] ] ]
 
 let peers_graph datasets layout =
     (* Get max volume *)
@@ -313,8 +314,7 @@ layout=\"%s\";\n"
             let is_mac = try Scanf.sscanf n "%[0-9a-f]:" ignore ; true
                          with StdScanf.Scan_failure _ -> false in
             let col = if is_mac then "#888" else "#5c8" in
-            (g ~attrs:[ "onmouseover","node_select(evt, '"^n^"')" ;
-                        "onmouseout","node_unselect(evt)" ]
+            (g ~attrs:[ "onmouseover","node_select(evt, '"^n^"')" ]
                [ rect ~fill:col (x-.w/.2.) (y-.h/.2.) w h ;
                  text ~x ~y n ]) ::p)
             node_pos [] in
@@ -322,9 +322,8 @@ layout=\"%s\";\n"
             Hashtbl.fold (fun k2 y p ->
                 let w = y /. max_volume in
                 let col = color w and sw = 0.5 *. font_size in
-                (g [line ~stroke:col ~stroke_width:sw (pos_of k1) (pos_of k2)
-                    (*path ~stroke:col ~stroke_width:sw
-                         (moveto (pos_of k1) ^ lineto (pos_of k2))*)])::p)
+                (g ~attrs:[ "onmouseover", "edge_select(evt, '"^k1^"', '"^k2^"')" ]
+                    [ line ~stroke:col ~stroke_width:sw (pos_of k1) (pos_of k2) ])::p)
                 n p) datasets [] in
         (* FF seams confused by svg when implementing getBoundingClientRect.
            That's why we introduce this "netgraph" div here (actualy now a td),
@@ -341,7 +340,8 @@ layout=\"%s\";\n"
               td [ div ~attrs:["class","svg-info"]
                     [ h2 (Printf.sprintf "%d nodes" (Hashtbl.length node_pos)) ;
                       h4 ~id:"selected-peer-name" "" ;
-                      p ~id:"selected-peer-info" [] ] ] ] ] ;
+                      p ~id:"selected-peer-info" [] ;
+                      p ~id:"selected-peer-links" [] ] ] ] ] ;
           script "svg_explorer('netgraph', 'scaler');" ]
     with End_of_file ->
         [ raw "dot crashed" ]
@@ -416,7 +416,7 @@ chart.draw(data, options);\n") ]
 
 (* Dataset is a list of (ts1, ts2, peer1, peer2, descr, group), where group is used for coloring *)
 let callflow_chart start (datasets : Flow.callflow_item list) =
-    let left_margin = 50. and peer_width = 100.
+    let left_margin = 50. and peer_width = 150.
     and first_ts = ref Int64.max_int and last_ts = ref Int64.zero
     and bw_max = ref 0. and tot_svg_height = ref svg_height
     and min_dt = ref Int64.max_int in
@@ -449,18 +449,19 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
             let bw = vol /. (Timestamp.sub ts2 ts1 |> Int64.to_float) in
             if bw > !bw_max then bw_max := bw in
     let nb_flows = ref 0 in
-    let senders_to = Hashtbl.create 31 in (* while we are at it, we build this hash of peer -> senders (as string, for CSS class) *)
-    let update_senders ip1 ip2 =
-        match Hashtbl.find_option senders_to ip2 with
-        | None -> Hashtbl.add senders_to ip2 (ip1^" ")
-        | Some str -> Hashtbl.replace senders_to ip2 (str^ip1^" ") in
+    let connected_to = Hashtbl.create 31 in (* while we are at it, we build this hash of peer -> senders (as string, for CSS class) *)
+    let update_connected ip1 ip2 =
+        match Hashtbl.find_option connected_to ip2 with
+        | None -> Hashtbl.add connected_to ip2 (ip1^" ")
+        | Some str -> Hashtbl.replace connected_to ip2 (str^ip1^" ") in
     List.iter (function
         | ts1,ts2,ip1,ip2,_,_,Flow.Dt vol ->
             update_peer ip1 ts1 ts2 ;
             update_peer ip2 ts1 ts2 ;
             update_bw ts1 ts2 vol ;
             incr nb_flows ;
-            update_senders ip1 ip2
+            update_connected ip1 ip2 ;
+            update_connected ip2 ip1
         (* We want to scale graph according to flows, mostly *)
         | _ -> ())
         datasets ;
@@ -476,7 +477,7 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
         | _ -> ())
         datasets ;
     (* Scale in Y for a reasonable event density *)
-    let min_dt_pix = 30. in
+    let min_dt_pix = 16. in
     let h = ((Int64.to_float (Timestamp.sub !last_ts !first_ts)) *. min_dt_pix) /.
             Int64.to_float !min_dt in
     tot_svg_height := max svg_height h ;
@@ -490,10 +491,25 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
         if fst p2 = start then 1 else
         ~- (Timestamp.compare dt1 dt2))
         peer_durations ;
-    Array.iteri (fun i ((_ip, (x, _ts_min, _ts_max)), _dt) ->
-        x := left_margin +. float_of_int i *. peer_width) peer_durations ;
-    (* Show timeline for each peer (TODO: better allocation of X space) *)
     let peer_y_padding = 20. in
+    Array.iteri (fun i ((_ip, (x, ts_min, ts_max)), _dt) ->
+        let xx =
+            if i < 2 then (
+                left_margin +. float_of_int i *. peer_width
+            ) else (
+                (* Make peers as close to left edge as possible *)
+                let rec blocker_x ii =
+                    if ii = 0 then left_margin else
+                    let (_ip, (x', ts_min', ts_max')), _dt = peer_durations.(ii) in
+                    if y_of_ts ts_min' -. 2. *. peer_y_padding <= y_of_ts ts_max +. peer_y_padding &&
+                       y_of_ts ts_max' +. peer_y_padding >= y_of_ts ts_min -. 2. *. peer_y_padding then (* padding + title of the timeline *)
+                        !x'
+                    else
+                        blocker_x (pred ii) in
+                blocker_x (pred i) +. peer_width
+            ) in
+        x := xx) peer_durations ;
+    (* Show timeline for each peer (TODO: better allocation of X space) *)
     let svg_grid =
         let mark_margin = 999999. in
         let nb_marks = (int_of_float !tot_svg_height) / 200 in (* approx one mark every 200 pixs *)
@@ -502,14 +518,14 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
             let t = Int64.of_float y in
             let y = y_of_ts t in
             g [ line ~stroke:"#bbb" ~stroke_width:2. (-.mark_margin, y) (peer_width *. (float_of_int (Hashtbl.length peers)) +. mark_margin, y) ;
-                text ~x:0. ~y:(y-.9.) ~style:("text-anchor:end") ~font_size:10. (Timestamp.to_string t) ]) |>
+                text ~x:0. ~y:(y-.5.) ~style:("text-anchor:end") ~font_size:10. (Timestamp.to_string t) ]) |>
         List.of_enum
     and svg_peers =
         (* A set of columns, one for each IP *)
         Hashtbl.fold (fun ip (x, ts1, ts2) p ->
             let y1 = y_of_ts ts1 -. peer_y_padding and y2 = y_of_ts ts2 +. peer_y_padding in
             (
-                let senders = Hashtbl.find_option senders_to ip |? "" in
+                let senders = Hashtbl.find_option connected_to ip |? "" in
                 g ~attrs:[ "onmouseover","timeline_select(evt, '"^ip^"')" ;
                            "onmouseout", "timeline_unselect(evt, '"^ip^"')" ]
                     [ line ~attrs:["stroke-dasharray","5,5"; "class","fitem "^senders^ip ]
@@ -543,7 +559,8 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
                         let bw = vol /. dt in 0.1 +. 0.5 *. (bw /. !bw_max)
                     else
                         0.5 in
-                g [ path ~attrs:["class","fitem "^ip_s^" "^ip_d] ~stroke:fill ~stroke_width:0.5 ~stroke_opacity:0.7 ~fill_opacity ~fill (
+                g ~attrs:[ "onmouseover","dt_select(evt, '"^ip_s^"', '"^ip_d^"')" ]
+                    [ path ~attrs:["class","fitem "^ip_s^" "^ip_d] ~stroke:fill ~stroke_width:0.5 ~stroke_opacity:0.7 ~fill_opacity ~fill (
                        moveto (x1, y1 -. dw -. inclin) ^
                        lineto (x2 -. hx, y1 -. dw +. inclin) ^
                        lineto (x2 -. hx, y1 -. dw -. hy +. inclin) ^
@@ -554,7 +571,7 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
                        lineto (x1, y2 +. dw -. inclin) ^
                        closepath
                     ) ;
-                    text ~attrs:["class","fitem "^ip_s^" "^ip_d] ~x:((3.*.x1+.x2)*.0.25) ~y:(y1-.5.) ~style:("text-anchor:middle; dominant-baseline:central") ~font_size:6.
+                    text ~attrs:["class","fitem "^ip_s^" "^ip_d] ~x:(x1+.2.) ~y:(y1-.5.) ~style:("text-anchor:"^(if x2>x1 then "start" else "end")) ~font_size:6.
                          descr ]
             | Flow.Tx resp ->
                 let is_visible x y = x >= 0. && y >= 0. && y <= !tot_svg_height in
@@ -562,22 +579,25 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
                     let hx = hx *. 0.5 in
                     let mid_x = (x1 +. x2)*.0.5 in
                     (* Draw query + resp *)
-                    g [ path ~attrs:["class","fitem "^ip_s] ~stroke:fill ~stroke_width:1.5 ~stroke_opacity:0.7 ~fill_opacity:0. (
+                    g ~attrs:[ "onmouseover","tx_select(evt, '"^ip_s^"', '"^ip_d^"')" ]
+                        [ path ~attrs:["class","fitem "^ip_s^" "^ip_d] ~stroke:fill ~stroke_width:2.5 ~stroke_opacity:0.7 ~fill_opacity:0. (
                             moveto (x1, y1 -. dw -. inclin) ^
                             lineto (mid_x, y1 -. dw) ^
                             curveto (x2, y1 -. dw +. inclin) (x2, y1 -. dw +. inclin) (x2, (y1 +. y2)*.0.5) ^
-                            curveto (x2, y2 +. dw +. inclin) (x2, y2 +. dw +. inclin) (mid_x, y2 +. dw) ^
-                            lineto (x1, y2 +. dw -. inclin) ^
-                            lineto (x1 +. hx, y2 +. dw -. inclin -. hx) ^
-                            moveto (x1, y2 +. dw -. inclin) ^
-                            lineto (x1 +. hx, y2 +. dw -. inclin +. hx)
+                            curveto (x2, y2 +. dw -. inclin) (x2, y2 +. dw -. inclin) (mid_x, y2 +. dw) ^
+                            lineto (x1, y2 +. dw +. inclin) ^
+                            lineto (x1 +. hx, y2 +. dw +. inclin -. hx) ^
+                            moveto (x1, y2 +. dw +. inclin) ^
+                            lineto (x1 +. hx, y2 +. dw +. inclin +. hx)
                         ) ;
-                        text ~attrs:["class","fitem "^ip_s]  ~x:(x1+.hx) ~y:(y1-.dw-.inclin+.5.) ~style:("text-anchor:left") ~font_size:8. descr ;
-                        text ~attrs:["class","fitem "^ip_s] ~x:(x1+.hx) ~y:(y2+.dw-.inclin-.3.) ~style:("text-anchor:left") ~font_size:8. resp
+                        text ~attrs:["class","fitem "^ip_s^" "^ip_d]  ~x:(x1+.hx) ~y:(y1-.dw-.inclin+.5.) ~style:("text-anchor:left; dominant-baseline:hanging") ~font_size:7. descr ;
+                        text ~attrs:["class","fitem "^ip_s^" "^ip_d] ~x:(x1+.hx) ~y:(y2+.dw-.inclin-.3.) ~style:("text-anchor:left") ~font_size:7. resp
                     ]
                 ) else if is_visible x1 y1 then (
+                    (* TODO: display a small tick in x1 timeline? *)
                     g []
                 ) else if is_visible x2 y2 then (
+                    (* TODO: display a small tick in x1 timeline? *)
                     g []
                 ) else g []
         ) datasets in
@@ -592,6 +612,7 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
                 [ h2 (Datatype.string_of_volume !tot_volume) ;
                   h3 (Printf.sprintf "%d hosts" (Hashtbl.length peers)) ;
                   h4 ~id:"selected-peer-name" "" ;
-                  p ~id:"selected-peer-info" [] ] ] ] ] ;
+                  p ~id:"selected-peer-info" [] ;
+                  p ~id:"selected-peer-links" [] ] ] ] ] ;
       script "svg_explorer('callflow', 'scaler');" ]
 

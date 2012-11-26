@@ -37,6 +37,24 @@ function refresh_chart(form) {
 
 }
 
+/* Functions to display links about peer / link */
+
+function peer_links(peer_name)
+{
+    document.getElementById('selected-peer-links').innerHTML =
+        '<a href="?action=Traffic%2Fcallflow&filter.ip-start=' + encodeURI(peer_name) + '">Callflow</a>' +
+        '<a href="?action=Traffic%2Fbandwidth&filter.ip=' + encodeURI(peer_name) + '">Bandwidth</a>';
+}
+
+function link_links(peer1, peer2)
+{
+    document.getElementById('selected-peer-links').innerHTML =
+        '<a href="?action=Traffic%2Fcallflow&filter.ip-start=' + encodeURI(peer1) + '">Callflow '+peer1+'</a>' +
+        '<a href="?action=Traffic%2Fcallflow&filter.ip-start=' + encodeURI(peer2) + '">Callflow '+peer2+'</a>' +
+        '<a href="?action=Traffic%2Fbandwidth&filter.ip-src=' + encodeURI(peer1) + '&filter.ip-dst=' + encodeURI(peer2) + '">Bandwidth '+ peer1 +'&rarr;'+ peer2 +'</a>' +
+        '<a href="?action=Traffic%2Fbandwidth&filter.ip-src=' + encodeURI(peer2) + '&filter.ip-dst=' + encodeURI(peer1) + '">Bandwidth '+ peer2 +'&rarr;'+ peer1 +'</a>';
+}
+
 /* function for SVG circle-graph */
 
 function peer_select(evt, peer_name, up, down)
@@ -52,6 +70,7 @@ function peer_select(evt, peer_name, up, down)
     document.getElementById('selected-peer-info').innerHTML =
         'up:&nbsp;'+up+'</br>'+
         'down:&nbsp;'+down;
+    peer_links(peer_name);
 }
 
 function peer_unselect(evt)
@@ -72,10 +91,14 @@ function node_select(evt, peer_name)
 {
     document.getElementById('selected-peer-name').innerHTML = peer_name;
     document.getElementById('selected-peer-info').innerHTML = '??';
+    peer_links(peer_name);
 }
 
-function node_unselect(evt)
+function edge_select(evt, peer1, peer2)
 {
+    document.getElementById('selected-peer-name').innerHTML = peer1 +'&harr;'+ peer2;
+    document.getElementById('selected-peer-info').innerHTML = '??';
+    link_links(peer1, peer2);
 }
 
 /* Function to navigate svg graphs */
@@ -173,6 +196,7 @@ function timeline_select(evt, peer_name)
     // fill in infos for this peer
     document.getElementById('selected-peer-name').innerHTML = peer_name;
     document.getElementById('selected-peer-info').innerHTML = '??';
+    peer_links(peer_name);
 }
 
 function timeline_unselect(evt, peer_name)
@@ -183,3 +207,16 @@ function timeline_unselect(evt, peer_name)
     }
 }
 
+function dt_select(evt, peer1, peer2)
+{
+    document.getElementById('selected-peer-name').innerHTML = peer1 +'&harr;'+ peer2;
+    document.getElementById('selected-peer-info').innerHTML = '??';
+    link_links(peer1, peer2);
+}
+
+function tx_select(evt, peer1, peer2)
+{
+    document.getElementById('selected-peer-name').innerHTML = peer1 +'&harr;'+ peer2;
+    document.getElementById('selected-peer-info').innerHTML = '??';
+    link_links(peer1, peer2);
+}

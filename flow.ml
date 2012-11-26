@@ -158,7 +158,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
     and flow_of_web (_vlan, _clte, clt, _srve, srv, _srvp, meth, err, ts, rt, host, url) =
         ts, ts2_of_rt ts rt,
         InetAddr.to_string (fst clt), InetAddr.to_string srv,
-        Web.string_of_request meth host url,
+        Web.string_of_request ~max_len:60 meth host url,
         "WEB",
         Tx (Printf.sprintf "status: %d" err)
     and flow_of_tcp (_vlan, _clte, clt, _srve, srv, cltp, srvp, ts, syns, ct) =

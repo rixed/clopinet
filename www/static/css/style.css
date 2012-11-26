@@ -224,6 +224,10 @@ div.svg-info h4 {
 }
 div.svg-info p {
 }
+div.svg-info p#selected-peer-links a {
+    display: block;
+    text-decoration: none;
+}
 
 svg {
     border-width: 1.5px;

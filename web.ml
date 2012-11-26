@@ -11,8 +11,13 @@ let http_methods = [| "GET"; "HEAD"; "POST"; "CONNECT"; "PUT";
                       "OPTIONS"; "TRACE"; "DELETE" |]
 let string_of_method = Array.get http_methods
 
-let string_of_request meth host url =
-    Printf.sprintf "%s http://%s/%s" (string_of_method meth) host url
+let string_of_request ?max_len meth host url =
+    let s = Printf.sprintf "%s http://%s/%s" (string_of_method meth) host url in
+    match max_len with
+    | None -> s
+    | Some l ->
+        if String.length s + 3 <= l then s
+        else (String.sub s 0 l) ^ "..."
 
 let string_of_err err =
     if err = 200 then "" else Printf.sprintf "err: %d" err
