@@ -87,7 +87,8 @@ let fold_snums tdir hnum aggr_reader f start merge =
         try let snum = int_of_string name in
             f snum (read_meta tdir hnum snum aggr_reader) res
         with Failure _ -> res
-    and files = Sys.readdir (Dbfile.dir tdir hnum) in
+    and files = try Sys.readdir (Dbfile.dir tdir hnum)
+                with Sys_error _ -> [||] in
     try (
         if !ncores > 1 then
             Parmap.parfold ~ncores:!ncores foldfile (Parmap.A files) start merge
