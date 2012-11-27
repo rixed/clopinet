@@ -16,9 +16,7 @@ TODO stack
 * A config file for setting agr levels and max age of files (available from
 web, so should not need recompilation)
 
-* A numeric input that accept various multipliers like K/M/G
-
-* Callflow view using DT and TCP metrics (and later, others as well)
+* Add is_server + certainty bit in tcp_proto_info.
 
 * Add IP-server, IP-client in the various graphs were an IP is accepted
   (using the same simple way to find out which is which)
@@ -50,8 +48,7 @@ accept syntax such as "3,5,67-78", and these params should be returned
 as functions. The only exception is ip srv which is used as an index.
 
 * in the netgraph legend, display roles or IPs, as the port the IP is server 
-* for (ie
-traffic decomposition by srv port - or a button to open a page with this info 
+for (ie traffic decomposition by srv port - or a button to open a page with this info 
 for this IP).
 
 * in the netgraph legend, display MTU/traffic per link
@@ -79,9 +76,6 @@ instance)
 * In all time charts where the selected period spans no more than 10 days,
 display in chart background the night times with a sligh dark-blue bgcolor.
 Same spirit: add a vertical bar at current time.
-
-* User authentication is the job of the web server not mine. Remove 
-login/logout.
 
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
@@ -123,6 +117,4 @@ distributed querying
   add a packet to it, discard it, save it, etc. Ie. a capture type with most
   operations implemented in C.
 
-
-* Auth avec PAM bien sur
 

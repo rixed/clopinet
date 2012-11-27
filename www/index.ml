@@ -18,7 +18,7 @@ struct
 
     (* Main app page *)
     let main _args =
-        let msg = "yo!" in
+        let msg = "Hello "^Sys.getenv "REMOTE_USER" in
         View.make_app_page [cdata msg]
 
     (* DB search pages *)
