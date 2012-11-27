@@ -85,7 +85,7 @@ Or just run: junkie -c this_file
                         " qry-name ");\n")))
      (dns-query
        (index-size 5024)
-       (timeout 60000000))]
+       (timeout 10000000))]
     ; edges
     [(root dns-query
         (match (cap eth ip dns) (if
