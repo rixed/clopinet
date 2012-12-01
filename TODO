@@ -1,11 +1,13 @@
 TODO stack
 ----------
 
+* Zoom on time with mouse on distribution graphs
+
 * An html legend next to the callflow svg, with y mouse coordinate translated
   into time, and info on selected peer timeline (IP...?) + http link to other
   infos related to this peer
 
-* Passer tous les RT en ms dans la base (et faire ecrire des floats à junkie)
+* Passer tous les RT en s dans la base (et faire ecrire des floats à junkie)
 
 * TCP resptimes
 

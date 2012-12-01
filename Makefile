@@ -39,7 +39,7 @@ EXAMPLES_BYTE = \
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
 
-REQUIRES = batteries batteries.pa_string.syntax bricabrac pfds bitstring bitstring.syntax parmap
+REQUIRES = batteries bricabrac pfds bitstring bitstring.syntax parmap
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc
@@ -79,7 +79,7 @@ distribution.cmo: tuple5.cmo
 
 clean-spec:
 	$(MAKE) -C www clean
-	rm -f mlrrd.top
+	rm -f mlrrd.top tuple*.ml
 
 dep-spec:
 	$(MAKE) -C www dep
