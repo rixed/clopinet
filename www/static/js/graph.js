@@ -220,3 +220,50 @@ function tx_select(evt, peer1, peer2)
     document.getElementById('selected-peer-info').innerHTML = '??';
     link_links(peer1, peer2);
 }
+
+// Functions for distribution graph
+
+function distr_select2(peer_name)
+{
+    // Make svg elements more visible
+    var all = document.getElementsByClassName("fitem");
+    for (var i = 0; i < all.length; i++) {
+        all[i].setAttribute("opacity",
+            has_class(all[i], peer_name) ? 1 : 0.1);
+    }
+    // Make html elements more visible
+    all = document.getElementsByClassName("hitem");
+    for (var i = 0; i < all.length; i++) {
+        if (has_class(all[i], peer_name)) {
+            all[i].className += " selected";
+        }
+    }
+
+    // fill in infos for this peer
+    document.getElementById('selected-peer-name').innerHTML = peer_name;
+    document.getElementById('selected-peer-info').innerHTML = '??';
+}
+
+function distr_unselect2(peer_name)
+{
+    var all = document.getElementsByClassName("fitem");
+    for (var i = 0; i < all.length; i++) {
+        all[i].setAttribute("opacity", 1);
+    }
+    all = document.getElementsByClassName("hitem");
+    for (var i = 0; i < all.length; i++) {
+        all[i].className = all[i].className.replace(/\bselected\b/,'');
+    }
+}
+
+// These are called from html, without the event
+function distr_select(evt, peer_name)
+{
+    distr_select2(peer_name);
+}
+
+function distr_unselect(evt, peer_name)
+{
+    distr_unselect2(peer_name);
+}
+

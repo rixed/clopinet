@@ -36,7 +36,7 @@ let header () =
 let menu () =
     let html_of_entry e1 e2 = tag "li" [ tag "a" ~attrs:["href","?action="^e1^"/"^e2] [cdata e2] ]
     and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "tops"; "graph"; "callflow"] ;
-                         "DNS", ["resptime"; "top"] ;
+                         "DNS", ["resptime"; "top"; "distrib"] ;
                          "Web", ["resptime"; "top"] ;
                          "Admin", ["preferences"] ] in
     span ~id:"menu" [
@@ -615,4 +615,167 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
                   p ~id:"selected-peer-info" [] ;
                   p ~id:"selected-peer-links" [] ] ] ] ] ;
       script "svg_explorer('callflow', 'scaler');" ]
+
+(* Helpers for axis and grids *)
+
+let axis ?(extend_ticks=0.) ?(stroke="#000") ?(stroke_width=1.) ?(arrow_size=0.) ?(tick_spacing=100.) ?(tick_length=5.) ?(label="") ?(font_size=10.) (x1, y1) (x2, y2) v_min v_max =
+    let sq x = x *. x in
+    let axis_len = sqrt (sq (x2-.x1) +. sq (y2-.y1)) in
+    (* u, v are unit vectors along axis and perpendicular to it *)
+    let ux, uy = (x2 -. x1) /. axis_len, (y2 -. y1) /. axis_len in
+    let vx, vy = ~-.uy, ux in
+    let mostly_horiz = abs_float ux >= abs_float uy in
+    let add (ax, ay) (bx, by) = ax +. bx, ay +. by in
+    let goto x y = x *. ux +. y *. vx, x *. uy +. y *. vy in
+    g (
+        (path ~stroke ~stroke_width ~fill:"none"
+            (moveto (x1, y1) ^
+            lineto (x2, y2) ^
+            lineto (add (x2, y2) (goto ~-.arrow_size ~-.arrow_size)) ^
+            moveto (x2, y2) ^
+            lineto (add (x2, y2) (goto ~-.arrow_size arrow_size)))) ::
+        (let x, y =
+            add (x2, y2) (goto (-1.5 *. font_size) (if mostly_horiz then (-1.5 *. font_size) else (1.5 *. font_size))) in
+        (* TODO: rotate this text? *)
+        let style =
+            if mostly_horiz then "text-anchor:end; dominant-baseline:alphabetic"
+                            else "text-anchor:start; dominant-baseline:central" in
+        text ~x ~y ~style label) ::
+        (
+            Plot.grid (axis_len /. tick_spacing |> Int.of_float) v_min v_max /@
+            (fun v ->
+                let t = ((v -. v_min) /. (v_max -. v_min)) *. axis_len in
+                let tick_start = add (x1, y1) (goto t ~-.tick_length) in
+                let tick_stop  = add (x1, y1) (goto t tick_length) in
+                g [ line ~stroke ~stroke_width tick_start tick_stop ;
+                    line ~stroke ~stroke_width:(stroke_width *. 0.6) ~stroke_opacity:0.1
+                         tick_stop (add tick_stop (goto 0. extend_ticks)) ;
+                    let x, y =
+                        if mostly_horiz then
+                            add tick_stop (goto 0. font_size)
+                        else
+                            add tick_start (goto 0. ~-.font_size)
+                        in
+                    let style =
+                        if mostly_horiz then "text-anchor:middle; dominant-baseline:hanging"
+                                        else "text-anchor:end; dominant-baseline:central" in
+                    text ~x ~y ~style
+                         (Datatype.string_of_number v)
+                  ]) |>
+            List.of_enum
+        )
+    )
+
+let get_ratio x_min x_max v_min v_max v =
+    let r = (v -. v_min) /. (v_max -. v_min) in
+    x_min +. r *. (x_max -. x_min)
+
+let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size ?arrow_size ?tick_spacing ?tick_length ?x_label ?y_label (x_min, x_max) (y_min, y_max) (vx_min, vx_max) (vy_min, vy_max) =
+    let get_x = get_ratio x_min x_max vx_min vx_max
+    and get_y = get_ratio y_min y_max vy_min vy_max in
+    let x_orig = if vx_min >= 0. then x_min else get_x 0.
+    and y_orig = if vy_min >= 0. then y_min else get_y 0. in
+    let x_axis =
+        axis ?stroke ?stroke_width ?arrow_size ?tick_spacing ?font_size ?tick_length
+             ?label:x_label (x_min, y_orig) (x_max, y_orig) vx_min vx_max
+    and y_axis =
+        axis ?stroke ?stroke_width ?arrow_size ?tick_spacing ?font_size ?tick_length ~extend_ticks:(if show_vgrid then x_max -. x_min else 0.)
+             ?label:y_label (x_orig, y_min) (x_orig, y_max) vy_min vy_max in
+    g [ x_axis ; y_axis ]
+
+
+(* Returns a distribution graph *)
+let distrib_chart x_label y_label (vx_step, vx_min, vx_max, datasets) =
+    (* Graph geometry in pixels *)
+    let font_size = 10. in
+    let margin_bottom = 30. and margin_left = 10. and margin_top = 30. and margin_right = 10.
+    and tick_spacing = 100. and tick_length = 0.4 *. font_size (* half tick_length, actualy *) in
+    let max_label_length = tick_spacing *. 0.9 in
+    let y_axis_x = margin_left +. max_label_length in
+    let x_axis_y = svg_height -. margin_bottom -. font_size *. 1.2 in
+    let y_axis_ymin = x_axis_y and y_axis_ymax = margin_top
+    and x_axis_xmin = y_axis_x and x_axis_xmax = svg_width -. margin_right in
+    let axis_arrow_h = font_size in
+    (* Data bounds *)
+    let nb_buckets =
+        List.fold_left (fun m (_label, d) ->
+            max m (Array.length d))
+            0 datasets in
+    let tot_count = Array.create nb_buckets 0 in
+    let rt_of_bucket i = vx_min +. (float_of_int i +. 0.5) *. vx_step in
+    (* Compute max count for a given bucket *)
+    List.iter (fun (_label, d) ->
+        Array.iteri (fun i c -> tot_count.(i) <- tot_count.(i) + c) d)
+        datasets ;
+    let max_count = Array.fold_left max 0 tot_count in
+    let mid_count i = tot_count.(i) / 2 in
+    let mid_tot_count = max_count / 2 in
+    let vy_max = float_of_int max_count in
+    let get_x = get_ratio x_axis_xmin x_axis_xmax vx_min vx_max
+    and get_y = get_ratio y_axis_ymin y_axis_ymax 0. vy_max in
+    (* We are going to center counts verticaly *)
+    let vy_max = vy_max *. 0.5 in
+    let vy_min = ~-. vy_max in
+    (* We stack the distributions *)
+    let prev_count = Array.create nb_buckets 0 in
+    let distr_of_dataset (label, d) =
+        let color = Color.random_of_string label in
+        let stroke = Color.to_html color in
+        (* for convenience we add a point with 0 count if d has less values than nb_buckets *)
+        (* TODO: add Vect.fold_righti (and Enum etc) to batteries and use that instead *)
+        let d = if Array.length d >= nb_buckets then d else
+                Array.append d [| 0 |] in
+        path ~stroke:"none" ~fill:stroke ~fill_opacity:0.8
+             ~attrs:["class","fitem "^label ;
+                     "onmouseover","distr_select(evt, '"^label^"')" ;
+                     "onmouseout", "distr_unselect(evt)" ]
+            ((
+                (* Top line *)
+                Array.fold_lefti (fun prev i rt_count ->
+                    let rt_count' = rt_count + prev_count.(i) in
+                    if i = 0 then Printf.fprintf stderr "rt_of_bucket 0 = %f -> x = %f\n<br/>"
+                                        (rt_of_bucket i) (get_x (rt_of_bucket i)) ;
+                    prev ^
+                        (if i = 0 then moveto else lineto)
+                            (get_x (rt_of_bucket i), get_y (float_of_int (rt_count' + mid_tot_count - mid_count i))))
+                    "" d |>
+                (* Bottom line (to close the area) (note: we loop here from last to first) *)
+                Array.fold_righti (fun i rt_count prev ->
+                    let rt_count' = prev_count.(i) in
+                    prev_count.(i) <- rt_count' + rt_count ;
+                    prev ^
+                        lineto (get_x (rt_of_bucket i), get_y (float_of_int (rt_count' + mid_tot_count - mid_count i))))
+                    d
+            ) ^ closepath)
+    and legend_of_dataset (label, _d) =
+        let color = Color.random_of_string label in
+        p ~attrs:["class","hitem "^label ;
+                  "onmouseover","distr_select2('"^label^"')" ;
+                  "onmouseout", "distr_unselect2()" ] [
+            span ~attrs:[ "class","color-box" ;
+                          "style","background-color: " ^ Color.to_html color ]
+                          [] ;
+            raw label
+        ] in
+    let grid = xy_grid ~stroke:"#000" ~stroke_width:2. ~font_size ~arrow_size:axis_arrow_h ~tick_spacing ~tick_length ~x_label ~y_label (x_axis_xmin, x_axis_xmax) (y_axis_ymin, y_axis_ymax) (vx_min, vx_max) (vy_min, vy_max)
+    and distrs =
+        g (List.map distr_of_dataset datasets)
+    in
+    let tot_queries = Array.fold_left (+) 0 tot_count |> float_of_int in
+    let tot_rt = Array.fold_lefti (fun p i c ->
+        p +. rt_of_bucket i *. float_of_int c) 0. tot_count in
+    let avg_rt = if tot_queries > 0. then 
+                     (Datatype.string_of_number (tot_rt /. tot_queries)) ^ "s"
+                 else "none" in
+    [ table ~attrs:["class","svg"] [ tr
+        [ td ~id:"plot"
+            [ svg [ grid ; distrs ] ] ;
+          td [ div ~attrs:["class","svg-info"]
+                ([ h3 "Global" ;
+                   p [ raw ((Datatype.string_of_number tot_queries) ^ " queries") ] ;
+                   p [ raw ("average: " ^ avg_rt) ] ;
+                   h3 ~id:"selected-peer-name" "" ;
+                   p ~id:"selected-peer-info" [] ;
+                   h3 "Legend" ] @
+                 ( List.map legend_of_dataset datasets)) ] ] ] ]
 

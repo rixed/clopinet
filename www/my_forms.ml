@@ -408,6 +408,12 @@ module Dns = struct
         let uniq_name = "qname"
         let persistant = false
     end
+    module DistPrecField = struct
+        module Type = OptFloat (struct let min = Some 1e-10 let max = None end)
+        let display_name = "Precision (s)"
+        let uniq_name = "distr-prec"
+        let persistant = true
+    end
     module RespTime = RecordOf (ConsOf (FieldOf (StartField))
                                (ConsOf (FieldOf (StopField))
                                (ConsOf (FieldOf (VlanField))
@@ -436,6 +442,20 @@ module Dns = struct
                           (ConsOf (FieldOf (MaxGraphsField))
                           (ConsOf (FieldOf (SortOrder))
                                   (NulType))))))))))))))
+
+    module Distrib = RecordOf (ConsOf (FieldOf (StartField))
+                              (ConsOf (FieldOf (StopField))
+                              (ConsOf (FieldOf (VlanField))
+                              (ConsOf (FieldOf (MacSrcField))
+                              (ConsOf (FieldOf (MacDstField))
+                              (ConsOf (FieldOf (IpSrcField))
+                              (ConsOf (FieldOf (IpDstField))
+                              (ConsOf (FieldOf (MinRespTime))
+                              (ConsOf (FieldOf (MaxRespTime))
+                              (ConsOf (FieldOf (DistPrecField))
+                              (ConsOf (FieldOf (MaxGraphsField))
+                              (ConsOf (FieldOf (TblNameField))
+                                      (NulType)))))))))))))
 end
 
 module Flow = struct

@@ -237,3 +237,16 @@ svg {
     box-shadow: 6px 6px 4px #ccc;
     background-color: #f5f5f5;
 }
+
+span.color-box {
+    display: inline-block;
+    width: 2em;
+    height: 10px;
+    border: 1px solid black;
+    border-radius: 2px;
+    box-shadow: 2px 2px 1px #ccc;
+}
+
+p.hitem.selected {
+    font-weight: bold;
+}

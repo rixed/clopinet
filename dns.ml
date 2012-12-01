@@ -1,4 +1,4 @@
-open Bricabrac
+open Batteries
 open Datatype
 open Metric
 
@@ -119,6 +119,49 @@ let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_
         Float.compare rt1 rt2 in
     Plot.top_table n sort_order cmp fold
 
+(* Display in it's own color the servers that represent more than 1/top_nth share of the tot
+ * number of queries *)
+module DnsDataSet = Plot.DataSet (InetAddr)
+let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?(prec=0.05) ?(top_nth=100) dbdir tblname =
+     let fold f i m =
+        Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max dbdir tblname
+            (fun (_vl, _clte, _clt, _srve, srv, _err, _ts, rt, _name) p ->
+                let nb_queries, _, _, _, _ = rt in
+                f (srv, float_of_int nb_queries) p)
+            i m in
+    let interm = DnsDataSet.FindSignificant.pass1 fold top_nth in
+    let fold2 f i m =
+        Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max dbdir tblname
+            (fun (_vl, _clte, _clt, _srve, srv, _err, _ts, rt, _name) p ->
+                let nb_queries, _, _, avg, _ = rt in
+                (* TODO: instead of a single [avg], fake a distribution of nb_queries values *)
+                f (srv, float_of_int nb_queries, [avg]) p)
+            i m
+    and aggr_rts prev_rts rts = List.rev_append rts prev_rts in
+    let result, _rest_count, rest_rts = DnsDataSet.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in
+    (* So we now have all the response times. Build N array of number of rts for each time interval *)
+    let distrib_of_rts rts =
+        let mi, ma =
+            List.fold_left (fun (mi, ma) rt ->
+                min mi rt, max ma rt)
+                (max_float, 0.)
+                rts in
+        let nb_buckets = (ma -. mi) /. prec |> Int.of_float |> succ in
+        let d = Array.create nb_buckets 0 in
+        List.iter
+            (fun rt ->
+                let i = (rt -. mi) /. prec |> Int.of_float in
+                d.(i) <- succ d.(i))
+            rts ;
+        mi, ma, d in
+    let other_mi, other_ma, other_d = distrib_of_rts rest_rts in
+    let mi, ma, d =
+        DnsDataSet.Maplot.fold_left (fun (prev_mi, prev_ma, prev_d)  srv (_, rts) ->
+            let mi, ma, d = distrib_of_rts rts in
+            min prev_mi mi, max prev_ma ma, (InetAddr.to_string srv, d) :: prev_d)
+            (other_mi, other_ma, [ "others", other_d ])
+            result in
+    prec, mi, ma, d
 
 (* Lod1: degraded client, rounded query_date (to 1min), distribution of resptimes *)
 (* Lod2: round timestamp to 10 mins *)

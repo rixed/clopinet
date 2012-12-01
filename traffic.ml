@@ -181,7 +181,7 @@ let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
         in
     assert (max_graphs > 1) ;
     let interm = EthPld2.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = EthPld2.FindSignificant.pass2 interm fold (max_graphs-1) in
+    let result, rest = EthPld2.FindSignificant.pass2' interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in
     EthPld2.Maplot.iter result (fun k v ->
@@ -203,7 +203,7 @@ let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
         in
     assert (max_graphs > 1) ;
     let interm = EthPld.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = EthPld.FindSignificant.pass2 interm fold (max_graphs-1) in
+    let result, rest = EthPld.FindSignificant.pass2' interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in
     EthPld.Maplot.iter result (fun k v ->
@@ -228,7 +228,7 @@ let eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_sr
         in
     assert (max_graphs > 1) ;
     let interm = EthPld2.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = EthPld2.FindSignificant.pass2 interm fold (max_graphs-1) in
+    let result, rest = EthPld2.FindSignificant.pass2' interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in
     EthPld2.Maplot.iter result (fun k v ->
@@ -251,17 +251,6 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
     IPPld.per_time ?max_graphs start stop step fold (fun (mac_proto, ip) -> label_of_ip_key mac_proto ip)
 
 (* Returns traffic per pair of IPs *)
-let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir name =
-    let start, stop = optmin start stop, optmax start stop in
-    let label_of_key (mac_proto, src, dst) =
-        label_of_ip_key mac_proto src,
-        label_of_ip_key mac_proto dst in
-    let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
-            f (mac_proto, src, dst) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
-            i m in
-    IPPld2.sum ?max_graphs ?start ?stop fold label_of_key
-
 let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) what dbdir name =
     let start, stop = optmin start stop, optmax start stop in
     let label_of_key (mac_proto, src, dst) =
@@ -278,7 +267,7 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
         in
     assert (max_graphs > 1) ;
     let interm = IPPld2.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = IPPld2.FindSignificant.pass2 interm fold (max_graphs-1) in
+    let result, rest = IPPld2.FindSignificant.pass2' interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in
     IPPld2.Maplot.iter result (fun k v ->
@@ -299,7 +288,7 @@ let ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
         in
     assert (max_graphs > 1) ;
     let interm = IPPld.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = IPPld.FindSignificant.pass2 interm fold (max_graphs-1) in
+    let result, rest = IPPld.FindSignificant.pass2' interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in
     IPPld.Maplot.iter result (fun (mac_proto, ip) v ->
@@ -323,7 +312,7 @@ let ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src
         in
     assert (max_graphs > 1) ;
     let interm = IPPld2.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = IPPld2.FindSignificant.pass2 interm fold (max_graphs-1) in
+    let result, rest = IPPld2.FindSignificant.pass2' interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in
     IPPld2.Maplot.iter result (fun k v ->
@@ -366,7 +355,7 @@ let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
         in
     assert (max_graphs > 1) ;
     let interm = AppPld.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = AppPld.FindSignificant.pass2 interm fold (max_graphs-1) in
+    let result, rest = AppPld.FindSignificant.pass2' interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in
     AppPld.Maplot.iter result (fun k v ->

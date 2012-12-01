@@ -8,6 +8,9 @@ open Datatype
 
 let dbdir = "../test.db"
 
+(* Convert second (from form) to microseconds (from DB response times) *)
+let s2m x = x *. 1_000_000.
+
 module Ctrl =
 struct
     include Ctrl
@@ -18,7 +21,9 @@ struct
 
     (* Main app page *)
     let main _args =
-        let msg = "Hello "^Sys.getenv "REMOTE_USER" in
+        let username = try Sys.getenv "REMOTE_USER"
+                       with Not_found -> "you!" in
+        let msg = "Hello "^username in
         View.make_app_page [cdata msg]
 
     (* DB search pages *)
@@ -151,7 +156,6 @@ struct
     struct
         include Web
         let dbdir = dbdir^"/web"
-        let s2m x = x *. 1_000_000.
         let url_name host port url =
             host ^
             (if port = 80 then "" else (":" ^ string_of_int port)) ^
@@ -213,7 +217,6 @@ struct
     struct
         include Dns
         let dbdir = dbdir^"/dns"
-        let s2m x = x *. 1_000_000.
 
         let top args =
             let filters = Forms.Dns.Top.from_args "filter" args in
@@ -262,6 +265,22 @@ struct
                 | _ -> [] in
             View.make_graph_page "DNS Response Time" filters_form disp_graph
 
+        let distrib args =
+            let filters = Forms.Dns.Distrib.from_args "filter" args in
+            let filters_form = form "DNS/distrib" (Forms.Dns.Distrib.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value prec, (Value top_nth, (Value tblname, ()))))))))))) ->
+                    let tblname = Forms.Dns.TblNames.options.(tblname)
+                    and start  = My_time.to_timeval start
+                    and stop   = My_time.to_timeval stop
+                    and rt_min = BatOption.map s2m rt_min
+                    and rt_max = BatOption.map s2m rt_max
+                    and prec   = BatOption.map s2m prec in
+                    let datasets = plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
+                    View.distrib_chart "response time (s)" "#queries" datasets
+                | _ -> [] in
+            View.make_graph_page "DNS Response Times" filters_form disp_graph
+
     end
 
 end
@@ -289,5 +308,7 @@ let _ =
             Ctrl.Dns.resp_time
         | ["DNS"; "top"] ->
             Ctrl.Dns.top
+        | ["DNS"; "distrib"] ->
+            Ctrl.Dns.distrib
         | _ -> Ctrl.Invalid.run)
 

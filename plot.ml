@@ -11,7 +11,7 @@ let hashtbl_update_with_default d h k f =
 (* Reduce number of datasets to max_graphs.
  * Returns an array of (label, pts), bigger y max first (apart from
  * others, at the end) *)
-let top_datasets max_graphs datasets nb_steps =
+let top_plot_datasets max_graphs datasets nb_steps =
     let max_peak = Array.make (max_graphs-1) None (* ordered by max peak (bigger first) *)
     and others_pts = Array.make nb_steps 0.
     and max_pts pts = Array.fold_left max min_float pts
@@ -270,31 +270,7 @@ struct
                 Hashtbl.add datasets label a) ;
 
         (* reduce number of datasets to max_graphs *)
-        top_datasets max_graphs datasets nb_steps
-
-    (* Fold iterate over the database, calling back with the key and Y value.
-       All Y values with same key are summed. *)
-    let sum ?(max_graphs=10) ?start ?stop fold label_of_key =
-        ignore (max_graphs) ;
-        let m =
-            fold (fun k t1 t2 y m ->
-                (* clip t1 and t2. beware that [t1;t2] is closed while [start;stop[ is semi-closed *)
-                (* FIXME: use timestamps comparison function, sub, etc..? *)
-                let _, _, y = clip_y ?start ?stop t1 t2 y in
-                Maplot.update_with_default y m k ((+.) y))
-                (fun () -> Maplot.empty)
-                (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
-                    Maplot.fold_left (fun m k a ->
-                        (* add k->a into m *)
-                        Maplot.update_with_default a m k ((+.) a))
-                        m1 m2) in
-        let datasets = Hashtbl.create 71 in
-        (* Build hashtables indexed by label (instead of map indexed by some key), and convert Y into Y per second. *)
-        Maplot.iter m (fun k a ->
-            let label = label_of_key k in
-            (* Note that several keys may map to the same label, thus these precautions *)
-            hashtbl_update_with_default a datasets label ((+.) a)) ;
-        datasets
+        top_plot_datasets max_graphs datasets nb_steps
 
     module FindSignificant =
     struct
@@ -353,31 +329,48 @@ struct
                         (m1, sz1, mi1) m2) in
             result
 
-        let pass2 result fold n =
-            (* Second pass: Rescan all values, computing total value and total value of selected keys *)
-            let zeroed () = Maplot.map (fun _k _v -> 0.) result, 0. in
-            let result, rest = fold
-                (fun (k, v) (m, rest) ->
-                    try Maplot.update_exn m k ((+.) v), rest
-                    with Not_found -> m, rest +. v)
+        (* Second pass: Rescan all values, computing final value of selected keys.
+         * This time the fold function returns a third parameter: the total value
+         * for this entry. total values are agregated using [tv_aggr] function.
+         * See below if you do not need a total value different from v (so that
+         * you can reuse the same fold function than the one for pass1) *)
+        let pass2 result fold tv_aggr tv_zero n =
+            let zeroed () = Maplot.map (fun _k _v -> 0., tv_zero) result, 0., tv_zero in
+            let result, rest, tv_rest = fold
+                (fun (k, v, tv) (m, rest, tv_rest) ->
+                    try Maplot.update_exn m k (fun (v', tv') ->
+                        v +. v', tv_aggr tv tv'), rest, tv_rest
+                    with Not_found -> m, v +. rest, tv_aggr tv tv_rest)
                 zeroed
-                (fun (m1, rest1) (m2, rest2) ->
+                (fun (m1, rest1, tv_rest1) (m2, rest2, tv_rest2) ->
                     (* Merge the small m2 into the big m1 *)
-                    Maplot.fold_left (fun m1 k2 v2 ->
-                        Maplot.update_exn m1 k2 ((+.) v2) (* we *must* have k already in m1 ! *))
+                    Maplot.fold_left (fun m1 k2 (v2, tv2) ->
+                        Maplot.update_exn m1 k2 (fun (v', tv') ->
+                            v' +. v2, tv_aggr tv' tv2) (* we *must* have k already in m1 ! *))
                         m1 m2,
-                    rest1 +. rest2) in
+                    rest1 +. rest2,
+                    tv_aggr tv_rest1 tv_rest2) in
             (* Final touch: move insignificant keys from result to rest *)
-            let tot_v = Maplot.fold_left (fun p _k v -> v +. p) rest result in
+            let tot_v = Maplot.fold_left (fun p _k (v, _tv) -> v +. p) rest result in
             let new_rest = ref rest
+            and new_tv_rest = ref tv_rest
             and min_v = tot_v /. (float_of_int n) in (* min value to stay out of "others" *)
-            let new_result = Maplot.filter (fun _k v ->
+            let new_result = Maplot.filter (fun _k (v, tv) ->
                 if v >= min_v then true
                 else (
                     new_rest := !new_rest +. v ;
+                    new_tv_rest := tv_aggr !new_tv_rest tv ;
                     false
                 )) result in
-            new_result, !new_rest
+            new_result, !new_rest, !new_tv_rest
+
+        (* Same as above, but with no additional value *)
+        let pass2' result fold n =
+            let fold' f i m = fold (fun (k, v) p ->
+                f (k, v, ()) p) i m
+            and fake_aggr () () = () in
+            let new_result, new_rest, () = pass2 result fold' fake_aggr () n in
+            Maplot.map (fun _k (v, ()) -> v) new_result, new_rest
     end
 
 end
@@ -392,7 +385,7 @@ let grid_interv n start stop =
     if i < 7.5 then 5. *. f else
     10. *. f
 
-(* Given a range of values [start:stop], returns an enum of approximativelay [n] round intermediate values *)
+(* Given a range of values [start:stop], returns an enum of approximatively [n] round intermediate values *)
 let grid n start stop =
     let interv = grid_interv n start stop in
     let lo = interv *. floor (start /. interv) in
