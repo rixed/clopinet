@@ -224,18 +224,18 @@ let string_of_vlan = function
 
 let multiples_bytes = [| "B"; "KiB"; "MiB"; "GiB"; "TiB"; "PiB" |]
 let multiples = [| ""; "k"; "M"; "G"; "T"; "P" |]
-let unpower v =
+let unpower m v =
     let rec aux e v =
         if e >= Array.length multiples -1 || v < 1024. then
             e, v
         else
-            aux (succ e) (v/.1024.) in
+            aux (succ e) (v/.m) in
     aux 0 v
 let string_of_volume v =
-    let e, v = unpower v in
+    let e, v = unpower 1024. v in
     Printf.sprintf "%.*f%s" (if fst (modf v) < 0.01 then 0 else 2) v multiples_bytes.(e)
 let string_of_number v =
-    let e, v = unpower v in
+    let e, v = unpower 1000. v in
     Printf.sprintf "%.*f%s" (if fst (modf v) < 0.01 then 0 else 2) v multiples.(e)
 
 exception Overflow
