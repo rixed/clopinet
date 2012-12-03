@@ -97,7 +97,7 @@ let per_date start stop step fold =
     (* accumulation of a distribution into a.(r) *)
     let accum_distr a r d =
         a.(r) <- Some (Distribution.combine d a.(r)) in
-    let result = fold (fun ts d a ->
+    fold (fun ts d a ->
         if ts < start || ts >= stop then a else
         let r = row_of_time ts in
         accum_distr a r d ;
@@ -107,14 +107,7 @@ let per_date start stop step fold =
             Array.iteri (fun r d -> match d with
                 | Some d -> accum_distr a1 r d
                 | None   -> ()) a2 ;
-            a1) in
-    (* Convert microseconds into seconds *)
-    let m2s m = m /. 1_000_000. in
-    let microseconds_to_seconds = function
-        | None -> None
-        | Some (c, mi,ma,a,v) ->
-            Some (c, m2s mi, m2s ma, m2s a, m2s (m2s v)) in
-    Array.map microseconds_to_seconds result
+            a1)
 
 
 type sort_order = Asc | Desc

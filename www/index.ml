@@ -8,9 +8,6 @@ open Datatype
 
 let dbdir = "../test.db"
 
-(* Convert second (from form) to microseconds (from DB response times) *)
-let s2m x = x *. 1_000_000.
-
 module Ctrl =
 struct
     include Ctrl
@@ -166,9 +163,7 @@ struct
             let filters_form = form "Web/top" (Forms.Web.Top.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value n, (Value sort_order, ())))))))))))))) ->
-                    let rt_min = BatOption.map s2m rt_min
-                    and rt_max = BatOption.map s2m rt_max
-                    and n = BatOption.default 30 n
+                    let n = BatOption.default 30 n
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
                     and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
@@ -203,9 +198,7 @@ struct
                     let time_step = Interval.to_ms time_step
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
-                    and tblname = Forms.Web.TblNames.options.(tblname)
-                    and rt_min = BatOption.map s2m rt_min
-                    and rt_max = BatOption.map s2m rt_max in
+                    and tblname = Forms.Web.TblNames.options.(tblname) in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
                     View.resp_times_chart "Web - Average Response Time (sec)" time_step start datasets
                 | _ -> [] in
@@ -223,9 +216,7 @@ struct
             let filters_form = form "DNS/top" (Forms.Dns.Top.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value error, (Value qname, (Value n, (Value sort_order, ())))))))))))) ->
-                    let rt_min = BatOption.map s2m rt_min
-                    and rt_max = BatOption.map s2m rt_max
-                    and start = My_time.to_timeval start
+                    let start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
                     and n = BatOption.default 30 n
                     and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
@@ -257,9 +248,7 @@ struct
                     let time_step = Interval.to_ms time_step
                     and tblname = Forms.Dns.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop
-                    and rt_min = BatOption.map s2m rt_min
-                    and rt_max = BatOption.map s2m rt_max in
+                    and stop  = My_time.to_timeval stop in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
                     View.resp_times_chart "DNS - Average Response Time (sec)" time_step start datasets
                 | _ -> [] in
@@ -272,10 +261,7 @@ struct
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value prec, (Value top_nth, (Value tblname, ()))))))))))) ->
                     let tblname = Forms.Dns.TblNames.options.(tblname)
                     and start  = My_time.to_timeval start
-                    and stop   = My_time.to_timeval stop
-                    and rt_min = BatOption.map s2m rt_min
-                    and rt_max = BatOption.map s2m rt_max
-                    and prec   = BatOption.map s2m prec in
+                    and stop   = My_time.to_timeval stop in
                     let datasets = plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
                     View.distrib_chart "response time (s)" "#queries" datasets
                 | _ -> [] in

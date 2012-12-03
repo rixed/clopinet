@@ -1,6 +1,8 @@
 TODO stack
 ----------
 
+* Distribution presitions RT min/max should be time interval not mere floats.
+
 * Zoom on time with mouse on distribution graphs
 
 * An html legend next to the callflow svg, with y mouse coordinate translated

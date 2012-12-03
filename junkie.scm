@@ -22,12 +22,12 @@ Or just run: junkie -c this_file
      (url str)
      (qry-host str)]
     [(http-answer
-       (on-entry (pass "printf(\"WEB\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\t%s\\t%s\\n\",
+       (on-entry (pass "printf(\"WEB\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t1\\t%f\\t%f\\t%f\\t0\\t%s\\t%s\\n\",
                         (int)" vlan " == VLAN_UNSET ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "), " server-port ",
                         " qry-method ", " err-code ", timeval_2_str(" qry-start "),
-                        " (qry-stop - qry-start) ", " (qry-stop - qry-start) ", " (qry-stop - qry-start) ",
+                        " (qry-stop - qry-start) "/1000000., " (qry-stop - qry-start) "/1000000., " (qry-stop - qry-start) "/1000000.,
                         " qry-host ", " url ");\n")))
      (web-qry
        (index-size 5024)
@@ -76,12 +76,12 @@ Or just run: junkie -c this_file
      (qry-stop timestamp)
      (qry-name str)]
     [(dns-answer
-       (on-entry (pass "printf(\"DNS\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\t%s\\n\",
+       (on-entry (pass "printf(\"DNS\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t1\\t%f\\t%f\\t%f\\t0\\t%s\\n\",
                         (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
                         " err-code ", timeval_2_str(" qry-start "),
-                        " (qry-stop - qry-start) ", " (qry-stop - qry-start) ", " (qry-stop - qry-start) ",
+                        " (qry-stop - qry-start) "/1000000., " (qry-stop - qry-start) "/1000000., " (qry-stop - qry-start) "/1000000.,
                         " qry-name ");\n")))
      (dns-query
        (index-size 5024)
@@ -355,21 +355,21 @@ Or just run: junkie -c this_file
      (sock-ack timestamp)
      (nb-syns uint)]
     [(tcp-opened
-       (on-entry (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\n\",
+       (on-entry (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%f\\t%f\\t%f\\t0\\n\",
                         (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
                         " client-port ", " server-port ",
                         timeval_2_str(" sock-syn "), " nb-syns ",
-                        " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ");\n")))
+                        " (sock-ack - sock-syn) "/1000000., " (sock-ack - sock-syn) "/1000000., " (sock-ack - sock-syn) "/1000000.);\n")))
      (tcp-connecting
-       (on-timeout (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%\"PRId64\"\\t%\"PRId64\"\\t%\"PRId64\"\\t0\\n\",
+       (on-timeout (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%f\\t%f\\t%f\\t0\\n\",
                          (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                          eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                          eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
                          " client-port ", " server-port ",
                          timeval_2_str(" sock-syn "), " nb-syns ",
-                         " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ", " (sock-ack - sock-syn) ");\n"))
+                         " (sock-ack - sock-syn) "/1000000., " (sock-ack - sock-syn) "/1000000., " (sock-ack - sock-syn) "/1000000.);\n"))
        (index-size 20000)
        ; timeout an outstanding SYN after 80s
        (timeout 80000000))]
