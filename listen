@@ -3,4 +3,4 @@
 intf="$1"
 
 sudo rm -f junkie.log 2>/dev/null
-sudo -E junkie -c junkie.scm -l junkie.log -i "$intf" | ./junkie2db test.db
+exec sudo -E junkie -c junkie.scm -l junkie.log -i "$intf" | ./junkie2db test.db
