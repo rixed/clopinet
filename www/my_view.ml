@@ -685,7 +685,7 @@ let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size ?arrow_size ?tic
 
 
 (* Returns a distribution graph *)
-let distrib_chart x_label y_label (vx_step, vx_min, vx_max, datasets) =
+let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
     (* Graph geometry in pixels *)
     let font_size = 10. in
     let margin_bottom = 30. and margin_left = 10. and margin_top = 30. and margin_right = 10.
@@ -702,7 +702,9 @@ let distrib_chart x_label y_label (vx_step, vx_min, vx_max, datasets) =
             max m (Array.length d))
             0 datasets in
     let tot_count = Array.create nb_buckets 0 in
-    let rt_of_bucket i = vx_min +. (float_of_int i +. 0.5) *. vx_step in
+    let rt_of_bucket i = (float_of_int (i + bucket_min) +. 0.5) *. vx_step in
+    let vx_min = rt_of_bucket 0
+    and vx_max = rt_of_bucket (bucket_max - bucket_min |> succ) in
     (* Compute max count for a given bucket *)
     List.iter (fun (_label, d) ->
         Array.iteri (fun i c -> tot_count.(i) <- tot_count.(i) + c) d)
@@ -765,9 +767,10 @@ let distrib_chart x_label y_label (vx_step, vx_min, vx_max, datasets) =
     let avg_rt = if tot_queries > 0. then 
                      (Datatype.string_of_number (tot_rt /. tot_queries)) ^ "s"
                  else "none" in
+    let cursor = rect ~attrs:["id","cursor"] ~stroke:"none" ~fill:"#d8a" ~fill_opacity:0.3 x_axis_xmin y_axis_ymax 0. (y_axis_ymin -. y_axis_ymax) in
     [ table ~attrs:["class","svg"] [ tr
         [ td ~id:"plot"
-            [ svg [ grid ; distrs ] ] ;
+            [ svg [ cursor ; grid ; distrs ] ] ;
           td [ div ~attrs:["class","svg-info"]
                 ([ h3 "Global" ;
                    p [ raw ((Datatype.string_of_number tot_queries) ^ " queries") ] ;
@@ -775,5 +778,6 @@ let distrib_chart x_label y_label (vx_step, vx_min, vx_max, datasets) =
                    h3 ~id:"selected-peer-name" "" ;
                    p ~id:"selected-peer-info" [] ;
                    h3 "Legend" ] @
-                 ( List.map legend_of_dataset datasets)) ] ] ] ]
-
+                 ( List.map legend_of_dataset datasets)) ] ] ] ;
+        (* for this we really do want stdlib's string_of_float not our stripped down version *)
+        script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^");") ]

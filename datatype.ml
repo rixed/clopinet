@@ -241,10 +241,19 @@ let multiples_bytes = [| "B"; "KiB"; "MiB"; "GiB"; "TiB"; "PiB" |]
 let multiples = [| ""; "k"; "M"; "G"; "T"; "P" |]
 let unpower m v =
     let rec aux e v =
-        if e >= Array.length multiples -1 || v < 1024. then
+        if e >= Array.length multiples -1 || abs_float v < m then
             e, v
         else
             aux (succ e) (v/.m) in
+    aux 0 v
+
+let submultiples = [| ""; "m"; "u"; "n"; "p" |]
+let power m v =
+    let rec aux e v =
+        if e >= Array.length submultiples -1 || abs_float v >= 1. then
+            e, v
+        else
+            aux (succ e) (v*.m) in
     aux 0 v
 let string_of_volume v =
     let e, v = unpower 1024. v in
@@ -252,8 +261,14 @@ let string_of_volume v =
 let string_of_float v =
     Printf.sprintf "%.*f" (if fst (modf v) < 0.01 then 0 else 2) v
 let string_of_number v =
-    let e, v = unpower 1000. v in
-    string_of_float v ^ multiples.(e)
+    if abs_float v >= 1. then (
+        let e, v = unpower 1000. v in
+        string_of_float v ^ multiples.(e)
+    ) else (
+        let e, v = power 1000. v in
+        let s = string_of_float v in
+        if s = "0" then s else s ^ submultiples.(e)
+    )
 
 exception Overflow
 module Integer_base = struct
@@ -637,8 +652,10 @@ end
  *)
 
 module Interval_base = struct
-    type t = { years : float ; months : float ; weeks : float ; days  : float ;
-               hours : float ; mins   : float ; secs  : float ; msecs : float }
+    type t = { years : float ; months : float ;
+               weeks : float ; days   : float ;
+               hours : float ; mins   : float ;
+               secs  : float ; msecs  : float }
 
     let name = "interval"
 
@@ -694,6 +711,20 @@ module Interval_base = struct
         w t.msecs  "msec" ;
         if not !started then Output.char oc '0'
 
+    (* Some of our fields are interchangeable... *)
+    let normalize i =
+        (* We normalize only msecs, secs, mins and hours.
+           A week is always 7 days but we'd rather keep days if the user used days *)
+        let tot_msecs = i.msecs +. 1_000. *. i.secs
+                      +. 60_000. *. i.mins +. 3_600_000. *. i.hours in
+        let div n k =
+            let lo,hi = modf (n /. k) in
+            hi, lo*.k in
+        let tot_secs, msecs = div tot_msecs 1000. in
+        let tot_mins, secs  = div tot_secs 60. in
+        let hours, mins = div tot_mins 60. in
+        { i with msecs ; secs ; mins ; hours }
+
     let read ic =
         let deser ic = deser64 ic |> Int64.float_of_bits in
         let years  = deser ic in
@@ -704,7 +735,7 @@ module Interval_base = struct
         let mins   = deser ic in
         let secs   = deser ic in
         let msecs  = deser ic in
-        { years ; months ; weeks ; days ; hours ; mins ; secs ; msecs }
+        normalize { years ; months ; weeks ; days ; hours ; mins ; secs ; msecs }
 
     exception Parse_error
 
@@ -748,8 +779,9 @@ module Interval_base = struct
             loop () in
         try loop () with End_of_file ->
             if !some_set then
-                { years = !years ; months = !months ; weeks = !weeks ; days = !days ;
-                  hours = !hours ; mins = !mins ; secs = !secs ; msecs = !msecs }
+                normalize
+                    { years = !years ; months = !months ; weeks = !weeks ; days = !days ;
+                      hours = !hours ; mins = !mins ; secs = !secs ; msecs = !msecs }
             else
                 raise End_of_file
 end
@@ -758,8 +790,10 @@ module Interval : sig
      * to Interval_base *)
     include DATATYPE with type t := Interval_base.t
     type t = Interval_base.t =
-        { years : float ; months : float ; weeks : float ; days : float ;
-          hours : float ; mins : float ; secs : float ; msecs : float }
+        { years : float ; months : float ;
+          weeks : float ; days   : float ;
+          hours : float ; mins   : float ;
+          secs  : float ; msecs  : float }
     val zero    : t
     val to_ms   : t -> Int64.t
     val to_secs : t -> float

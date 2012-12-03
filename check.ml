@@ -143,7 +143,14 @@ let check_serial () =
         assert (deser_string ibuf = "pas glop")) ;
     Unix.unlink fname
 
-let _ =
+let check_disp_numbers () =
+    assert (string_of_number 4000. = "4k") ;
+    assert (string_of_number 0.004 = "4m") ;
+    assert (string_of_number ~-.0.004 = "-4m") ;
+    assert (string_of_number ~-.4000. = "-4k") ;
+    assert (string_of_number 0. = "0")
+
+let () =
     check_datatools () ;
     check_ints () ;
     check_cidr () ;
@@ -152,4 +159,5 @@ let _ =
     check_interval () ;
     check_option () ;
     check_serial () ;
+    check_disp_numbers () ;
     print_string "Ok\n"

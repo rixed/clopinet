@@ -267,3 +267,79 @@ function distr_unselect(evt, peer_name)
     distr_unselect2(peer_name);
 }
 
+function svg_explore_plot(svg_id, vx_min, vx_max, x_axis_xmin, x_axis_xmax, prec)
+{
+    var svg = document.getElementById(svg_id);
+    var root = document.documentElement;
+    var rect = svg.getBoundingClientRect();
+    var cursor = document.getElementById("cursor");
+    var drag_start_x = 0.;
+    var dragging = false;
+
+    function x_to_vx(x)
+    {
+        return vx_min + ((x - x_axis_xmin) * (vx_max-vx_min)) / (x_axis_xmax-x_axis_xmin);
+    }
+
+    function do_zoom(zoom_start, zoom_stop)
+    {
+        var minrt = x_to_vx(zoom_start) + 's';
+        var maxrt = x_to_vx(zoom_stop) + 's';
+        var dist_prec = prec * (zoom_stop-zoom_start)/(x_axis_xmax-x_axis_xmin);
+        window.location.search +=
+            '&' + encodeURIComponent('filter.minrt') +
+                '=' + encodeURIComponent(minrt) +
+            '&' + encodeURIComponent('filter.maxrt') +
+                '=' + encodeURIComponent(maxrt) +
+            '&' + encodeURIComponent('filter.distr-prec') +
+                '=' + encodeURIComponent(dist_prec)
+    }
+
+    function get_svg_x(e)
+    {
+        return e.clientX - rect.left - root.scrollLeft;
+    }
+
+    // horizontal selection
+    svg.addEventListener("mousedown", function (e) {
+        e.preventDefault();
+        drag_start_x = get_svg_x(e);
+        dragging = true;
+        cursor.setAttribute("x", drag_start_x);
+        cursor.setAttribute("width", 1.);
+        return false;
+    }, false);
+
+    svg.addEventListener("mousemove", function (e) {
+        e.preventDefault();
+        if (dragging) {
+            var stop_x = get_svg_x(e);
+            var width = stop_x - drag_start_x;
+            if (width >= 0) {
+                cursor.setAttribute("width", width);
+            } else {
+                cursor.setAttribute("x", stop_x);
+                cursor.setAttribute("width", -width);
+            }
+        }
+        return false;
+    }, false);
+
+    svg.addEventListener("mouseup", function (e) {
+        e.preventDefault();
+        if (dragging) {
+            dragging = false;
+            var zoom_start = parseFloat(cursor.getAttribute("x"));
+            var zoom_stop = zoom_start + parseFloat(cursor.getAttribute("width"));
+            if (zoom_start < x_axis_xmin) zoom_start = x_axis_xmin;
+            if (zoom_stop < x_axis_xmin) zoom_stop = x_axis_xmin;
+            if (zoom_stop - zoom_start >= 20) {
+                do_zoom(zoom_start, zoom_stop);
+            } else {
+                cursor.setAttribute("width", 0);
+            }
+        }
+        return false;
+    }, false);
+}
+

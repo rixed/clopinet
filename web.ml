@@ -173,11 +173,14 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?stat
                 min mi rt, max ma rt)
                 (max_float, 0.)
                 rts in
-        let nb_buckets = (ma -. mi) /. prec |> int_of_float |> succ in
+        (* return the prec interval in which to store a RT *)
+        let floor_rt rt = rt /. prec |> int_of_float in
+        let mi = floor_rt mi and ma = floor_rt ma in
+        let nb_buckets = ma - mi |> succ in
         let d = Array.create nb_buckets 0 in
         List.iter
             (fun rt ->
-                let i = (rt -. mi) /. prec |> int_of_float in
+                let i = floor_rt rt - mi in
                 d.(i) <- succ d.(i))
             rts ;
         mi, ma, d in
