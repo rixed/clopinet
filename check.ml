@@ -75,21 +75,24 @@ let check_timestamp () =
 let check_interval () =
     let open Interval in
     (* nothing specified -> seconds *)
-    assert (of_string "42" = { zero with secs = 42 }) ;
+    assert (of_string "42" = { zero with secs = 42. }) ;
     (* check various units *)
-    assert (of_string "42years" = { zero with years = 42 }) ;
-    assert (of_string "42 year" = { zero with years = 42 }) ;
-    assert (of_string "42y" = { zero with years = 42 }) ;
-    assert (of_string "42 y" = { zero with years = 42 }) ;
-    assert (of_string "42 weeks" = { zero with weeks = 42 }) ;
-    assert (of_string "42s" = { zero with secs = 42 }) ;
-    assert (of_string "42 ms" = { zero with msecs = 42 }) ;
-    assert (of_string "42 msec" = { zero with msecs = 42 }) ;
-    assert (of_string "42 msecs" = { zero with msecs = 42 }) ;
+    assert (of_string "42years" = { zero with years = 42. }) ;
+    assert (of_string "42 year" = { zero with years = 42. }) ;
+    assert (of_string "42y" = { zero with years = 42. }) ;
+    assert (of_string "42 y" = { zero with years = 42. }) ;
+    assert (of_string "42 weeks" = { zero with weeks = 42. }) ;
+    assert (of_string "42s" = { zero with secs = 42. }) ;
+    assert (of_string "42 ms" = { zero with msecs = 42. }) ;
+    assert (of_string "42 msec" = { zero with msecs = 42. }) ;
+    assert (of_string "42 msecs" = { zero with msecs = 42. }) ;
     assert (of_string "6y 4months 42 secs" =
-        { zero with years = 6 ; months = 4 ; secs = 42 }) ;
+        { zero with years = 6. ; months = 4. ; secs = 42. }) ;
     (* check we display something for 0 interval *)
-    assert (String.length (to_string zero) > 0)
+    assert (String.length (to_string zero) > 0) ;
+    (* check convertion to msecs and secs *)
+    assert (of_string "42 ms" |> to_ms = 42L) ;
+    assert (of_string "42 ms" |> to_secs = 0.042)
 
 module TestOption = Option (Integer8)
 let check_option () =

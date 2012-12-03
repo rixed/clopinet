@@ -97,6 +97,21 @@ struct
     let read = deser64
 end
 
+let read_chars ic set =
+    if TxtInput.is_eof ic then raise End_of_file else
+    let rec aux p =
+        try (
+            let b = TxtInput.peek ic in
+            if String.contains set b then (
+                TxtInput.swallow ic ;
+                aux (b :: p)
+            ) else (
+                string_of_list (List.rev p)
+            )
+        ) with End_of_file ->
+            string_of_list (List.rev p) in
+    aux []
+
 let read_txt_until ic delim =
     if TxtInput.is_eof ic then raise End_of_file else
     let rec aux p =
@@ -193,7 +208,7 @@ module Float_base = struct
         deser64 ic |> Int64.float_of_bits
     let read_txt ic =
         (* hello, I'm slow! *)
-        Text.read_txt ic |> float_of_string
+        read_chars ic "+-0123456789." |> float_of_string
 end
 module Float : NUMBER with type t = float =
 struct
@@ -234,9 +249,11 @@ let unpower m v =
 let string_of_volume v =
     let e, v = unpower 1024. v in
     Printf.sprintf "%.*f%s" (if fst (modf v) < 0.01 then 0 else 2) v multiples_bytes.(e)
+let string_of_float v =
+    Printf.sprintf "%.*f" (if fst (modf v) < 0.01 then 0 else 2) v
 let string_of_number v =
     let e, v = unpower 1000. v in
-    Printf.sprintf "%.*f%s" (if fst (modf v) < 0.01 then 0 else 2) v multiples.(e)
+    string_of_float v ^ multiples.(e)
 
 exception Overflow
 module Integer_base = struct
@@ -620,8 +637,8 @@ end
  *)
 
 module Interval_base = struct
-    type t = { years : int ; months : int ; weeks : int ; days : int ;
-               hours : int ; mins : int ; secs : int ; msecs : int }
+    type t = { years : float ; months : float ; weeks : float ; days  : float ;
+               hours : float ; mins   : float ; secs  : float ; msecs : float }
 
     let name = "interval"
 
@@ -630,10 +647,9 @@ module Interval_base = struct
         (* FIXME: try to compute the overall ms number and if the diff is big
          * enought use it *)
         let w_2_ms t =
-            let ( + ) = Int64.add and ( * ) = Int64.mul and l = Int64.of_int in
-              l t.msecs + l t.secs * 1_000L + l t.mins * 60_000L
-            + l t.hours * 3600_000L + l t.days * 86_400_000L + l t.weeks * 604_800_000L in
-        let y_2_m t = t.years * 12 + t.months in
+               t.msecs +. t.secs *. 1_000. +. t.mins *. 60_000.
+            +. t.hours *. 3600_000. +. t.days *. 86_400_000. +. t.weeks *. 604_800_000. in
+        let y_2_m t = t.years *. 12. +. t.months in
         let m1 = y_2_m t1 and m2 = y_2_m t2 in
         if m1 > m2 then 1 else
         if m1 < m2 then -1 else
@@ -647,24 +663,25 @@ module Interval_base = struct
     let equal t1 t2 =
         compare t1 t2 = 0
 
-    let hash t = t.years + t.months + t.weeks + t.days + t.hours + t.mins + t.secs + t.msecs
+    let hash t = int_of_float (t.years +. t.months +. t.weeks +. t.days +. t.hours +. t.mins +. t.secs +. t.msecs)
 
     let write oc t =
-        ser_varint oc t.years ;
-        ser_varint oc t.months ;
-        ser_varint oc t.weeks ;
-        ser_varint oc t.days ;
-        ser_varint oc t.hours ;
-        ser_varint oc t.mins ;
-        ser_varint oc t.secs ;
-        ser_varint oc t.msecs
+        let ser oc v = Int64.bits_of_float v |> ser64 oc in
+        ser oc t.years ;
+        ser oc t.months ;
+        ser oc t.weeks ;
+        ser oc t.days ;
+        ser oc t.hours ;
+        ser oc t.mins ;
+        ser oc t.secs ;
+        ser oc t.msecs
 
     let write_txt oc t =
         let started = ref false in
         let w v u =
-            if v <> 0 then (
+            if v <> 0. then (
                 started := true ;
-                Printf.sprintf "%d %s%s" v u (if v > 1 then "s" else "") |>
+                string_of_float v ^ " " ^ u ^ (if v > 1. then "s" else "") |>
                 Output.string oc
             ) in
         w t.years  "year" ;
@@ -678,36 +695,37 @@ module Interval_base = struct
         if not !started then Output.char oc '0'
 
     let read ic =
-        let years  = deser_varint ic in
-        let months = deser_varint ic in
-        let weeks  = deser_varint ic in
-        let days   = deser_varint ic in
-        let hours  = deser_varint ic in
-        let mins   = deser_varint ic in
-        let secs   = deser_varint ic in
-        let msecs  = deser_varint ic in
+        let deser ic = deser64 ic |> Int64.float_of_bits in
+        let years  = deser ic in
+        let months = deser ic in
+        let weeks  = deser ic in
+        let days   = deser ic in
+        let hours  = deser ic in
+        let mins   = deser ic in
+        let secs   = deser ic in
+        let msecs  = deser ic in
         { years ; months ; weeks ; days ; hours ; mins ; secs ; msecs }
 
     exception Parse_error
 
     let read_txt ic =
-        let years = ref 0 and months = ref 0 and weeks = ref 0
-        and days = ref 0 and hours = ref 0 and mins = ref 0
-        and secs = ref 0 and msecs = ref 0 and some_set = ref false in
+        let years = ref 0. and months = ref 0. and weeks = ref 0.
+        and days = ref 0. and hours = ref 0. and mins = ref 0.
+        and secs = ref 0. and msecs = ref 0. and some_set = ref false in
         let set_v r v =
-            if !r <> 0 then raise Parse_error ;
+            if !r <> 0. then raise Parse_error ;
             some_set := true ;
             r := v in
 
         let rec loop () =
             swallow_all ' ' ic ;
-            let n = Integer.read_txt ic in
+            let n = Float.read_txt ic in
             swallow_all ' ' ic ;
             if TxtInput.is_eof ic then (
                 (* no unit means seconds *)
                 set_v secs n
             ) else (
-                let u = read_txt_until ic "+-0123456789 \n\t" |> String.lowercase in
+                let u = read_txt_until ic "+-.0123456789 \n\t" |> String.lowercase in
                 swallow_all ' ' ic ;
                 if String.length u = 1 then match u.[0] with
                     | 'y' -> set_v years n
@@ -740,25 +758,28 @@ module Interval : sig
      * to Interval_base *)
     include DATATYPE with type t := Interval_base.t
     type t = Interval_base.t =
-        { years : int ; months : int ; weeks : int ; days : int ;
-          hours : int ; mins : int ; secs : int ; msecs : int }
-    val zero  : t
-    val to_ms : t -> Int64.t
+        { years : float ; months : float ; weeks : float ; days : float ;
+          hours : float ; mins : float ; secs : float ; msecs : float }
+    val zero    : t
+    val to_ms   : t -> Int64.t
+    val to_secs : t -> float
     end =
 struct
     include Interval_base
     include Datatype_of(Interval_base)
 
     let zero =
-        { years = 0 ; months = 0 ; weeks = 0 ; days = 0 ;
-          hours = 0 ; mins = 0 ; secs = 0 ; msecs = 0 }
+        { years = 0. ; months = 0. ; weeks = 0. ; days  = 0. ;
+          hours = 0. ; mins   = 0. ; secs  = 0. ; msecs = 0. }
 
-    let to_ms t =
+    let to_ms_float t =
         (* for this we consider 'default' length to variable time units *)
-        let ( + ) = Int64.add and ( * ) = Int64.mul and l = Int64.of_int in
-          l t.msecs + l t.secs * 1_000L + l t.mins * 60_000L
-        + l t.hours * 3600_000L + l t.days * 86_400_000L + l t.weeks * 604_800_000L
-        + l t.months * 2_628_000_000L + l t.years * 31_557_600_000L
+           t.msecs +. t.secs *. 1_000. +. t.mins *. 60_000.
+        +. t.hours *. 3600_000. +. t.days *. 86_400_000. +. t.weeks *. 604_800_000.
+        +. t.months *. 2_628_000_000. +. t.years *. 31_557_600_000.
+
+    let to_ms t   = to_ms_float t |> Int64.of_float
+    let to_secs t = to_ms_float t /. 1_000.
 end
 
 (**
@@ -856,15 +877,15 @@ module Timestamp = struct
         let open Unix in
         let open Interval in
         let tm = to_tm t in
-        of_tm_nocheck (tm.tm_year + 1900 + i.years)
-                      (tm.tm_mon + 1 + i.months)
-                      (tm.tm_mday + i.days + 7*i.weeks)
-                      (tm.tm_hour + i.hours)
-                      (tm.tm_min + i.mins)
+        of_tm_nocheck (tm.tm_year + 1900 + (int_of_float i.years))
+                      (tm.tm_mon + 1 + (int_of_float i.months))
+                      (tm.tm_mday + (int_of_float i.days) + 7*(int_of_float i.weeks))
+                      (tm.tm_hour + (int_of_float i.hours))
+                      (tm.tm_min + (int_of_float i.mins))
                       (float_of_int tm.tm_sec +.
                        (milliseconds t |> Int64.to_float) *. 0.001 +.
-                       float_of_int i.secs +.
-                       (float_of_int i.msecs *. 0.001))
+                       i.secs +.
+                       (i.msecs *. 0.001))
 
     let now () = of_unixfloat (Unix.time ())
 

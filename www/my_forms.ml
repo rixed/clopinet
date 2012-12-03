@@ -196,14 +196,14 @@ module TxMin = struct
     let persistant = false
 end
 module MinRespTime = struct
-    module Type = OptFloat (struct let min = Some 0. let max = None end)
-    let display_name = "min resp time (s)"
+    module Type = OptInputOfDatatype (Interval)
+    let display_name = "min resp time"
     let uniq_name = "minrt"
     let persistant = false
 end
 module MaxRespTime = struct
-    module Type = OptFloat (struct let min = Some 0. let max = None end)
-    let display_name = "max resp time (s)"
+    module Type = OptInputOfDatatype (Interval)
+    let display_name = "max resp time"
     let uniq_name = "maxrt"
     let persistant = false
 end
@@ -218,8 +218,8 @@ module SortOrder = struct
     let persistant = false
 end
 module DistPrecField = struct
-    module Type = OptFloat (struct let min = Some 1e-10 let max = None end)
-    let display_name = "Precision (s)"
+    module Type = OptInputOfDatatype (Interval)
+    let display_name = "Precision"
     let uniq_name = "distr-prec"
     let persistant = true
 end
