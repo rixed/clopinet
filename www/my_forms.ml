@@ -217,6 +217,12 @@ module SortOrder = struct
     let uniq_name = "sort-order"
     let persistant = false
 end
+module DistPrecField = struct
+    module Type = OptFloat (struct let min = Some 1e-10 let max = None end)
+    let display_name = "Precision (s)"
+    let uniq_name = "distr-prec"
+    let persistant = true
+end
 
 module Traffic = struct
     module TblNames = struct
@@ -383,6 +389,24 @@ module Web = struct
                           (ConsOf (FieldOf (SortOrder))
                                   (NulType))))))))))))))))
 
+    module Distrib = RecordOf (ConsOf (FieldOf (StartField))
+                              (ConsOf (FieldOf (StopField))
+                              (ConsOf (FieldOf (VlanField))
+                              (ConsOf (FieldOf (MacSrcField))
+                              (ConsOf (FieldOf (MacDstField))
+                              (ConsOf (FieldOf (IpSrcField))
+                              (ConsOf (FieldOf (IpDstField))
+                              (ConsOf (FieldOf (HttpMethod))
+                              (ConsOf (FieldOf (HttpStatus))
+                              (ConsOf (FieldOf (HttpHost))
+                              (ConsOf (FieldOf (HttpURL))
+                              (ConsOf (FieldOf (MinRespTime))
+                              (ConsOf (FieldOf (MaxRespTime))
+                              (ConsOf (FieldOf (DistPrecField))
+                              (ConsOf (FieldOf (MaxGraphsField))
+                              (ConsOf (FieldOf (TblNameField))
+                                      (NulType)))))))))))))))))
+
 end
 
 module Dns = struct
@@ -407,12 +431,6 @@ module Dns = struct
         let display_name = "Query Name"
         let uniq_name = "qname"
         let persistant = false
-    end
-    module DistPrecField = struct
-        module Type = OptFloat (struct let min = Some 1e-10 let max = None end)
-        let display_name = "Precision (s)"
-        let uniq_name = "distr-prec"
-        let persistant = true
     end
     module RespTime = RecordOf (ConsOf (FieldOf (StartField))
                                (ConsOf (FieldOf (StopField))

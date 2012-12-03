@@ -204,6 +204,19 @@ struct
                 | _ -> [] in
             View.make_graph_page "Web Response Time" filters_form disp_graph
 
+        let distrib args =
+            let filters = Forms.Web.Distrib.from_args "filter" args in
+            let filters_form = form "Web/distrib" (Forms.Web.Distrib.edit "filter" filters) in
+            let disp_graph = match filters with
+                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value prec, (Value top_nth, (Value tblname, ()))))))))))))))) ->
+                    let tblname = Forms.Dns.TblNames.options.(tblname)
+                    and start  = My_time.to_timeval start
+                    and stop   = My_time.to_timeval stop in
+                    let datasets = plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
+                    View.distrib_chart "response time (s)" "#queries" datasets
+                | _ -> [] in
+            View.make_graph_page "Web Response Times" filters_form disp_graph
+
     end
 
     module Dns =
@@ -290,6 +303,8 @@ let _ =
             Ctrl.Web.resp_time
         | ["Web"; "top"] ->
             Ctrl.Web.top
+        | ["Web"; "distrib"] ->
+            Ctrl.Web.distrib
         | ["DNS"; "resptime"] ->
             Ctrl.Dns.resp_time
         | ["DNS"; "top"] ->

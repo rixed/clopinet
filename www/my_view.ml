@@ -37,7 +37,7 @@ let menu () =
     let html_of_entry e1 e2 = tag "li" [ tag "a" ~attrs:["href","?action="^e1^"/"^e2] [cdata e2] ]
     and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "tops"; "graph"; "callflow"] ;
                          "DNS", ["resptime"; "top"; "distrib"] ;
-                         "Web", ["resptime"; "top"] ;
+                         "Web", ["resptime"; "top"; "distrib"] ;
                          "Admin", ["preferences"] ] in
     span ~id:"menu" [
         tag "ul" (List.map (fun (section, links) ->
