@@ -1,7 +1,8 @@
 TODO stack
 ----------
 
-* Distribution presitions RT min/max should be time interval not mere floats.
+* A selection area for any svg, calling a given handler when the drag box is
+done
 
 * Zoom on time with mouse on distribution graphs
 
@@ -9,27 +10,40 @@ TODO stack
   into time, and info on selected peer timeline (IP...?) + http link to other
   infos related to this peer
 
-* Passer tous les RT en s dans la base (et faire ecrire des floats à junkie)
 
 * TCP resptimes
 
-* User prefs with svg dimensions, wether to resolve IPs/MACs...
 
-* callflow: when mouse if over an arrow display time in legend
+* User prefs with svg dimensions, wether to resolve IPs/MACs...
 
 * A config file for setting agr levels and max age of files (available from
 web, so should not need recompilation)
 
-* Add is_server + certainty bit in tcp_proto_info.
+* Une config permettant d'associer des couleurs à des hosts (basé sur mac ou 
+ip), et qu'on utiliserait pour colorer des lignes ou des nodes svg.
+
+* Et une config pour nommer des filtres?
+
+
+* callflow: when mouse if over an arrow display time in legend
+
+* Add user-agent in web metric
+
 
 * Add IP-server, IP-client in the various graphs were an IP is accepted
   (using the same simple way to find out which is which)
 
-* Un netgraph DNS et TCP
+* Move in junkie the server discovery mechanism
+
+Add is_server + certainty bit in tcp_proto_info.
+
 
 * Un graph pour les métriques HTTP/DNS qui permet de grapher en fonction du 
 temps la volumétrie (soit nombre de requète, soit volume, soit durée) group by
 un paramètre (ip src, ip dst, hostname, hostname+url, noms requit...)
+
+
+* Un netgraph DNS et TCP
 
 * Pour simplifier le netgraph, une métrique virtuelle avec :
   - vlan, mac+ip source, mac+ip dest, mac+ip proto (filtre: vlan, etc)
@@ -40,16 +54,16 @@ un paramètre (ip src, ip dst, hostname, hostname+url, noms requit...)
 	plus) (filtre: substring match + checkbox pour activer la collecte)
 et c'est ça qu'on grapherait dans netgraph.
 
-* Une config permettant d'associer des couleurs à des hosts (basé sur mac ou 
-ip), et qu'on utiliserait pour colorer des lignes ou des nodes svg.
-
-* Et une config pour nommer des filtres?
 
 * Aussi pouvoir déclencher des pcap
+
 
 * Filters for http method, vlan, etc, should be multiselect or
 accept syntax such as "3,5,67-78", and these params should be returned
 as functions. The only exception is ip srv which is used as an index.
+
+* IP proto should be a selectbox
+
 
 * in the netgraph legend, display roles or IPs, as the port the IP is server 
 for (ie traffic decomposition by srv port - or a button to open a page with this info 
@@ -63,23 +77,25 @@ for this IP).
 
 * Remove all non-ip traffic when we ask an IP peer graph
 
-* Apart in place where we have Y per secs, keep integers instead of floats
+* Apart in places where we have Y per secs, keep integers instead of floats
   for volumes.
+
 
 * Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr *or*
   make all these available from cmd line
 
-* A queries chart as a cloud of dots
-
 * A max packet size chart, as an histogram
+
 
 * A metric for notifications (displayed on graphs and tables and netgraph (in 
 a separate window), with restarts write new ones (added from junkie2db for 
 instance)
 
+
 * In all time charts where the selected period spans no more than 10 days,
 display in chart background the night times with a sligh dark-blue bgcolor.
 Same spirit: add a vertical bar at current time.
+
 
 * junkie.scm: for http, add an intermediary state between query and answer
 matching any packet belonging to this cnx in order to reset the timeout clock.
@@ -112,9 +128,6 @@ the index handling (Dns0.dump is too complex wrt. index)
 
 * Dump should be able to send output to a pipe (ssh compressed tunnel) for
 distributed querying
-
-
-* IP proto should be a selectbox
 
 
 * nettrack language should provide special function to create a new capfile,
