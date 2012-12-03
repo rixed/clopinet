@@ -733,8 +733,6 @@ let distrib_chart x_label y_label (vx_step, vx_min, vx_max, datasets) =
                 (* Top line *)
                 Array.fold_lefti (fun prev i rt_count ->
                     let rt_count' = rt_count + prev_count.(i) in
-                    if i = 0 then Printf.fprintf stderr "rt_of_bucket 0 = %f -> x = %f\n<br/>"
-                                        (rt_of_bucket i) (get_x (rt_of_bucket i)) ;
                     prev ^
                         (if i = 0 then moveto else lineto)
                             (get_x (rt_of_bucket i), get_y (float_of_int (rt_count' + mid_tot_count - mid_count i))))
