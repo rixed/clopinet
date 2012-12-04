@@ -4,8 +4,6 @@ TODO stack
 - A selection area for any svg, calling a given handler when the drag box is
 done
 
-- Zoom on time with mouse on distribution graphs
-
 
 - An html legend next to the callflow svg, with y mouse coordinate translated
   into time, and info on selected peer timeline (IP...?) + http link to other
@@ -13,6 +11,9 @@ done
 
 
 - TCP resptimes
+
+
+- Input values for IP should be resolved
 
 
 User prefs
@@ -29,6 +30,8 @@ IPs/MACs...
 des lignes ou des nodes svg.
 
 - Et une config pour nommer des filtres?
+
+- Any config param should be overwritable from cmd line
 
 
 - callflow: when mouse if over an arrow display time in legend

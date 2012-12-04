@@ -16,8 +16,9 @@ let string_of_request ?max_len meth host url =
     match max_len with
     | None -> s
     | Some l ->
-        if String.length s + 3 <= l then s
-        else (String.sub s 0 l) ^ "..."
+        let l = max 3 l in
+        if String.length s <= l then s
+        else (String.sub s 0 (l - 3)) ^ "..."
 
 let string_of_err err =
     if err = 200 then "" else Printf.sprintf "err: %d" err
