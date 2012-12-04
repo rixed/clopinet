@@ -698,7 +698,7 @@ module Interval_base = struct
         let w v u =
             if v <> 0. then (
                 started := true ;
-                string_of_float v ^ " " ^ u ^ (if v > 1. then "s" else "") |>
+                string_of_float v ^ " " ^ u ^ (if abs_float v > 1. then "s" else "") |>
                 Output.string oc
             ) in
         w t.years  "year" ;
