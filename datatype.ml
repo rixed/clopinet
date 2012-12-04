@@ -478,6 +478,18 @@ struct
     (* TODO: check overflow *)
 end
 
+(* FIXME: purge old entries *)
+(* FIXME: use a reentrant resolver *)
+let gethostbyaddr_cache = Hashtbl.create 997
+let cached_gethostbyaddr addr =
+    match Hashtbl.find_option gethostbyaddr_cache addr with
+    | Some x -> x
+    | None ->
+        let open Unix in
+        let name = (gethostbyaddr addr).h_name in
+        Hashtbl.add gethostbyaddr_cache addr name ;
+        name
+
 module InetAddr_base = struct
     type t = Unix.inet_addr
     let name = "inetAddr"
@@ -488,7 +500,12 @@ module InetAddr_base = struct
         let (str : string) = Obj.magic t in (* underlying repr of a inet_addr is a string for some reason, probably to handle both v4 and v6 *)
         Text.write oc str
     let write_txt oc t =
-        Unix.string_of_inet_addr t |>
+        (let open Unix in
+        if Prefs.get_bool "resolver/ip" false then
+            try cached_gethostbyaddr t
+            with Not_found -> string_of_inet_addr t
+        else
+            string_of_inet_addr t) |>
         Output.string oc
     let read ic =
         let str = Text.read ic in

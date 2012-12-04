@@ -3,8 +3,8 @@ open Batteries
 let overwrite_h = ref None
 let overwrite h = overwrite_h := Some h
 
-let dir = ref "."
-let set_dir d = dir := d
+let base = ref "./conf"
+let set_base d = base := d
 
 let cache_timeout = 60. (* re-read param files every minutes *)
 type cache_file = float * (string, string) Hashtbl.t
@@ -44,18 +44,19 @@ let get_from_cached_file fname pname =
     Option.bind (fun cache ->
         Hashtbl.find_option cache pname)
 
-let rec get_from_dir dir pname =
-    let basename, paramname = String.split pname "/" in
-    let fname = dir ^"/"^ basename in
-    match get_from_cached_file fname paramname with
-    | None -> get_from_dir fname paramname
+let rec get_from_dir fname pname =
+    match get_from_cached_file fname pname with
+    | None ->
+        (try let basename, paramname = String.split pname "/" in
+            get_from_dir (fname ^"/"^ basename) paramname
+        with Not_found -> None)
     | x -> x
 
 let get_option name =
     match Option.bind (fun h ->
         Hashtbl.find_option h name)
         !overwrite_h with
-    | None -> get_from_dir !dir name
+    | None -> get_from_dir !base name
     | x -> x
 
 let get_string name default =
@@ -67,3 +68,7 @@ let get_int name default =
     Option.map int_of_string |>
     Option.default default
 
+let get_bool name default =
+    get_option name |>
+    Option.map (String.lowercase |- bool_of_string) |>
+    Option.default default

@@ -7,6 +7,7 @@ open Input.Ops
 open Datatype
 
 let dbdir = "../test.db"
+let () = Prefs.set_base "../conf"
 
 let i2s = BatOption.map Interval.to_secs
 

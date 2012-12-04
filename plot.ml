@@ -11,18 +11,18 @@ let hashtbl_update_with_default d h k f =
 (* Reduce number of datasets to max_graphs.
  * Returns an array of (label, pts), bigger y max first (apart from
  * others, at the end) *)
-let top_plot_datasets max_graphs datasets nb_steps =
+let top_plot_datasets max_graphs datasets nb_steps label_of_key other_key =
     let max_peak = Array.make (max_graphs-1) None (* ordered by max peak (bigger first) *)
     and others_pts = Array.make nb_steps 0.
     and max_pts pts = Array.fold_left max min_float pts
     and need_others = ref false in
-    let add_to_others label =
+    let add_to_others k =
         need_others := true ;
-        Hashtbl.find datasets label |>
+        Hashtbl.find datasets k |>
         Array.iteri (fun i y ->
             (* add it to others then *)
             others_pts.(i) <- others_pts.(i) +. y) in
-    let insert_max max label =
+    let insert_max max k =
         let rec aux i =
             if i < Array.length max_peak then (
                 if (match max_peak.(i) with
@@ -32,31 +32,32 @@ let top_plot_datasets max_graphs datasets nb_steps =
                     (* make one place by moving last entry into others *)
                     (match max_peak.(Array.length max_peak - 1) with
                         | None -> ()
-                        | Some (_m, label) -> add_to_others label) ;
+                        | Some (_m, k) -> add_to_others k) ;
                     (* and scrolling entries *)
                     if i < Array.length max_peak - 1 then
                         Array.blit max_peak i max_peak (i+1) (Array.length max_peak - i - 1) ;
-                    max_peak.(i) <- Some (max, label) ;
+                    max_peak.(i) <- Some (max, k) ;
                     true
                 ) else (
                     aux (i+1)
                 )
             ) else false in
         aux 0 in
-    Hashtbl.iter (fun label pts ->
+    Hashtbl.iter (fun k pts ->
         let max = max_pts pts in
-        if not (insert_max max label) then (
-            add_to_others label
+        if not (insert_max max k) then (
+            add_to_others k
         )) datasets ;
     (* recompose datasets from max_peak and others *)
     let rec add_next_dataset prev i =
         if i < 0 then prev else
         add_next_dataset (match max_peak.(i) with
             | None -> prev
-            | Some (_max, label) -> (label, Hashtbl.find datasets label)::prev)
+            | Some (_max, k) -> (label_of_key k, Hashtbl.find datasets k)::prev)
             (pred i) in
-    add_next_dataset (if !need_others then ["others", others_pts] else [])
-                     (Array.length max_peak - 1)
+    add_next_dataset
+        (if !need_others then [ other_key, others_pts ] else [])
+        (Array.length max_peak - 1)
 
 (* Can be ploted, although no as stacked area, with:
  * plot for [i=0:50] 'traf' index i using 1:2 title columnheader(1) with lines smooth unique *)
@@ -203,7 +204,7 @@ struct
     end)
 
     (* fold iterate over the database, calling back with the key, X start, X stop and Y value. *)
-    let per_time ?(max_graphs=10) start stop step fold label_of_key =
+    let per_time ?(max_graphs=10) start stop step fold label_of_key other_key =
         assert (step > 0L) ;
         (* Fetch min and max available time *)
         let row_of_time t = Int64.div (Int64.sub t start) step |> Int64.to_int in
@@ -254,16 +255,11 @@ struct
         and step_s = Int64.to_float step /. 1000. in
         (* Build hashtables indexed by label (instead of map indexed by some key), and convert Y into Y per second. *)
         Maplot.iter m (fun k a ->
-            let label = label_of_key k in
-            (* Note that several keys may map to the same label, thus these precautions *)
-            try let a' = Hashtbl.find datasets label in
-                Array.iteri (fun i y -> a'.(i) <- (a'.(i) +. y) /. step_s) a
-            with Not_found ->
-                Array.iteri (fun i y -> a.(i) <- y /. step_s) a ;
-                Hashtbl.add datasets label a) ;
+            Array.iteri (fun i y -> a.(i) <- y /. step_s) a ;
+            Hashtbl.add datasets k a) ;
 
         (* reduce number of datasets to max_graphs *)
-        top_plot_datasets max_graphs datasets nb_steps
+        top_plot_datasets max_graphs datasets nb_steps label_of_key other_key
 
     module FindSignificant =
     struct

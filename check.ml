@@ -1,6 +1,8 @@
 open Batteries
 open Datatype
 
+let () = Prefs.set_base "./conf.check"
+
 let assert_exc exn f x =
     let ok =
         try ignore (f x) ;
@@ -155,7 +157,6 @@ let check_prefs () =
     List.enum [ "over1", "value1" ; "over2", "42" ] |>
     Hashtbl.of_enum |>
     overwrite ;
-    set_dir "./conf.check" ;
     assert (get_string "over1" "" = "value1") ;
     assert (get_int "over2" 0 = 42) ;
     assert (get_int "not_defined" 1 = 1) ;

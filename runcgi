@@ -14,6 +14,6 @@ export HTTP_COOKIE="password=secret; login=admin"
 export QUERY_STRING="action=Traffic%2Fbandwidth&filter.start=2011-12-13+09%3A45%3A00.000&filter.stop=2011-12-13+09%3A59%3A00.000&filter.vlan=&filter.eth-src=&filter.eth-dest=&filter.eth-proto=&filter.ip-src=&filter.ip-dst=&filter.ip=&filter.ip-proto=&filter.port=&filter.tstep=30&filter.vol-table=0&filter.Y=0&filter.groupby=0&filter.series="
 
 # Callflow
-export QUERY_STRING="action=Traffic%2Fcallflow&filter.start=2012-11-20+20%3A22%3A00.000&filter.stop=2012-11-20+20%3A22%3A41.000&filter.vlan=&filter.ip-start=82.67.194.89&filter.ip-dst=&filter.ip-proto=&filter.src-port=&filter.dst-port="
+export QUERY_STRING="action=Traffic%2Fcallflow&filter.start=2011-12-13+09%3A50%3A00.000&filter.stop=2011-12-13+09%3A50%3A10.000&filter.vlan=&filter.ip-start=195.83.35.28&filter.ip-dst=&filter.ip-proto=&filter.src-port=&filter.dst-port="
 
 ./index.opt
