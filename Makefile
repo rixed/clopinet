@@ -1,6 +1,7 @@
 top_srcdir = .
 PKG_NAME = mlrrd
 SOURCES  = \
+	prefs.ml \
 	serial.ml \
 	txtInput.ml \
 	output.ml \

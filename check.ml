@@ -1,4 +1,4 @@
-open Bricabrac
+open Batteries
 open Datatype
 
 let assert_exc exn f x =
@@ -149,6 +149,18 @@ let check_disp_numbers () =
     assert (string_of_number ~-.0.004 = "-4m") ;
     assert (string_of_number ~-.4000. = "-4k") ;
     assert (string_of_number 0. = "0")
+
+let check_prefs () =
+    let open Prefs in
+    List.enum [ "over1", "value1" ; "over2", "42" ] |>
+    Hashtbl.of_enum |>
+    overwrite ;
+    set_dir "./conf.check" ;
+    assert (get_string "over1" "" = "value1") ;
+    assert (get_int "over2" 0 = 42) ;
+    assert (get_int "not_defined" 1 = 1) ;
+    assert (get_int "file1/foo/bar" 0 = 42) ;
+    assert (get_int "dir1/dir2/foo/bar" 0 = 5)
 
 let () =
     check_datatools () ;
