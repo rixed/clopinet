@@ -7,7 +7,6 @@ open Input.Ops
 open Datatype
 
 let dbdir = "../test.db"
-let () = Prefs.set_base "../conf"
 
 let i2s = BatOption.map Interval.to_secs
 
@@ -299,9 +298,50 @@ struct
 
     end
 
+    module Admin =
+    struct
+        let preferences args =
+            let prefs = Forms.Admin.Preferences.from_args "prefs" args in
+            let prefs_form = form "Admin/preferences/save" (Forms.Admin.Preferences.edit "prefs" prefs) in
+            View.make_app_page [
+                h1 "DNS Response Times" ;
+                div ~id:"preferences" [ prefs_form ]
+            ]
+        let save_preferences args =
+            (match Forms.Admin.Preferences.from_args "prefs" args with
+            | Value svg_width, (Value svg_height, (Value resolve_ip, (Value resolve_mac, (Value ncores, ())))) ->
+                (* Save as much as possible in cookies as base64 string (not marshalled) *)
+                let save_param n v to_string =
+                    BatOption.may (fun v ->
+                        Dispatch.add_cookie n (Base64.str_encode (to_string v))) v in
+                save_param "resolver/ip" resolve_ip string_of_bool ;
+                save_param "resolver/mac" resolve_mac string_of_bool ;
+                save_param "gui/svg/width" svg_width string_of_float ;
+                save_param "gui/svg/height" svg_height string_of_float ;
+                save_param "db/#cores" ncores string_of_int ;
+                View.add_msg "Saved"
+            | _ ->
+                View.add_err "Cannot Save") ;
+            preferences args
+    end
 end
 
 let _ =
+    let get_marshalled_from_cookie name =
+        try let s = List.assoc name !Dispatch.current_cookies in
+            Some (Base64.str_decode s)
+        with Not_found -> None in
+    Prefs.set_overwrite_function (fun name ->
+        let unparser = match name with
+        | "gui/svg/width"
+        | "gui/svg/height" -> (fun s -> BatOption.map string_of_float (Marshal.from_string s 0))
+        | "resolver/ip"
+        | "resolver/mac"   -> (fun s -> BatOption.map string_of_bool (Marshal.from_string s 0))
+        | "db/#cores"      -> (fun s -> BatOption.map string_of_int (Marshal.from_string s 0))
+        | _                -> (fun s -> Marshal.from_string s 0) in
+        BatOption.bind
+            (get_marshalled_from_cookie name)
+            unparser) ;
     Dispatch.run (function
         | ["info"] -> Ctrl.Info.run
         | [""] | ["main"] ->
@@ -328,5 +368,9 @@ let _ =
             Ctrl.Dns.top
         | ["DNS"; "distrib"] ->
             Ctrl.Dns.distrib
+        | ["Admin"; "preferences"] ->
+            Ctrl.Admin.preferences
+        | ["Admin"; "preferences"; "save"] ->
+            Ctrl.Admin.save_preferences
         | _ -> Ctrl.Invalid.run)
 

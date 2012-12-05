@@ -49,11 +49,6 @@ end
 
 open Input
 
-module NoLimit = struct
-    let min = None
-    let max = None
-end
-
 module StartField = struct
     module Type = My_time.Mandatory
     let display_name = "start"
@@ -488,4 +483,46 @@ module Flow = struct
                                        (NulType)))))))))
 end
 
-
+module Admin = struct
+    (* We use regular persistant values here, but there is a catch: Prefs.get_option
+     * want to retrieve a string and will itself parse it into some type. So in our
+     * overwriting function we must unparse the value first, which is somewhat
+     * convoluted. *)
+    module SVGWidth = struct
+        module Type = OptFloat (NoLimit_float)
+        let display_name = "graph width"
+        let uniq_name = "gui/svg/width"
+        let persistant = true
+    end
+    module SVGHeight = struct
+        module Type = OptFloat (NoLimit_float)
+        let display_name = "graph height"
+        let uniq_name = "gui/svg/height"
+        let persistant = true
+    end
+    module ResolveIp = struct
+        module Type = OptBoolean
+        let display_name = "ip as names"
+        let uniq_name = "resolver/ip"
+        let persistant = true
+    end
+    module ResolveMac = struct
+        module Type = OptBoolean
+        let display_name = "MAC as names"
+        let uniq_name = "resolver/mac"
+        let persistant = true
+    end
+    module NCores = struct
+        module Type = OptInteger (struct let min = Some 1 let max = Some 1000 end)
+        let display_name = "#CPU cores"
+        let uniq_name = "db/#cores"
+        let persistant = true
+    end
+    module Preferences = RecordOf (ConsOf (FieldOf (SVGWidth))
+                                  (ConsOf (FieldOf (SVGHeight))
+                                  (ConsOf (FieldOf (ResolveIp))
+                                  (ConsOf (FieldOf (ResolveMac))
+                                  (* This one will not be available eventualy *)
+                                  (ConsOf (FieldOf (NCores))
+                                          (NulType))))))
+end

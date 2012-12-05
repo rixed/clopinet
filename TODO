@@ -31,7 +31,6 @@ des lignes ou des nodes svg.
 
 - Et une config pour nommer des filtres?
 
-- Any config param should be overwritable from cmd line
 
 
 - callflow: when mouse if over an arrow display time in legend

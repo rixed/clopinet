@@ -1,5 +1,8 @@
 open Batteries
 
+let overwrite_function = ref (fun _s -> None)
+let set_overwrite_function f = overwrite_function := f
+
 let insert_into h line =
     let open String in
     if length line > 0 && line.[0] <> '#' then
@@ -8,10 +11,11 @@ let insert_into h line =
         with Not_found -> ()
     else ()
 
-let overwrite_h = ref (Hashtbl.create 7)
-let overwrite h = overwrite_h := h
+let overwrite_h = Hashtbl.create 31
+let overwrite_many h =
+    Hashtbl.iter (fun n v -> Hashtbl.replace overwrite_h n v) h
 let overwrite_single s =
-    insert_into !overwrite_h s
+    insert_into overwrite_h s
 
 let base = ref "./conf"
 let set_base d = base := d
@@ -57,8 +61,11 @@ let rec get_from_dir fname pname =
     | x -> x
 
 let get_option name =
-    match Hashtbl.find_option !overwrite_h name with
-    | None -> get_from_dir !base name
+    match !overwrite_function name with
+    | None ->
+        (match Hashtbl.find_option overwrite_h name with
+        | None -> get_from_dir !base name
+        | x -> x)
     | x -> x
 
 let get_string name default =
@@ -76,20 +83,30 @@ let my_float_of_string s =
             | "P" -> 1_000_000_000_000.
             | _ -> invalid_arg rest)
 
-let get_float name default =
+let get_float_option name =
     get_option name |>
-    Option.map my_float_of_string |>
+    Option.map my_float_of_string
+
+let get_float name default =
+    get_float_option name |>
     Option.default default
 
 let my_int_of_string s =
     int_of_float (my_float_of_string s)
 
-let get_int name default =
+let get_int_option name =
     get_option name |>
-    Option.map my_int_of_string |>
+    Option.map my_int_of_string
+
+let get_int name default =
+    get_int_option name |>
     Option.default default
 
-let get_bool name default =
+let get_bool_option name =
     get_option name |>
-    Option.map (String.lowercase |- bool_of_string) |>
+    Option.map (String.lowercase |- bool_of_string)
+
+let get_bool name default =
+    get_bool_option name |>
     Option.default default
+
