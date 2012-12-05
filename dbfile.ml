@@ -6,7 +6,7 @@ open Bricabrac
    So we'd rather share a large (but limited) set of them.
  *)
 
-let fds = Array.make 1000 None
+let fds = Array.make (Prefs.get_int "db/max_opened_filedescr" 1000) None
 let free_fds = ref (LStream.range 0 (Array.length fds - 1) |> LStream.to_list)
 
 let dir tdir hnum =

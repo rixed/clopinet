@@ -11,7 +11,7 @@ let main =
         "-create", Set create, "create db if it does not exist yet" ;
         "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
         "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
-        "-j", Set_int Table.ncores, "number of cores (default: 1)" ;
+        "-c", String Prefs.overwrite_single, "overwrite conf" ;
         "-dump", String (function tbname -> Web.(iter ?start:!start ?stop:!stop ?rt_min:!rt_min
                                                       ?client:!client ?server:!server ?peer:!peer
                                                       ?methd:!methd ?host:!host

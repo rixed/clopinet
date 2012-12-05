@@ -180,9 +180,9 @@ let color_scale =
       1.0, [| 1.0; 0.4; 0.3 |] ]
 let pi = BatFloat.pi
 let to_deg rad = 180. *. rad /. pi
-let svg_width = 1000. and svg_height = 800. (* Should be taken from user prefs *)
 
 let peers_chart ?(is_bytes=false) datasets =
+    let svg_height = Prefs.get_float "gui/svg/height" 800. in
     let string_of_val = if is_bytes then Datatype.string_of_volume else Datatype.string_of_number in
     let inner_rad = 0.3 *. svg_height in
     let inner_x = svg_height/.2. and inner_y = svg_height/.2. in
@@ -265,6 +265,8 @@ let peers_chart ?(is_bytes=false) datasets =
                   p ~id:"selected-peer-links" [] ] ] ] ] ]
 
 let peers_graph datasets layout =
+    let svg_width  = Prefs.get_float "gui/svg/width" 1000.
+    and svg_height = Prefs.get_float "gui/svg/height" 800. in
     (* Get max volume *)
     let max_volume = Hashtbl.fold (fun _k1 n m ->
         Hashtbl.fold (fun _k2 y m ->
@@ -416,6 +418,7 @@ chart.draw(data, options);\n") ]
 
 (* Dataset is a list of (ts1, ts2, peer1, peer2, descr, group), where group is used for coloring *)
 let callflow_chart start (datasets : Flow.callflow_item list) =
+    let svg_height = Prefs.get_float "gui/svg/height" 800. in
     let left_margin = 50. and peer_width = 150.
     and first_ts = ref Int64.max_int and last_ts = ref Int64.zero
     and bw_max = ref 0. and tot_svg_height = ref svg_height
@@ -686,6 +689,8 @@ let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size ?arrow_size ?tic
 
 (* Returns a distribution graph *)
 let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
+    let svg_width  = Prefs.get_float "gui/svg/width" 1000.
+    and svg_height = Prefs.get_float "gui/svg/height" 800. in
     (* Graph geometry in pixels *)
     let font_size = 10. in
     let margin_bottom = 30. and margin_left = 10. and margin_top = 30. and margin_right = 10.

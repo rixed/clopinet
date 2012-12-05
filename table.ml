@@ -1,9 +1,8 @@
 open Bricabrac
 open LargeFile
 
-let max_file_size = 10_000_000
-let max_hash_size = 1009 (* which is prime *)
-let ncores = ref 1
+let max_file_size = Prefs.get_int "db/max_file_size" 10_000_000
+let max_hash_size = Prefs.get_int "db/max_hash_size" 1009
 
 (* READING
    Can be done by multiple programs simultaneously,
@@ -45,8 +44,9 @@ let iter_snums tdir hnum aggr_reader f =
         with Failure _ -> ()
     and files = Sys.readdir (Dbfile.dir tdir hnum) in
     try (
-        if !ncores > 1 then
-            Parmap.pariter ~ncores:!ncores iterfile (Parmap.A files)
+        let ncores = Prefs.get_int "db/#cores" 1 in
+        if ncores > 1 then
+            Parmap.pariter ~ncores iterfile (Parmap.A files)
         else
             Array.iter iterfile files
     ) with Sys_error _ -> () (* no such directory, may happen in we haven't written anything yet *)
@@ -90,8 +90,9 @@ let fold_snums tdir hnum aggr_reader f start merge =
     and files = try Sys.readdir (Dbfile.dir tdir hnum)
                 with Sys_error _ -> [||] in
     try (
-        if !ncores > 1 then
-            Parmap.parfold ~ncores:!ncores foldfile (Parmap.A files) start merge
+        let ncores = Prefs.get_int "db/#cores" 1 in
+        if ncores > 1 then
+            Parmap.parfold ~ncores foldfile (Parmap.A files) start merge
         else
             Array.fold_right foldfile files start
     ) with Sys_error _ -> start (* no such directory, may happen in we haven't written anything yet *)

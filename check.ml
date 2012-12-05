@@ -159,9 +159,16 @@ let check_prefs () =
     overwrite ;
     assert (get_string "over1" "" = "value1") ;
     assert (get_int "over2" 0 = 42) ;
+    assert (get_float "over2" 0. = 42.) ;
     assert (get_int "not_defined" 1 = 1) ;
     assert (get_int "file1/foo/bar" 0 = 42) ;
-    assert (get_int "dir1/dir2/foo/bar" 0 = 5)
+    assert (get_int "dir1/dir2/foo/bar" 0 = 42) ;
+    assert (get_bool "file1/boolean" false = true) ;
+    assert (get_string "comment" "" = "") ;
+    assert_exc (Scanf.Scan_failure "scanf: bad input at char number 0: ``float_of_string''") (get_int "file1/boolean") 0 ;
+    assert (get_int "file1/big" 0 = 1_500_000) ;
+    overwrite_single "not_defined = 42" ;
+    assert (get_int "not_defined" 0 = 42)
 
 let () =
     check_datatools () ;
@@ -173,4 +180,5 @@ let () =
     check_option () ;
     check_serial () ;
     check_disp_numbers () ;
+    check_prefs () ;
     print_string "Ok\n"

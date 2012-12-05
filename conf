@@ -1,6 +1,37 @@
+#
+# Printers
+#
+
 # Print IP as names if true (slower but more informative)
 # resolver/ip = false
 resolver/ip = true
 
 # Same for MAC addrs
 # resolver/mac = false
+
+#
+# GUI
+#
+
+# Dimension of SVG graphs
+# gui/svg/width = 1000
+# gui/svg/height = 800
+
+#
+# DB
+#
+
+# How many DB files are kept open for writing (needs restart)
+# db/max_opened_filedescr = 1000
+
+# Max file size before rotation (needs restart)
+# db/max_file_size = 10M
+
+# Max hash size (better if prime) (needs restart)
+# Delete your database if you change this
+# db/max_hash_size = 1009
+
+# How many cores to scan database
+# Increase only if you have many!
+# db/#cores = 1
+

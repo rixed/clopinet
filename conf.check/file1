@@ -1,4 +1,11 @@
 # comments are ignored
+# comment = ignored
 
 foo/bar = 42
+
+# booleans are case insensitive
+boolean = TrUE
+
+# multipliers are handled as expected
+big = 1.5M
 
