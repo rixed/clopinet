@@ -175,10 +175,10 @@ struct
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value n, (Value sort_order, ())))))))))))))) ->
                     let n = BatOption.default 30 n
                     and start  = My_time.to_timeval start
-                    and stop   = My_time.to_timeval stop
-                    and rt_min = i2s rt_min
-                    and rt_max = i2s rt_max
-                    and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
+                    and stop   = My_time.to_timeval stop in
+                    let rt_min = i2s ~min:0. rt_min in
+                    let rt_max = i2s ?min:rt_min rt_max in
+                    let sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
                     let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
                     let field_display_names =
                         [ "VLAN" ;
@@ -209,10 +209,10 @@ struct
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ())))))))))))))) ->
                     let time_step = Interval.to_ms time_step (* FIXME: plot_resp_time should take seconds instead *)
                     and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop
-                    and rt_min = i2s rt_min
-                    and rt_max = i2s rt_max
-                    and tblname = Forms.Web.TblNames.options.(tblname) in
+                    and stop  = My_time.to_timeval stop in
+                    let rt_min = i2s ~min:0. rt_min in
+                    let rt_max = i2s ?min:rt_min rt_max in
+                    let tblname = Forms.Web.TblNames.options.(tblname) in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
                     View.resp_times_chart "Web - Average Response Time (sec)" time_step start datasets
                 | _ -> [] in
@@ -220,15 +220,20 @@ struct
 
         let distrib args =
             let filters = Forms.Web.Distrib.from_args "filter" args in
-            let filters_form = form "Web/distrib" (Forms.Web.Distrib.edit "filter" filters) in
+            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.edit "filter" filters) in
+            View.make_filter_page "Web Response Times" filters_form
+
+        let distrib_show args =
+            let filters = Forms.Web.Distrib.from_args "filter" args in
+            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value prec, (Value top_nth, (Value tblname, ()))))))))))))))) ->
                     let tblname = Forms.Dns.TblNames.options.(tblname)
                     and start  = My_time.to_timeval start
-                    and stop   = My_time.to_timeval stop
-                    and rt_min = i2s rt_min
-                    and rt_max = i2s rt_max
-                    and prec   = i2s ~min:0.000001 ~max:1. prec in
+                    and stop   = My_time.to_timeval stop in
+                    let rt_min = i2s ~min:0. rt_min in
+                    let rt_max = i2s ?min:rt_min rt_max in
+                    let prec   = i2s ~min:0.00001 ~max:1. prec in
                     let datasets = plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
                     View.distrib_chart "response time (s)" "#queries" datasets
                 | _ -> [] in
@@ -247,10 +252,10 @@ struct
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value error, (Value qname, (Value n, (Value sort_order, ())))))))))))) ->
                     let start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop
-                    and rt_min = i2s rt_min
-                    and rt_max = i2s rt_max
-                    and n = BatOption.default 30 n
+                    and stop  = My_time.to_timeval stop in
+                    let rt_min = i2s ~min:0. rt_min in
+                    let rt_max = i2s ?min:rt_min rt_max in
+                    let n = BatOption.default 30 n
                     and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
                     let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir n sort_order in
                     let field_display_names =
@@ -280,9 +285,9 @@ struct
                     let time_step = Interval.to_ms time_step
                     and tblname = Forms.Dns.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop
-                    and rt_min = i2s rt_min
-                    and rt_max = i2s rt_max in
+                    and stop  = My_time.to_timeval stop in
+                    let rt_min = i2s ~min:0. rt_min in
+                    let rt_max = i2s ?min:rt_min rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
                     View.resp_times_chart "DNS - Average Response Time (sec)" time_step start datasets
                 | _ -> [] in
@@ -290,15 +295,20 @@ struct
 
         let distrib args =
             let filters = Forms.Dns.Distrib.from_args "filter" args in
-            let filters_form = form "DNS/distrib" (Forms.Dns.Distrib.edit "filter" filters) in
+            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.edit "filter" filters) in
+            View.make_filter_page "DNS Response Times" filters_form
+
+        let distrib_show args =
+            let filters = Forms.Dns.Distrib.from_args "filter" args in
+            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.edit "filter" filters) in
             let disp_graph = match filters with
                 | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value prec, (Value top_nth, (Value tblname, ()))))))))))) ->
                     let tblname = Forms.Dns.TblNames.options.(tblname)
                     and start  = My_time.to_timeval start
-                    and stop   = My_time.to_timeval stop
-                    and rt_min = i2s rt_min
-                    and rt_max = i2s rt_max
-                    and prec   = i2s ~min:0.000001 ~max:1. prec in
+                    and stop   = My_time.to_timeval stop in
+                    let rt_min = i2s ~min:0. rt_min in
+                    let rt_max = i2s ?min:rt_min rt_max in
+                    let prec   = i2s ~min:0.00001 ~max:1. prec in
                     let datasets = plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
                     View.distrib_chart "response time (s)" "#queries" datasets
                 | _ -> [] in
@@ -370,12 +380,16 @@ let _ =
             Ctrl.Web.top
         | ["Web"; "distrib"] ->
             Ctrl.Web.distrib
+        | ["Web"; "distrib"; "show"] ->
+            Ctrl.Web.distrib_show
         | ["DNS"; "resptime"] ->
             Ctrl.Dns.resp_time
         | ["DNS"; "top"] ->
             Ctrl.Dns.top
         | ["DNS"; "distrib"] ->
             Ctrl.Dns.distrib
+        | ["DNS"; "distrib"; "show"] ->
+            Ctrl.Dns.distrib_show
         | ["Admin"; "preferences"] ->
             Ctrl.Admin.preferences
         | ["Admin"; "preferences"; "save"] ->

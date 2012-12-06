@@ -331,8 +331,8 @@ function svg_explore_plot(svg_id, vx_min, vx_max, x_axis_xmin, x_axis_xmax, prec
             dragging = false;
             var zoom_start = parseFloat(cursor.getAttribute("x"));
             var zoom_stop = zoom_start + parseFloat(cursor.getAttribute("width"));
-            if (zoom_start < x_axis_xmin) zoom_start = x_axis_xmin;
-            if (zoom_stop < x_axis_xmin) zoom_stop = x_axis_xmin;
+//            if (zoom_start < x_axis_xmin) zoom_start = x_axis_xmin;
+//            if (zoom_stop < x_axis_xmin) zoom_stop = x_axis_xmin;
             if (zoom_stop - zoom_start >= 20) {
                 do_zoom(zoom_start, zoom_stop);
             } else {

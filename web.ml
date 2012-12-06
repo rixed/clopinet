@@ -188,9 +188,12 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?stat
     let other_mi, other_ma, other_d = distrib_of_rts rest_rts in
     let mi, ma, d =
         WebDataSet.Maplot.fold_left (fun (prev_mi, prev_ma, prev_d)  srv (_, rts) ->
+            let label = InetAddr.to_string srv in
             let mi, ma, d = distrib_of_rts rts in
-            min prev_mi mi, max prev_ma ma, (InetAddr.to_string srv, d) :: prev_d)
-            (other_mi, other_ma, [ "others", other_d ])
+            min prev_mi mi,
+            max prev_ma ma,
+            (label, mi, d) :: prev_d)
+            (other_mi, other_ma, [ "others", other_mi, other_d ])
             result in
     prec, mi, ma, d
 

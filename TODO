@@ -1,6 +1,12 @@
 TODO stack
 ----------
 
+- Factorize distribution out of DNS+WEB
+
+
+- Prevent computation of a graph until submit button is clicked
+
+
 - A selection area for any svg, calling a given handler when the drag box is
 done
 

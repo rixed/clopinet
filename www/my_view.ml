@@ -57,6 +57,15 @@ let make_app_page content =
                chart_head in
     html head body
 
+let make_filter_page title form =
+    let content =
+        [ h1 title ;
+          div ~id:"filter"
+            [ div ~id:"filter-form" [ form ] ;
+              div ~id:"filter-handle" [] ] ;
+        ] in
+    make_app_page content
+
 let make_graph_page title form graph =
     let content =
         [ h1 title ;
@@ -702,20 +711,18 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
     and x_axis_xmin = y_axis_x and x_axis_xmax = svg_width -. margin_right in
     let axis_arrow_h = font_size in
     (* Data bounds *)
-    let nb_buckets =
-        List.fold_left (fun m (_label, d) ->
-            max m (Array.length d))
-            0 datasets in
+    let nb_buckets = bucket_max - bucket_min |> succ |> max 2 in
     let tot_count = Array.create nb_buckets 0 in
-    let rt_of_bucket i = (float_of_int (i + bucket_min) +. 0.5) *. vx_step in
-    let vx_min = rt_of_bucket 0
-    and vx_max = rt_of_bucket (bucket_max - bucket_min |> succ) in
+    let rt_of_bucket i = (float_of_int i +. 0.5) *. vx_step in
+    let vx_min = rt_of_bucket bucket_min
+    and vx_max = rt_of_bucket bucket_max in
     (* Compute max count for a given bucket *)
-    List.iter (fun (_label, d) ->
-        Array.iteri (fun i c -> tot_count.(i) <- tot_count.(i) + c) d)
+    List.iter (fun (_label, mi, d) ->
+        Array.iteri (fun i c ->
+            tot_count.(mi+i-bucket_min) <- tot_count.(mi+i-bucket_min) + c) d)
         datasets ;
     let max_count = Array.fold_left max 0 tot_count in
-    let mid_count i = tot_count.(i) / 2 in
+    let mid_count i = tot_count.(i-bucket_min) / 2 in
     let mid_tot_count = max_count / 2 in
     let vy_max = float_of_int max_count in
     let get_x = get_ratio x_axis_xmin x_axis_xmax vx_min vx_max
@@ -725,34 +732,36 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
     let vy_min = ~-. vy_max in
     (* We stack the distributions *)
     let prev_count = Array.create nb_buckets 0 in
-    let distr_of_dataset (label, d) =
+    let distr_of_dataset (label, mi, d) =
         let color = Color.random_of_string label in
         let stroke = Color.to_html color in
         (* for convenience we add a point with 0 count if d has less values than nb_buckets *)
         (* TODO: add Vect.fold_righti (and Enum etc) to batteries and use that instead *)
-        let d = if Array.length d >= nb_buckets then d else
-                Array.append d [| 0 |] in
         path ~stroke:"none" ~fill:stroke ~fill_opacity:0.8
              ~attrs:["class","fitem "^label ;
                      "onmouseover","distr_select(evt, '"^label^"')" ;
                      "onmouseout", "distr_unselect(evt)" ]
-            ((
+            (
+                let rt_count i = if i < mi || i-mi >= Array.length d then 0 else d.(i-mi) in
+                let buf = Buffer.create 100 in
                 (* Top line *)
-                Array.fold_lefti (fun prev i rt_count ->
-                    let rt_count' = rt_count + prev_count.(i) in
-                    prev ^
-                        (if i = 0 then moveto else lineto)
+                for i = bucket_min to bucket_max do
+                    let rt_count' = rt_count i + prev_count.(i-bucket_min) in
+                    Buffer.add_string buf
+                        ((if i = bucket_min then moveto else lineto)
                             (get_x (rt_of_bucket i), get_y (float_of_int (rt_count' + mid_tot_count - mid_count i))))
-                    "" d |>
+                done ;
                 (* Bottom line (to close the area) (note: we loop here from last to first) *)
-                Array.fold_righti (fun i rt_count prev ->
-                    let rt_count' = prev_count.(i) in
-                    prev_count.(i) <- rt_count' + rt_count ;
-                    prev ^
-                        lineto (get_x (rt_of_bucket i), get_y (float_of_int (rt_count' + mid_tot_count - mid_count i))))
-                    d
-            ) ^ closepath)
-    and legend_of_dataset (label, _d) =
+                for i = bucket_max downto bucket_min do
+                    let rt_count' = prev_count.(i-bucket_min) in
+                    prev_count.(i-bucket_min) <- rt_count' + rt_count i ;
+                    Buffer.add_string buf
+                        (lineto (get_x (rt_of_bucket i), get_y (float_of_int (rt_count' + mid_tot_count - mid_count i))))
+                done ;
+                Buffer.add_string buf closepath ;
+                Buffer.contents buf
+            )
+    and legend_of_dataset (label, _mi, _d) =
         let color = Color.random_of_string label in
         p ~attrs:["class","hitem "^label ;
                   "onmouseover","distr_select2('"^label^"')" ;
@@ -783,6 +792,6 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
                    h3 ~id:"selected-peer-name" "" ;
                    p ~id:"selected-peer-info" [] ;
                    h3 "Legend" ] @
-                 ( List.map legend_of_dataset datasets)) ] ] ] ;
+                 (List.map legend_of_dataset datasets)) ] ] ] ;
         (* for this we really do want stdlib's string_of_float not our stripped down version *)
         script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^");") ]
