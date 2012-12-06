@@ -4,9 +4,6 @@ TODO stack
 - Factorize distribution out of DNS+WEB
 
 
-- Prevent computation of a graph until submit button is clicked
-
-
 - A selection area for any svg, calling a given handler when the drag box is
 done
 
@@ -17,9 +14,6 @@ done
 
 
 - TCP resptimes
-
-
-- Input values for IP should be resolved
 
 
 User prefs
@@ -41,7 +35,7 @@ des lignes ou des nodes svg.
 
 - callflow: when mouse if over an arrow display time in legend
 
-- Add user-agent in web metric
+- Add user-agent and referer in web metric
 
 
 - Add IP-server, IP-client in the various graphs were an IP is accepted

@@ -511,8 +511,11 @@ module InetAddr_base = struct
         let str = Text.read ic in
         Obj.magic str
     let read_txt ic =
-        Text.read_txt ic |>
-        Unix.inet_addr_of_string
+        let open Unix in
+        let str = Text.read_txt ic in
+        try inet_addr_of_string str
+        with Failure _ ->
+            (gethostbyname str).h_addr_list.(0)
 end
 module InetAddr : DATATYPE with type t = Unix.inet_addr =
 struct
