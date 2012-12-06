@@ -58,7 +58,6 @@ $(EXAMPLES_OPT): $(XARCHIVE) libmlrrd.a
 check.byte: $(ARCHIVE)
 check.opt: $(XARCHIVE)
 check: check.byte
-	@echo "Running check..."
 	@./check.byte || echo "FAILED"
 
 mlrrd.top: $(ARCHIVE) $(CLIB)

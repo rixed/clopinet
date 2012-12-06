@@ -76,8 +76,12 @@ let check_timestamp () =
 
 let check_interval () =
     let open Interval in
+    assert (of_string "42years" = { zero with years = 42. }) ;
     (* nothing specified -> seconds *)
     assert (of_string "42" = { zero with secs = 42. }) ;
+    (* should accept any float notation (from ocaml _and_ javascript) *)
+    let i = of_string "8.179775280898875e-7" in
+    assert (i.secs = 0. && i.msecs > 0.00081 && i.msecs < 0.00082) ;
     (* check various units *)
     assert (of_string "42years" = { zero with years = 42. }) ;
     assert (of_string "42 year" = { zero with years = 42. }) ;
@@ -156,7 +160,7 @@ let check_prefs () =
     let open Prefs in
     List.enum [ "over1", "value1" ; "over2", "42" ] |>
     Hashtbl.of_enum |>
-    overwrite ;
+    overwrite_many ;
     assert (get_string "over1" "" = "value1") ;
     assert (get_int "over2" 0 = 42) ;
     assert (get_float "over2" 0. = 42.) ;
@@ -170,15 +174,22 @@ let check_prefs () =
     overwrite_single "not_defined = 42" ;
     assert (get_int "not_defined" 0 = 42)
 
+let check name f =
+    try f () ;
+        Printf.printf "%s: Ok\n" name
+    with _ ->
+        Printf.printf "%s: Fail:\n" name ;
+        Printexc.print_backtrace stdout ;
+        Printf.printf "----------\n"
+
 let () =
-    check_datatools () ;
-    check_ints () ;
-    check_cidr () ;
-    check_mac () ;
-    check_timestamp () ;
-    check_interval () ;
-    check_option () ;
-    check_serial () ;
-    check_disp_numbers () ;
-    check_prefs () ;
-    print_string "Ok\n"
+    check "datatools" check_datatools ;
+    check "ints" check_ints ;
+    check "cidr" check_cidr ;
+    check "mac" check_mac ;
+    check "timestamp" check_timestamp ;
+    check "interval" check_interval ;
+    check "option" check_option ;
+    check "serial" check_serial ;
+    check "disp_numbers" check_disp_numbers ;
+    check "prefs" check_prefs
