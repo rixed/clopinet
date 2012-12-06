@@ -1,4 +1,4 @@
-open Bricabrac
+open Batteries
 open LStream
 
 (*
@@ -59,12 +59,12 @@ let mins n (<<<) s =
     let reset_worst () =
         worst := 0 ;
         for i = 1 to n-1 do
-            if unopt m.(!worst) <<< unopt m.(i) then worst := i
+            if Option.get m.(!worst) <<< Option.get m.(i) then worst := i
         done in
     iteri s (fun i x ->
         if i < n then m.(i) <- Some x else (
             if i = n then reset_worst () ;
-            if x <<< unopt m.(!worst) then (
+            if x <<< Option.get m.(!worst) then (
                 m.(!worst) <- Some x ;
                 reset_worst ()
             )

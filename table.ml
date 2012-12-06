@@ -1,4 +1,4 @@
-open Bricabrac
+open Batteries
 open LargeFile
 
 let max_file_size = Prefs.get_int "db/max_file_size" 10_000_000
@@ -179,7 +179,7 @@ let rotate t hnum h_cache =
 
 let create_h_cache t hnum =
     let dir = Dbfile.dir t.dir hnum in
-    mkdir_all dir ;
+    Bricabrac.mkdir_all dir ;
     let max_snum = get_max_snum dir in
     { max_snum ;
       file = None ;

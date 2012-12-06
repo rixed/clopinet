@@ -41,7 +41,7 @@ let maketuple n =
     printf "        %s\n" (parms 't') ;
     printf "    end\n" ;
     printf "    include Tuple%d_base\n" n ;
-    printf "    include Datatype_of(Tuple%d_base)" n ;
+    printf "    include Datatype_of(Tuple%d_base)\n" n ;
     printf "end\n"
 
 let main =

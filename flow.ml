@@ -1,7 +1,6 @@
-open Bricabrac
+open Batteries
 open Datatype
 open Metric
-module Hashtbl = BatHashtbl
 
 let verbose = ref false
 

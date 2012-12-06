@@ -1,6 +1,5 @@
 (* We want to be able to output in a regular channel as well as in a buffer,
    thus this module. *)
-open Bricabrac
 
 type t = File of out_channel
        | Buf of Buffer.t

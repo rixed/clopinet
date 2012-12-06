@@ -1,10 +1,11 @@
-open Bricabrac
 (*
    We are going to need a lot of file descriptors for writing (both
    because we hash each table and because we use an arbitraty number
    of tables.
    So we'd rather share a large (but limited) set of them.
  *)
+
+let (|>) = Batteries.(|>)
 
 let fds = Array.make (Prefs.get_int "db/max_opened_filedescr" 1000) None
 let free_fds = ref (LStream.range 0 (Array.length fds - 1) |> LStream.to_list)
