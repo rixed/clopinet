@@ -8,7 +8,15 @@ open Datatype
 
 let dbdir = "../test.db"
 
-let i2s = BatOption.map Interval.to_secs
+let i2s ?min ?max i =
+    let (>>=) = BatOption.bind in
+    BatOption.map Interval.to_secs i >>=
+    (fun v -> match min with
+        | Some mi -> Some (Pervasives.max v mi)
+        | None -> Some v) >>=
+    (fun v -> match max with
+        | Some ma -> Some (Pervasives.min v ma)
+        | None -> Some v)
 
 module Ctrl =
 struct
@@ -220,7 +228,7 @@ struct
                     and stop   = My_time.to_timeval stop
                     and rt_min = i2s rt_min
                     and rt_max = i2s rt_max
-                    and prec   = i2s prec in
+                    and prec   = i2s ~min:0.000001 ~max:1. prec in
                     let datasets = plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
                     View.distrib_chart "response time (s)" "#queries" datasets
                 | _ -> [] in
@@ -290,7 +298,7 @@ struct
                     and stop   = My_time.to_timeval stop
                     and rt_min = i2s rt_min
                     and rt_max = i2s rt_max
-                    and prec   = i2s prec in
+                    and prec   = i2s ~min:0.000001 ~max:1. prec in
                     let datasets = plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
                     View.distrib_chart "response time (s)" "#queries" datasets
                 | _ -> [] in

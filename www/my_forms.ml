@@ -488,6 +488,7 @@ module Admin = struct
      * want to retrieve a string and will itself parse it into some type. So in our
      * overwriting function we must unparse the value first, which is somewhat
      * convoluted. *)
+    (* TODO: change they from_args so that their read user prefs as a last resort *)
     module SVGWidth = struct
         module Type = OptFloat (NoLimit_float)
         let display_name = "graph width"

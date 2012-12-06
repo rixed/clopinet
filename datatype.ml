@@ -208,7 +208,7 @@ module Float_base = struct
         deser64 ic |> Int64.float_of_bits
     let read_txt ic =
         (* hello, I'm slow! *)
-        read_chars ic "+-0123456789." |> float_of_string
+        read_chars ic "+-0123456789.e" |> float_of_string
 end
 module Float : NUMBER with type t = float =
 struct
