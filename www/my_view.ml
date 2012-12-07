@@ -52,6 +52,9 @@ let make_app_page content =
                  msgs () ;
                  tag "div" ~attrs:["id","page"] content ]
     and head = [ title "MlRRD" ;
+                 tag "link" ~attrs:[ "rel", "shortcut icon" ;
+                                     "href", "static/img/favicon.svg" ;
+                                     "type", "image/svg+xml" ] [] ;
                  link_css "static/css/style.css" ;
                  link_css "http://fonts.googleapis.com/css?family=BenchNine:300|Anaheim" ] @
                chart_head in
