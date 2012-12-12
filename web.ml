@@ -23,6 +23,8 @@ let string_of_request ?max_len meth host url =
 let string_of_err err =
     if err = 200 then "" else Printf.sprintf "err: %d" err
 
+let lods = [| "queries"; "1min"; "10mins"; "1hour" |];
+
 (* Lod0: the full request record: client, server, method (int), status-code, ts, rt, host, url *)
 
 module Web =
@@ -141,7 +143,7 @@ let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?st
 
 let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order =
     let start, stop = min start stop, max start stop in
-    let fold = Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir "queries" in
+    let fold = Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir lods.(0) in
     let cmp (_vl1, _ec1, _c1, _es1, _s1, _p1, _mt1, _er1, _ts1, (_, _, _, rt1, _), _h1, _u1)
             (_vl2, _ec2, _c2, _es2, _s2, _p2, _mt2, _er2, _ts2, (_, _, _, rt2, _), _h2, _u2) =
         Float.compare rt1 rt2 in
@@ -209,14 +211,14 @@ let load dbdir create fname =
         failwith (Printf.sprintf "Directory %s does not exist" dbdir)
     ) ;
 
-    let table3 = Web.table dbdir "1hour" in
+    let table3 = Web.table dbdir lods.(3) in
     let accum3, flush3 =
         Aggregator.(accum (now_and_then (2. *. 3600.)))
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
                               Table.append table3 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ] in
 
-    let table2 = Web.table dbdir "10mins" in
+    let table2 = Web.table dbdir lods.(2) in
     let accum2, flush2 =
         Aggregator.(accum (now_and_then (2. *. 600.)))
                          Distribution.combine
@@ -225,7 +227,7 @@ let load dbdir create fname =
                               let ts = round_timestamp 3600_000L ts in
                               accum3 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ] in
 
-    let table1 = Web.table dbdir "1min" in
+    let table1 = Web.table dbdir lods.(1) in
     let accum1, flush1 =
         Aggregator.(accum (now_and_then 60.))
                          Distribution.combine
@@ -234,7 +236,7 @@ let load dbdir create fname =
                               let ts = round_timestamp 600_000L ts in
                               accum2 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ] in
 
-    let table0 = Web.table dbdir "queries" in
+    let table0 = Web.table dbdir lods.(0) in
 
     let shorten_url s =
         try let i = String.index s '?' in

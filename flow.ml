@@ -4,6 +4,8 @@ open Metric
 
 let verbose = ref false
 
+let lods = [| "flows" |];
+
 (* Lod0 (and only): Individual l4 flows
   vlan, src mac, src ip, dst mac, dst ip, ip proto, src port, dst port, start, stop, nb pkts, l4 payload *)
 
@@ -179,7 +181,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
         ) else
         let flows, peers =
             Flow.fold ~start ~stop ?vlan ~ip_src:(cidr_singleton ip_start) ?ip_dst
-                      ?ip_proto ?port_src ?port_dst dbdir "flows"
+                      ?ip_proto ?port_src ?port_dst dbdir lods.(0)
                       (fun ((_vl, _mac_s, _ip_s, _mac_d, ip_d, ip_prot, port_s, port_d, ts1, _ts2, _pkts, _pld) as x) (flows, ip_2_tsmin) ->
                           let peer = ip_d,ip_prot,port_s,port_d
                           and ts1 = Timestamp.max start ts1 in
@@ -206,7 +208,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
             Hashtbl.fold (fun (ip,ip_proto,port_dst (* <-inversed-> *),port_src) ts_min (flows, peers) ->
                 let other_dir, ts_max =
                     Flow.fold ~start:ts_min ~stop ?vlan ~ip_src:(cidr_singleton ip) ~ip_dst:(cidr_singleton ip_start)
-                              ~ip_proto ~port_src ~port_dst dbdir "flows"
+                              ~ip_proto ~port_src ~port_dst dbdir lods.(0)
                               (fun ((_vl, _mac_s, _ip_s, _mac_d, _ip_d, _ip_prot, _port_s, _port_d, _ts1, ts2, _pkts, _pld) as x) (flows, tsmax) ->
                                   let ts2 = Timestamp.min stop ts2 in
                                   flow_of_tuple (clip start stop x) :: flows, Timestamp.max tsmax ts2)
@@ -229,15 +231,15 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
             let empty_flows () = []
             and merge_flows f1 f2 = List.rev_append f2 f1 in
             let dns_flows = BatOption.map_default (fun dbdir ->
-                Dns.Dns.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir "queries" (fun dns flows ->
+                Dns.Dns.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir Dns.lods.(0) (fun dns flows ->
                     flow_of_dns dns :: flows)
                     empty_flows merge_flows) [] dns_dbdir
             and web_flows = BatOption.map_default (fun dbdir ->
-                Web.Web.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir "queries" (fun web flows ->
+                Web.Web.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir Web.lods.(0) (fun web flows ->
                     flow_of_web web :: flows)
                     empty_flows merge_flows) [] web_dbdir
             and tcp_flows = BatOption.map_default (fun dbdir ->
-                Tcp.Tcp.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir "sockets" (fun tcp flows ->
+                Tcp.Tcp.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir Tcp.lods.(0) (fun tcp flows ->
                     flow_of_tcp tcp :: flows)
                     empty_flows merge_flows) [] tcp_dbdir
             in
@@ -257,7 +259,7 @@ let load dbdir create fname =
         failwith (Printf.sprintf "Directory %s does not exist" dbdir)
     ) ;
 
-    let table0 = Flow.table dbdir "flows" in
+    let table0 = Flow.table dbdir lods.(0) in
 
     let append0 = Table.append table0 in
 

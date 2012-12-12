@@ -7,6 +7,8 @@ let verbose = ref false
 let string_of_err err =
     if err = 0 then "" else Printf.sprintf "err: %d" err
 
+let lods = [| "queries"; "1min"; "10mins"; "1hour" |];
+
 (* Lod0: the full request record *)
 
 module Dns =
@@ -113,7 +115,7 @@ let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?r
 
 let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir n sort_order =
     let start, stop = min start stop, max start stop in
-    let fold = Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir "queries" in
+    let fold = Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir lods.(0) in
     let cmp (_vl1, _eclt1, _clt1, _esrv1, _srv1, _err1, _ts1, (_, _, _, rt1, _), _nm1)
             (_vl2, _eclt2, _clt2, _esrv2, _srv2, _err2, _ts2, (_, _, _, rt2, _), _nm2) =
         Float.compare rt1 rt2 in
@@ -180,14 +182,14 @@ let load dbdir create fname =
         failwith (Printf.sprintf "Directory %s does not exist" dbdir)
     ) ;
 
-    let table3 = Dns.table dbdir "1hour" in
+    let table3 = Dns.table dbdir lods.(3) in
     let accum3, flush3 =
         Aggregator.(accum (now_and_then (2. *. 3600.)))
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
                               Table.append table3 (vlan, clte, clt, srve, srv, err, ts, distr, name) ] in
 
-    let table2 = Dns.table dbdir "10mins" in
+    let table2 = Dns.table dbdir lods.(2) in
     let accum2, flush2 =
         Aggregator.(accum (now_and_then (2. *. 600.)))
                          Distribution.combine
@@ -196,7 +198,7 @@ let load dbdir create fname =
                               let ts = round_timestamp 3600_000L ts in
                               accum3 (vlan, clte, clt, srve, srv, err, ts, "") distr ] in
 
-    let table1 = Dns.table dbdir "1min" in
+    let table1 = Dns.table dbdir lods.(1) in
     let accum1, flush1 =
         Aggregator.(accum (now_and_then 60.))
                          Distribution.combine
@@ -206,7 +208,7 @@ let load dbdir create fname =
                               (* TODO: keep only the last host name + TLD in the name *)
                               accum2 (vlan, clte, clt, srve, srv, err, ts, name) distr ] in
 
-    let table0 = Dns.table dbdir "queries" in
+    let table0 = Dns.table dbdir lods.(0) in
 
     let append0 ((vlan, clte, clt, srve, srv, err, ts, distr, name) as v) =
         Table.append table0 v ;

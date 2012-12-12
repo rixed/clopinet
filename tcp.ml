@@ -4,6 +4,8 @@ open Metric
 
 let verbose = ref false
 
+let lods = [| "sockets"; "1min"; "10mins"; "1hour" |];
+
 (* Lod0: the full socket record *)
 
 module Tcp =
@@ -109,14 +111,14 @@ let load dbdir create fname =
         failwith (Printf.sprintf "Directory %s does not exist" dbdir)
     ) ;
 
-    let table3 = Tcp.table dbdir "1hour" in
+    let table3 = Tcp.table dbdir lods.(3) in
     let accum3, flush3 =
         Aggregator.(accum (now_and_then (2. *. 3600.)))
             aggreg_all
             [ fun (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ->
                 Table.append table3 (vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct) ] in
 
-    let table2 = Tcp.table dbdir "10mins" in
+    let table2 = Tcp.table dbdir lods.(2) in
     let accum2, flush2 =
         Aggregator.(accum (now_and_then (2. *. 600.)))
             aggreg_all
@@ -125,7 +127,7 @@ let load dbdir create fname =
                 let ts = round_timestamp 3600_000L ts in
                 accum3 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ] in
 
-    let table1 = Tcp.table dbdir "1min" in
+    let table1 = Tcp.table dbdir lods.(1) in
     let accum1, flush1 =
         Aggregator.(accum (now_and_then 60.))
             aggreg_all
@@ -136,7 +138,7 @@ let load dbdir create fname =
                 let clt = cidr_of_inetaddr Subnet.subnets clt in
                 accum2 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ] in
 
-    let table0 = Tcp.table dbdir "sockets" in
+    let table0 = Tcp.table dbdir lods.(0) in
 
     let append0 ((vlan, clte, clt, srve, srv, _cltp, srvp, ts, syns, ct) as v) =
         Table.append table0 v ;

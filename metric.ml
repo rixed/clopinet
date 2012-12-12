@@ -68,3 +68,52 @@ let load fname read append flush =
 
 let table_name dbdir name = dbdir ^ "/" ^ name
 
+(* functions related to repairing db files *)
+
+exception File_truncated
+let save_backup fname =
+    Unix.system ("cp "^fname^" "^fname^".bak") |>
+    ignore
+
+let del_file fname =
+    save_backup fname ;
+    Unix.unlink fname
+
+let fix_data e fname pos =
+    Printf.printf "Data file '%s' unreadable after offset %Ld:\n%s %s\n%!"
+        fname pos (Printexc.to_string e) (Printexc.get_backtrace ()) ;
+    save_backup fname ;
+    Unix.LargeFile.truncate fname pos ;
+    (* We keep the meta file as is, with the assumption that it contains only
+     * range of present values - ie still valid, is less acute *)
+    raise File_truncated
+
+let fix_meta e fname =
+    Printf.printf "Meta file '%s' unreadable:\n%s %s%!"
+        fname (Printexc.to_string e) (Printexc.get_backtrace ()) ;
+    del_file fname
+
+let dbck dbdir lods read meta_read =
+    let ck_read tdir hnum snum last_read ic =
+        try ignore (read ic) ;
+            last_read := Serial.position ic
+        with e when e <> End_of_file ->
+            fix_data e (Dbfile.path tdir hnum snum) !last_read in
+    let ck_file tdir hnum snum _meta =
+        (* check meta file *)
+        let fname = Dbfile.path tdir hnum snum ^ ".meta" in
+        (try Serial.with_file_in fname meta_read |>
+             ignore
+        with Sys_error _ -> ()
+           | e -> fix_meta e fname) ;
+        (* check data file *)
+        try
+            Table.iter_file tdir hnum snum (ck_read tdir hnum snum (ref 0L)) ignore
+        with File_truncated -> () in
+    let ck_hnum tdir hnum =
+        Table.iter_snums tdir hnum (fun _ -> None) (ck_file tdir hnum) in
+    let ck_lod lod =
+        let tdir = table_name dbdir lod in
+        Table.iter_hnums tdir (ck_hnum tdir) in
+    Array.iter ck_lod lods
+

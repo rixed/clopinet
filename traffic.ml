@@ -9,6 +9,8 @@ let verbose = ref false
 (* Lod0: Traffic stats for periods of 30s, with fields:
   TS1, TS2, count, vlan, src mac, dst mac, proto, eth payload, eth mtu, src ip, dst ip, ip proto, ip payload, src port, dst port, l4 payload *)
 
+let lods = [| "1min"; "10mins"; "1hour" |];
+
 module Traffic =
 struct
     include Altern1 (Tuple16.Make (Timestamp) (Timestamp)        (* start, stop *)
@@ -424,14 +426,14 @@ let load dbdir create fname =
         failwith (Printf.sprintf "Directory %s does not exist" dbdir)
     ) ;
 
-    let table2 = Traffic.table dbdir "1hour" in
+    let table2 = Traffic.table dbdir lods.(2) in
     let accum2, flush2 =
         Aggregator.(accum (now_and_then (2. *. 3600.))) Traffic.accum_pkts
             [ fun (start, stop, vlan, mac_src, mac_dst, mac_proto, ip_src, ip_dst, ip_proto, l4_src, l4_dst) (count, eth_pld, mtu, ip_pld, l4_pld) ->
                 Table.append table2
                     (start, stop, count, vlan, mac_src, mac_dst, mac_proto, eth_pld, mtu, ip_src, ip_dst, ip_proto, ip_pld, l4_src, l4_dst, l4_pld) ] in
 
-    let table1 = Traffic.table dbdir "10mins" in
+    let table1 = Traffic.table dbdir lods.(1) in
     let accum1, flush1 =
         Aggregator.(accum (now_and_then (2. *. 600.))) Traffic.accum_pkts
             [ fun (start, stop, vlan, mac_src, mac_dst, mac_proto, ip_src, ip_dst, ip_proto, l4_src, l4_dst) (count, eth_pld, mtu, ip_pld, l4_pld) ->
@@ -440,7 +442,7 @@ let load dbdir create fname =
                 let start, stop = round_time_interval 3600_000L start stop in
                 accum2 (start, stop, vlan, mac_src, mac_dst, mac_proto, ip_src, ip_dst, ip_proto, l4_src, l4_dst) (count, eth_pld, mtu, ip_pld, l4_pld) ] in
 
-    let table0 = Traffic.table dbdir "1min" in
+    let table0 = Traffic.table dbdir lods.(0) in
 
     let append0 ((start, stop, count, vlan, mac_src, mac_dst, mac_proto, eth_pld, mtu, ip_src, ip_dst, ip_proto, ip_pld, l4_src, l4_dst, l4_pld) as v) =
         Table.append table0 v ;

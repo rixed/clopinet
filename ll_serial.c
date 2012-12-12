@@ -173,6 +173,7 @@ value obuf_close(value custom)
  */
 
 struct ibuf {
+    off_t position; // in file, relative to the reader
     unsigned next;
     unsigned stop;
     int fd;
@@ -190,6 +191,7 @@ static int ibuf_ctor(struct ibuf *ib, char const *fname)
 #       endif
         sys_error("open");
     }
+    ib->position = 0;
     ib->next = ib->stop = 0;
     ib->eof = 0;
 #   ifdef DEBUG_IBUF
@@ -228,12 +230,16 @@ static void ibuf_refill(struct ibuf *ib)
 
 static inline void ibuf_make_available(struct ibuf *ib, unsigned sz)
 {
-    if (ib->stop - ib->next >= sz) return;
-    ibuf_refill(ib);
-#   ifdef DEBUG_IBUF
-    fprintf(stderr, "fd %d, after ibuf_make_available for sz=%u: next=%u, stop=%u, eof=%s\n", ib->fd, sz, ib->next, ib->stop, ib->eof?"y":"n");
-#   endif
-    assert(ib->stop - ib->next >= sz);
+    if (ib->stop - ib->next < sz) {
+        ibuf_refill(ib);
+#       ifdef DEBUG_IBUF
+        fprintf(stderr, "fd %d, after ibuf_make_available for sz=%u: next=%u, stop=%u, eof=%s\n", ib->fd, sz, ib->next, ib->stop, ib->eof?"y":"n");
+#       endif
+        if (ib->stop - ib->next < sz) {
+            caml_invalid_argument("too big");
+        }
+    }
+    ib->position += sz;
 }
 
 static void ibuf_finalize(value custom)
@@ -268,6 +274,15 @@ value ibuf_close(value custom)
     struct ibuf *ib = Data_custom_val(custom);
     ibuf_dtor(ib);
     CAMLreturn(Val_unit);
+}
+
+value ibuf_position(value custom)
+{
+    CAMLparam1(custom);
+    CAMLlocal1(pos);
+    struct ibuf *ib = Data_custom_val(custom);
+    pos = caml_copy_int64(ib->position);
+    CAMLreturn(pos);
 }
 
 /*

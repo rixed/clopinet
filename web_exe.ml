@@ -17,6 +17,7 @@ let main =
                                                       ?methd:!methd ?host:!host
                                                       ?url:!url ?status:!status !dbdir tbname
                                                       (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
+        "-dbck",  Unit (fun () -> Metric.dbck !dbdir lods Web.read Web.meta_read), "scan the DB and try to repair it" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-rt-min", String (fun s -> rt_min := Some (Float.of_string s)), "limit queries to resptimes greater than this" ;
