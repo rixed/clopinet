@@ -32,9 +32,8 @@ module Optional = struct
         match Hashtbl.find_option args name with
             | None | Some "" -> Value None
             | Some s ->
-                try let i = Interval.of_string s in
-                    Value (Some (Rel i))
-                with _ -> try Value (Some (Abs (Timestamp.of_string s)))
+                try Value (Some (Abs (Timestamp.of_string s)))
+                with _ -> try Value (Some (Rel (Interval.of_string s)))
                 with _ -> Error ("Can not parse as date nor time", s)
 end
 

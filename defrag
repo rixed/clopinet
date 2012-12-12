@@ -13,4 +13,5 @@ if test -e "$dbdir""_" ; then
 fi
 
 ionice -c 3 cp -r "$dbdir" "$dbdir""_"
-ionice -c 3 mv -f "$dbdir""_" "$dbdir"
+ionice -c 3 rm -rf "$dbdir"
+mv "$dbdir""_" "$dbdir"

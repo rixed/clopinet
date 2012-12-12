@@ -183,7 +183,10 @@ function svg_explorer(svg_id, controler_id)
 
 function has_class(elmt, class_name)
 {
-    return elmt.getAttribute("class").indexOf(class_name) > -1;
+    var classes = elmt.getAttribute("class");
+    return classes.indexOf(' ' + class_name + ' ') > -1 || // found in the middle
+           classes.indexOf(class_name + ' ') == 0 ||       // in the beginning
+           classes.indexOf(class_name) == classes.length - class_name.length; // or in the end (or if the only class)
 }
 
 function timeline_select(evt, peer_name)
@@ -256,7 +259,7 @@ function distr_unselect2(peer_name)
     }
 }
 
-// These are called from html, without the event
+// These are called from the SVG, with the event
 function distr_select(evt, peer_name)
 {
     distr_select2(peer_name);
@@ -267,7 +270,7 @@ function distr_unselect(evt, peer_name)
     distr_unselect2(peer_name);
 }
 
-function svg_explore_plot(svg_id, vx_min, vx_max, x_axis_xmin, x_axis_xmax, prec)
+function svg_explore_plot(svg_id, vx_min, vx_max, x_axis_xmin, x_axis_xmax, prec, start_field, stop_field, prec_field)
 {
     var svg = document.getElementById(svg_id);
     var root = document.documentElement;
@@ -283,16 +286,16 @@ function svg_explore_plot(svg_id, vx_min, vx_max, x_axis_xmin, x_axis_xmax, prec
 
     function do_zoom(zoom_start, zoom_stop)
     {
-        var minrt = x_to_vx(zoom_start) + 's';
-        var maxrt = x_to_vx(zoom_stop) + 's';
-        var dist_prec = prec * (zoom_stop-zoom_start)/(x_axis_xmax-x_axis_xmin);
+        var start_v = x_to_vx(zoom_start);
+        var stop_v  = x_to_vx(zoom_stop);
+        var prec_v  = prec * (zoom_stop-zoom_start)/(x_axis_xmax-x_axis_xmin);
         window.location.search +=
-            '&' + encodeURIComponent('filter.minrt') +
-                '=' + encodeURIComponent(minrt) +
-            '&' + encodeURIComponent('filter.maxrt') +
-                '=' + encodeURIComponent(maxrt) +
-            '&' + encodeURIComponent('filter.distr-prec') +
-                '=' + encodeURIComponent(dist_prec)
+            '&' + encodeURIComponent(start_field) +
+                '=' + encodeURIComponent(start_v) +
+            '&' + encodeURIComponent(stop_field) +
+                '=' + encodeURIComponent(stop_v) +
+            '&' + encodeURIComponent(prec_field) +
+                '=' + encodeURIComponent(prec_v)
     }
 
     function get_svg_x(e)
@@ -341,5 +344,52 @@ function svg_explore_plot(svg_id, vx_min, vx_max, x_axis_xmin, x_axis_xmax, prec
         }
         return false;
     }, false);
+}
+
+
+// Functions for time plot
+
+function plot_select2(peer_name)
+{
+    // Make svg elements more visible
+    var all = document.getElementsByClassName("fitem");
+    for (var i = 0; i < all.length; i++) {
+        all[i].setAttribute("opacity",
+            has_class(all[i], peer_name) ? 1 : 0.1);
+    }
+    // Make html elements more visible
+    all = document.getElementsByClassName("hitem");
+    for (var i = 0; i < all.length; i++) {
+        if (has_class(all[i], peer_name)) {
+            all[i].className += " selected";
+        }
+    }
+
+    // fill in infos for this peer
+    document.getElementById('selected-peer-name').innerHTML = peer_name;
+    document.getElementById('selected-peer-info').innerHTML = '??';
+}
+
+function plot_unselect2(peer_name)
+{
+    var all = document.getElementsByClassName("fitem");
+    for (var i = 0; i < all.length; i++) {
+        all[i].setAttribute("opacity", 1);
+    }
+    all = document.getElementsByClassName("hitem");
+    for (var i = 0; i < all.length; i++) {
+        all[i].className = all[i].className.replace(/\bselected\b/,'');
+    }
+}
+
+// These are called from the SVG, with the event
+function plot_select(evt, peer_name)
+{
+    plot_select2(peer_name);
+}
+
+function plot_unselect(evt, peer_name)
+{
+    plot_unselect2(peer_name);
 }
 

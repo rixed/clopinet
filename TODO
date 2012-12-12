@@ -1,6 +1,35 @@
 TODO stack
 ----------
 
+- To avoid crashing the files too often, flush at some safe points from time 
+  to time (and not between safe points). Currently meta file is written every
+  10 secs or so, in order to provide up to date values for readers - let's use
+  this to additionaly flush the corresponding sequence to disk (using a new
+  obuf_flush function, writing it's buffer and calling fdatasync)
+
+
+- rewrite plot charts without google charts API
+
+- extract plot charts in a separate lib as a first step to clean the code.
+  ploting function should take the required iterators (next,[prev]) instead
+  of list of arrays or any other specific structure, so that it's uniform
+  and robust to changes in mlrrd
+
+
+- Use geoip database to offer another layout in netgraph, and other
+various stats (+ additional fields in tables)
+
+
+- whatever we entered in an IP field (IP or name), it should be left
+under that form rather than resolved
+
+
+- BW from -2months gives no result?
+
+
+- rework tables
+
+
 - Factorize distribution out of DNS+WEB
 
 
@@ -114,11 +143,6 @@ body)
 - Add payload and its transfert time to web metric
 
 
-- A repair tool (scanning files and reporting those that cannot be read,
-  for later inspection/deletion, or offering to truncate the file (or merely
-display file and offset where the error occured))
-
-
 - Fix multiple writer by flushing in O_APPEND after complete tuples
 
 
@@ -142,4 +166,7 @@ distributed querying
   add a packet to it, discard it, save it, etc. Ie. a capture type with most
   operations implemented in C.
 
+
+- an indexer process that adds N.idx to N files once closed, to speed up 
+  searches in the past.
 

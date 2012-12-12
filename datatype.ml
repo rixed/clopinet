@@ -259,7 +259,7 @@ let string_of_volume v =
     let e, v = unpower 1024. v in
     Printf.sprintf "%.*f%s" (if fst (modf v) < 0.01 then 0 else 2) v multiples_bytes.(e)
 let string_of_float v =
-    Printf.sprintf "%.*f" (if fst (modf v) < 0.01 then 0 else 2) v
+    Printf.sprintf "%.*f" (if fst (modf v) <= 0.0005 then 0 else 3) v
 let string_of_number v =
     if abs_float v >= 1. then (
         let e, v = unpower 1000. v in
@@ -683,9 +683,12 @@ module Interval_base = struct
         (* We do not try to equals different units when their equivalence is not trivial. *)
         (* FIXME: try to compute the overall ms number and if the diff is big
          * enought use it *)
-        let w_2_ms t =
-               t.msecs +. t.secs *. 1_000. +. t.mins *. 60_000.
-            +. t.hours *. 3600_000. +. t.days *. 86_400_000. +. t.weeks *. 604_800_000. in
+        let w_2_ms t =     t.msecs
+              +. 1_000. *. t.secs
+             +. 60_000. *. t.mins
+          +. 3_600_000. *. t.hours
+         +. 86_400_000. *. t.days
+        +. 604_800_000. *. t.weeks in
         let y_2_m t = t.years *. 12. +. t.months in
         let m1 = y_2_m t1 and m2 = y_2_m t2 in
         if m1 > m2 then 1 else
@@ -735,14 +738,16 @@ module Interval_base = struct
     let normalize i =
         (* We normalize only msecs, secs, mins and hours.
            A week is always 7 days but we'd rather keep days if the user used days *)
-        let tot_msecs = i.msecs +. 1_000. *. i.secs
-                      +. 60_000. *. i.mins +. 3_600_000. *. i.hours in
+        let tot_msecs =  i.msecs
+            +. 1_000. *. i.secs
+           +. 60_000. *. i.mins
+        +. 3_600_000. *. i.hours in
         let div n k =
             let lo,hi = modf (n /. k) in
             hi, lo*.k in
         let tot_secs, msecs = div tot_msecs 1000. in
         let tot_mins, secs  = div tot_secs 60. in
-        let hours, mins = div tot_mins 60. in
+        let hours, mins     = div tot_mins 60. in
         { i with msecs ; secs ; mins ; hours }
 
     let read ic =
@@ -817,6 +822,7 @@ module Interval : sig
     val zero    : t
     val to_ms   : t -> Int64.t
     val to_secs : t -> float
+    val of_secs : float -> t
     end =
 struct
     include Interval_base
@@ -826,14 +832,19 @@ struct
         { years = 0. ; months = 0. ; weeks = 0. ; days  = 0. ;
           hours = 0. ; mins   = 0. ; secs  = 0. ; msecs = 0. }
 
-    let to_ms_float t =
-        (* for this we consider 'default' length to variable time units *)
-           t.msecs +. t.secs *. 1_000. +. t.mins *. 60_000.
-        +. t.hours *. 3600_000. +. t.days *. 86_400_000. +. t.weeks *. 604_800_000.
-        +. t.months *. 2_628_000_000. +. t.years *. 31_557_600_000.
+    (* for this we consider 'default' length to variable time units *)
+    let to_ms_float t =   t.msecs
+             +. 1_000. *. t.secs
+            +. 60_000. *. t.mins
+          +. 3600_000. *. t.hours
+        +. 86_400_000. *. t.days
+       +. 604_800_000. *. t.weeks
+     +. 2_628_000_000. *. t.months
+    +. 31_557_600_000. *. t.years
 
     let to_ms t   = to_ms_float t |> Int64.of_float
     let to_secs t = to_ms_float t /. 1_000.
+    let of_secs secs = { zero with secs }
 end
 
 (**
@@ -941,6 +952,10 @@ module Timestamp = struct
                        i.secs +.
                        (i.msecs *. 0.001))
 
+    let sub_to_interval (t1 : t) (t2 : t) =
+        let ds = to_unixfloat t2 -. to_unixfloat t1 in
+        Interval.of_secs ds
+
     let now () = of_unixfloat (Unix.time ())
 
     let of_datestring str =
@@ -950,22 +965,19 @@ module Timestamp = struct
         let to_hour  y mo d h r      = of_tm y mo d h 0  0., r in
         let to_day   y mo d r        = of_tm y mo d 0 0  0., r in
         let to_month y mo r          = of_tm y mo 1 0 0  0., r in
-        let to_year  y r             = of_tm y 1  1 0 0  0., r in
         let today_full h mi s r =
             let tm = localtime (time ()) in
             of_tm (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday h mi s, r in
         let today_to_min  h mi r = today_full h mi 0. r in
-        let today_to_hour h r    = today_full h 0 0. r in
         if String.starts_with str "now" then now (), String.lchop ~n:3 str else
         try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u:%f%s@\n" of_tm'
         with _ -> try Scanf.sscanf str "%4u-%2u-%2u %2u:%2u%s@\n" to_min
         with _ -> try Scanf.sscanf str "%4u-%2u-%2u %2u%s@\n" to_hour
         with _ -> try Scanf.sscanf str "%4u-%2u-%2u%s@\n" to_day
         with _ -> try Scanf.sscanf str "%4u-%2u%s@\n" to_month
-        with _ -> try Scanf.sscanf str "%4u%s@\n" to_year
         with _ -> try Scanf.sscanf str "%2u:%2u:%f%s@\n" today_full
         with _ -> try Scanf.sscanf str "%2u:%2u%s@\n" today_to_min
-        with _ -> Scanf.sscanf str "%2u%s@\n" today_to_hour
+        with _ -> Scanf.sscanf str "%f@\n" of_unixfloat, "" (* only valid if there is nothing left *)
 
     let of_string str : t =
         try let t, rest = of_datestring str in
@@ -975,17 +987,31 @@ module Timestamp = struct
                 let i = Interval.of_string rest in
                 add_interval t i
             )
-        with _ -> try let i = Interval.of_string str in
-                  add_interval (now ()) i
-        with _ -> of_string str
+        with _ ->
+            try let i = Interval.of_string str in
+                let is_sign c = c = '+' || c = '-' in
+                (* FIXME: use trim|>starts_with instead *)
+                if String.length str > 0 && is_sign str.[0] then
+                    add_interval (now ()) i
+                else
+                    add_interval zero i (* unix timestamp *)
+            with _ ->
+                of_string str
 
     let to_string (t : t) =
         let open Unix in
+        let string_of_secs v =
+            if v = 0. then "" else
+            let frac, intg = modf v in
+            if abs_float frac > 0.0005 then
+                Printf.sprintf ":%06.3f" v
+            else
+                Printf.sprintf ":%02.0f" intg in
         let tm = to_tm t in
         let s = (float_of_int tm.tm_sec) +. (milliseconds t |> Int64.to_float)*.0.001 in
-        Printf.sprintf "%04u-%02u-%02u %02u:%02u:%06.3f"
+        Printf.sprintf "%04u-%02u-%02u %02u:%02u%s"
             (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday
-            tm.tm_hour tm.tm_min s
+            tm.tm_hour tm.tm_min (string_of_secs s)
 
     let write_txt oc t =
         let str = to_string t in

@@ -123,45 +123,6 @@ let tops_table tops heads vals_of_top =
     let heads = thead [ tr (List.map (fun v -> th [ raw v ]) heads) ] in
     [ table ~attrs:["class","tops"] (heads :: all_rows) ]
 
-let bandwidth_chart title time_step start datasets =
-    let datasets = List.rev datasets in (* for some reason the legend is reversed in the graph lib *)
-    let nb_xs = List.hd datasets |> snd |> Array.length in
-    let js =
-        let os = IO.output_string () in
-        Printf.fprintf os "{\ncols: %a,\nrows: [ "
-            (* display the labels *)
-            (List.print ~first:"[ { label: 'Time', type: 'datetime' },\n"
-                        ~last:" ]" ~sep:",\n"
-                           (fun oc (label, _ys) -> Printf.fprintf oc "{ label: '%s', type: 'number' }" label))
-            datasets ;
-        (* Iter on all rows *)
-        let rec print_row r t =
-            if r < nb_xs then (
-                Printf.fprintf os "{c: [{v: new Date(%Ld)}, " t ;
-                (* iter on all datasets *)
-                List.iter (fun (_label, ys) ->
-                    Printf.fprintf os "{v:%f}," ys.(r))
-                    datasets ;
-                Printf.fprintf os " ]},\n" ;
-                print_row (succ r) (Int64.add t time_step)
-            ) in
-        print_row 0 start ;
-        Printf.fprintf os " ]\n}\n" ;
-        IO.close_out os in
-    [ chart_div ;
-      script ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
-var options = {\n\
-title:'"^title^"',\n\
-width:'100%',\n\
-height:600,\n\
-lineWidth:1,\n\
-isStacked:true,\n\
-hAxis:{format:'MMM d, y HH:mm', gridlines:{color:'#333'}, title:'Time'},\n\
-legend:{textStyle:{fontSize:9}}\n\
-};\n\
-var chart = new google.visualization.AreaChart(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ]
-
 let top_chart lab datasets units =
     let js =
         let os = IO.output_string () in
@@ -633,13 +594,14 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
 
 (* Helpers for axis and grids *)
 
-let axis ?(extend_ticks=0.) ?(stroke="#000") ?(stroke_width=1.) ?(arrow_size=0.) ?(tick_spacing=100.) ?(tick_length=5.) ?(label="") ?(font_size=10.) (x1, y1) (x2, y2) v_min v_max =
+let axis ?(extend_ticks=0.) ?(stroke="#000") ?(stroke_width=1.) ?(arrow_size=0.) ?(tick_spacing=100.) ?(tick_length=5.) ?(label="") ?(font_size=16.) ?(string_of_v=Datatype.string_of_number) ?(invert=false) (x1, y1) (x2, y2) v_min v_max =
     let sq x = x *. x in
     let axis_len = sqrt (sq (x2-.x1) +. sq (y2-.y1)) in
     (* u, v are unit vectors along axis and perpendicular to it *)
     let ux, uy = (x2 -. x1) /. axis_len, (y2 -. y1) /. axis_len in
     let vx, vy = ~-.uy, ux in
     let mostly_horiz = abs_float ux >= abs_float uy in
+    let mostly_horiz = (if invert then not else identity) mostly_horiz in
     let add (ax, ay) (bx, by) = ax +. bx, ay +. by in
     let goto x y = x *. ux +. y *. vx, x *. uy +. y *. vy in
     g (
@@ -655,7 +617,7 @@ let axis ?(extend_ticks=0.) ?(stroke="#000") ?(stroke_width=1.) ?(arrow_size=0.)
         let style =
             if mostly_horiz then "text-anchor:end; dominant-baseline:alphabetic"
                             else "text-anchor:start; dominant-baseline:central" in
-        text ~x ~y ~style label) ::
+        text ~font_size:(1.2 *. font_size) ~x ~y ~style label) ::
         (
             Plot.grid (axis_len /. tick_spacing |> Int.of_float) v_min v_max /@
             (fun v ->
@@ -674,8 +636,12 @@ let axis ?(extend_ticks=0.) ?(stroke="#000") ?(stroke_width=1.) ?(arrow_size=0.)
                     let style =
                         if mostly_horiz then "text-anchor:middle; dominant-baseline:hanging"
                                         else "text-anchor:end; dominant-baseline:central" in
-                    text ~x ~y ~style
-                         (Datatype.string_of_number v)
+                    g (
+                        string_of_v v |>
+                        String.nsplit ~by:"\n" |>
+                        List.map (fun s -> s, font_size) |>
+                        texts ~style x y
+                    )
                   ]) |>
             List.of_enum
         )
@@ -685,18 +651,24 @@ let get_ratio x_min x_max v_min v_max v =
     let r = (v -. v_min) /. (v_max -. v_min) in
     x_min +. r *. (x_max -. x_min)
 
-let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size ?arrow_size ?tick_spacing ?tick_length ?x_label ?y_label (x_min, x_max) (y_min, y_max) (vx_min, vx_max) (vy_min, vy_max) =
+let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size ?arrow_size ?x_tick_spacing ?y_tick_spacing ?tick_length ?x_label ?y_label ?string_of_y ?y2 ?string_of_x (x_min, x_max) (y_min, y_max) (vx_min, vx_max) (vy_min, vy_max) =
     let get_x = get_ratio x_min x_max vx_min vx_max
     and get_y = get_ratio y_min y_max vy_min vy_max in
-    let x_orig = if vx_min >= 0. then x_min else get_x 0.
-    and y_orig = if vy_min >= 0. then y_min else get_y 0. in
+    let x_orig = if vx_min >= 0. then x_min else min (get_x 0.) x_max
+    and y_orig = if vy_min >= 0. then y_min else min (get_y 0.) y_max in
     let x_axis =
-        axis ?stroke ?stroke_width ?arrow_size ?tick_spacing ?font_size ?tick_length
-             ?label:x_label (x_min, y_orig) (x_max, y_orig) vx_min vx_max
+        axis ?stroke ?stroke_width ?arrow_size ?tick_spacing:x_tick_spacing ?font_size ?tick_length
+             ?label:x_label ?string_of_v:string_of_x (x_min, y_orig) (x_max, y_orig) vx_min vx_max
     and y_axis =
-        axis ?stroke ?stroke_width ?arrow_size ?tick_spacing ?font_size ?tick_length ~extend_ticks:(if show_vgrid then x_max -. x_min else 0.)
-             ?label:y_label (x_orig, y_min) (x_orig, y_max) vy_min vy_max in
-    g [ x_axis ; y_axis ]
+        axis ?stroke ?stroke_width ?arrow_size ?tick_spacing:y_tick_spacing ?font_size ?tick_length ~extend_ticks:(if show_vgrid then x_max -. x_min else 0.)
+             ?label:y_label ?string_of_v:string_of_y (x_orig, y_min) (x_orig, y_max) vy_min vy_max
+    and y2_axis = match y2 with
+        | None -> g []
+        | Some (label, string_of_v, vy2_min, vy2_max) ->
+            axis ?stroke ?stroke_width ?arrow_size ?tick_spacing:y_tick_spacing ?font_size
+                 ?tick_length ~invert:true ~label ~string_of_v
+                 (x_max, y_min) (x_max, y_max) vy2_min vy2_max in
+    g [ x_axis ; y_axis ; y2_axis ]
 
 
 (* Returns a distribution graph *)
@@ -704,15 +676,15 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
     let svg_width  = Prefs.get_float "gui/svg/width" 1000.
     and svg_height = Prefs.get_float "gui/svg/height" 800. in
     (* Graph geometry in pixels *)
-    let font_size = 10. in
+    let font_size = 14. in
     let margin_bottom = 30. and margin_left = 10. and margin_top = 30. and margin_right = 10.
-    and tick_spacing = 100. and tick_length = 0.4 *. font_size (* half tick_length, actualy *) in
-    let max_label_length = tick_spacing *. 0.9 in
+    and y_tick_spacing = 100. and x_tick_spacing = 150. and tick_length = 0.4 *. font_size (* half tick_length, actualy *) in
+    let max_label_length = y_tick_spacing *. 0.9 in
     let y_axis_x = margin_left +. max_label_length in
     let x_axis_y = svg_height -. margin_bottom -. font_size *. 1.2 in
     let y_axis_ymin = x_axis_y and y_axis_ymax = margin_top
     and x_axis_xmin = y_axis_x and x_axis_xmax = svg_width -. margin_right in
-    let axis_arrow_h = font_size in
+    let axis_arrow_h = 0.8 *. font_size in
     (* Data bounds *)
     let nb_buckets = bucket_max - bucket_min |> succ |> max 2 in
     let tot_count = Array.create nb_buckets 0 in
@@ -738,8 +710,6 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
     let distr_of_dataset (label, mi, d) =
         let color = Color.random_of_string label in
         let stroke = Color.to_html color in
-        (* for convenience we add a point with 0 count if d has less values than nb_buckets *)
-        (* TODO: add Vect.fold_righti (and Enum etc) to batteries and use that instead *)
         path ~stroke:"none" ~fill:stroke ~fill_opacity:0.8
              ~attrs:["class","fitem "^label ;
                      "onmouseover","distr_select(evt, '"^label^"')" ;
@@ -774,7 +744,7 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
                           [] ;
             raw label
         ] in
-    let grid = xy_grid ~stroke:"#000" ~stroke_width:2. ~font_size ~arrow_size:axis_arrow_h ~tick_spacing ~tick_length ~x_label ~y_label (x_axis_xmin, x_axis_xmax) (y_axis_ymin, y_axis_ymax) (vx_min, vx_max) (vy_min, vy_max)
+    let grid = xy_grid ~stroke:"#000" ~stroke_width:2. ~font_size ~arrow_size:axis_arrow_h ~x_tick_spacing ~y_tick_spacing ~tick_length ~x_label ~y_label (x_axis_xmin, x_axis_xmax) (y_axis_ymin, y_axis_ymax) (vx_min, vx_max) (vy_min, vy_max)
     and distrs =
         g (List.map distr_of_dataset datasets)
     in
@@ -797,4 +767,161 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
                    h3 "Legend" ] @
                  (List.map legend_of_dataset datasets)) ] ] ] ;
         (* for this we really do want stdlib's string_of_float not our stripped down version *)
-        script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^");") ]
+        script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", 'filter.minrt', 'filter.maxrt', 'filter.distr-prec');") ]
+
+(* returns a time chart (ie. which x is time) *)
+(* differences from the above function:
+ * - X is no more a response time but a date. We thus rename all "rt" into "vx"
+ * - Y is no more an int "count" but a float "vy"
+ * - We do not center Y values vertically, although we should, optionaly
+ * - We do not force vy_min to 0
+ * - Averages (for legend) are not the same
+ * - we need x_offset since x values may be very far from 0. (timestamps...)
+ *)
+let plot_chart x_label y_label ?string_of_y ?string_of_x ?dataset2 x_offset vx_step bucket_min bucket_max datasets =
+    let svg_width  = Prefs.get_float "gui/svg/width" 1000.
+    and svg_height = Prefs.get_float "gui/svg/height" 600. in
+    (* Graph geometry in pixels *)
+    let font_size = 14. in
+    let margin_bottom = 30. and margin_left = 10.  and margin_top = 30.
+    and margin_right = match dataset2 with None -> 10. | Some _ -> 30.
+    and y_tick_spacing = 100. and x_tick_spacing = 200. and tick_length = 0.4 *. font_size (* half tick_length, actualy *) in
+    let max_label_length = y_tick_spacing *. 0.9 in
+    let y_axis_x = margin_left +. max_label_length in
+    let x_axis_y = svg_height -. margin_bottom -. font_size *. 1.2 in
+    let y_axis_ymin = x_axis_y and y_axis_ymax = margin_top
+    and x_axis_xmin = y_axis_x and x_axis_xmax = svg_width -. margin_right in
+    let axis_arrow_h = 0.8 *. font_size in
+    (* Data bounds *)
+    let nb_buckets = bucket_max - bucket_min |> succ |> max 2 in
+    let vx_of_bucket i = x_offset +. (float_of_int i +. 0.5) *. vx_step in
+    (* TODO: if vx_min is close to 0 (compared to vx_max) then clamp it to 0 *)
+    let vx_min = vx_of_bucket bucket_min
+    and vx_max = vx_of_bucket bucket_max in
+    (* Compute max Y for a given bucket *)
+    let tot_vy = Array.create nb_buckets 0. in
+    List.iter (fun (_label, mi, d) ->
+        Array.iteri (fun i c ->
+            tot_vy.(mi+i-bucket_min) <- tot_vy.(mi+i-bucket_min) +. c) d)
+        datasets ;
+    (* TODO: if vy_min is close to 0 (compared to vy_max) then clamp it to 0 *)
+    let vy_max, vy_min =
+        Array.fold_left (fun (ma, mi) y ->
+            max ma y, min mi y) (0., max_float) tot_vy in
+    let vy2_max, vy2_min =
+        Option.bind dataset2 (fun (_label, _mi, _string_of_y2, dataset) ->
+            Some (
+                Array.fold_left (fun (ma, mi) y ->
+                    max ma y, min mi y)
+                    (0., max_float) dataset
+            )) |>
+        Option.default (0.,0.) in
+    let get_x  = get_ratio x_axis_xmin x_axis_xmax vx_min vx_max
+    and get_y  = get_ratio y_axis_ymin y_axis_ymax vy_min vy_max
+    and get_y2 = get_ratio y_axis_ymin y_axis_ymax vy2_min vy2_max in
+    (* We stack the values *)
+    let prev_vy = Array.create nb_buckets 0. in
+    let path_of_dataset (label, mi, d) =
+        let color = Color.random_of_string label in
+        let stroke = Color.to_html color in
+        let vy i = if i < mi || i-mi >= Array.length d then 0. else d.(i-mi) in
+        g [
+            path ~stroke:"none" ~fill:stroke ~fill_opacity:0.6
+                 ~attrs:["class","fitem "^label ;
+                         "onmouseover","plot_select(evt, '"^label^"')" ;
+                         "onmouseout", "plot_unselect(evt)" ]
+                (
+                    let buf = Buffer.create 100 in (* to write path commands in *)
+                    (* Top line *)
+                    for i = bucket_min to bucket_max do
+                        let vy' = vy i +. prev_vy.(i-bucket_min) in
+                        Buffer.add_string buf
+                            ((if i = bucket_min then moveto else lineto)
+                                (get_x (vx_of_bucket i), get_y vy'))
+                    done ;
+                    (* Bottom line (to close the area) (note: we loop here from last to first) *)
+                    for i = bucket_max downto bucket_min do
+                        let vy' = prev_vy.(i-bucket_min) in
+                        prev_vy.(i-bucket_min) <- vy' +. vy i ;
+                        Buffer.add_string buf
+                            (lineto (get_x (vx_of_bucket i), get_y vy'))
+                    done ;
+                    Buffer.add_string buf closepath ;
+                    Buffer.contents buf
+                ) ;
+            path ~stroke ~fill:"none"
+                 ~attrs:["class","fitem "^label]
+                (
+                    let buf = Buffer.create 100 in (* to write path commands in *)
+                    (* Top line *)
+                    for i = bucket_min to bucket_max do
+                        let vy' = vy i +. prev_vy.(i-bucket_min) in
+                        Buffer.add_string buf
+                            ((if i = bucket_min then moveto else lineto)
+                                (get_x (vx_of_bucket i), get_y vy'))
+                    done ;
+                    Buffer.contents buf
+                )
+            ]
+
+    and path_of_dataset2 (label, mi, d) =
+        let color = Color.random_of_string label in
+        let stroke = Color.to_html color in
+        let vy i = if i < mi || i-mi >= Array.length d then 0. else d.(i-mi) in
+        g [
+            path ~stroke ~fill:"none"
+                 ~attrs:["class","fitem "^label]
+                (
+                    let buf = Buffer.create 100 in (* to write path commands in *)
+                    for i = bucket_min to bucket_max do
+                        Buffer.add_string buf
+                            ((if i = bucket_min then moveto else lineto)
+                                (get_x (vx_of_bucket i), get_y2 (vy i)))
+                    done ;
+                    Buffer.contents buf
+                )
+            ]
+
+    and legend_of_dataset (label, _mi, _d) =
+        let color = Color.random_of_string label in
+        p ~attrs:["class","hitem "^label ;
+                  "onmouseover","plot_select2('"^label^"')" ;
+                  "onmouseout", "plot_unselect2()" ] [
+            span ~attrs:[ "class","color-box" ;
+                          "style","background-color: " ^ Color.to_html color ]
+                          [] ;
+            raw label
+        ] in
+
+    let y2 =
+        Option.bind dataset2 (fun (label2, _mi, string_of_y2, _dataset) ->
+            Some (label2, string_of_y2, vy2_min, vy2_max)) in
+    let grid = xy_grid ~stroke:"#000" ~stroke_width:2. ~font_size ~arrow_size:axis_arrow_h ~x_tick_spacing ~y_tick_spacing ~tick_length ~x_label ~y_label ?string_of_x ?string_of_y ?y2 (x_axis_xmin, x_axis_xmax) (y_axis_ymin, y_axis_ymax) (vx_min, vx_max) (vy_min, vy_max)
+    and distrs =
+        g (
+            List.map path_of_dataset datasets @
+            match dataset2 with
+                | None -> []
+                | Some (label, mi, _string_of_y, dataset) ->
+                    [ path_of_dataset2 (label, mi, dataset) ]
+          ) in
+    let tot_vys = Array.fold_left (+.) 0. tot_vy in
+    let dvx = vx_max -. vx_min in
+    let avg_vy = if dvx > 0. then
+                     (Datatype.string_of_number (tot_vys /. dvx)) ^ "&nbsp;X/s"
+                 else "none" in
+    let cursor = rect ~attrs:["id","cursor"] ~stroke:"none" ~fill:"#d8a" ~fill_opacity:0.3 x_axis_xmin y_axis_ymax 0. (y_axis_ymin -. y_axis_ymax) in
+    [ table ~attrs:["class","svg"] [ tr
+        [ td ~id:"plot"
+            [ svg [ cursor ; grid ; distrs ] ] ;
+          td [ div ~attrs:["class","svg-info"]
+                ([ h3 "Global" ;
+                   p [ raw ((Datatype.string_of_number tot_vys) ^ "&nbsp;Ys") ] ;
+                   p [ raw ("average: " ^ avg_vy) ] ;
+                   h3 ~id:"selected-peer-name" "" ;
+                   p ~id:"selected-peer-info" [] ;
+                   h3 "Legend" ] @
+                 (List.map legend_of_dataset datasets)) ] ] ] ;
+        (* for this we really do want stdlib's string_of_float not our stripped down version *)
+        script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", 'filter.start', 'filter.stop', 'filter.tstep');") ]
+

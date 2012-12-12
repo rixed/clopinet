@@ -18,6 +18,34 @@ let i2s ?min ?max i =
         | Some ma -> Some (Pervasives.min v ma)
         | None -> Some v)
 
+(* TODO: we can't easily reset prev_str because we don't know when plotters will use this
+ * function in anothern axis... for instance imagine we have dates for both X and Y axis... *)
+let prev_str = ref ("","","")
+let string_of_date ts =
+    let full = Timestamp.of_unixfloat ts |>
+               Timestamp.to_string in
+    (* Compare with previous displayed value *)
+    let d,rest = try String.split full ~by:" "
+                 with Not_found -> full, "" in
+    let h,m = try String.split rest ~by:"."
+              with Not_found -> rest, "" in
+    let prev_d, prev_h, prev_m = !prev_str in
+    let show_date = d <> prev_d in
+    let show_msecs = m <> prev_m in
+    let show_hour = (show_msecs && show_date) || h <> prev_h in
+    let buf = Buffer.create (String.length full) in
+    if show_date then Buffer.add_string buf d ;
+    if show_hour then (
+        if show_date then Buffer.add_string buf "\n" ;
+        Buffer.add_string buf h
+    ) ;
+    if show_msecs then (
+        if show_hour then Buffer.add_string buf "." ;
+        Buffer.add_string buf m
+    ) ;
+    prev_str := d, h, m ;
+    Buffer.contents buf
+
 module Ctrl =
 struct
     include Ctrl
@@ -59,7 +87,14 @@ struct
                         []
                     else
                         let what = if what = PacketCount then "Packets" else "Bytes" in
-                        View.bandwidth_chart ("Traffic - "^what^"/sec") time_step start datasets
+                        (*View.bandwidth_chart ("Traffic - "^what^"/sec") time_step start datasets*)
+                        (* we want each array to be prefixed with bucket offset, here 0 *)
+                        let datasets = List.map (fun (l, a) -> (l, 0, a)) datasets in
+                        let bucket_min, bucket_max =
+                            List.fold_left (fun (mi, ma) (_l, mi', a) ->
+                                min mi mi', max ma (mi' + Array.length a)) (max_int, 0) datasets in
+                        let time_step = (Int64.to_float time_step) *. 0.001 in
+                        View.plot_chart "time" what ~string_of_x:string_of_date (Timestamp.to_unixfloat start) time_step bucket_min bucket_max datasets
                 | _ -> [] in
             View.make_graph_page "Bandwidth" filters_form disp_graph
 
@@ -289,7 +324,28 @@ struct
                     let rt_min = i2s ~min:0. rt_min in
                     let rt_max = i2s ?min:rt_min rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
-                    View.resp_times_chart "DNS - Average Response Time (sec)" time_step start datasets
+                    (* TODO: plot_resp_time should return 0 in count instead of None... *)
+                    let datasets = Array.map (BatOption.default (0, 0.,0.,0.,0.)) datasets in
+                    let bucket_min = 0
+                    and bucket_max = Array.length datasets in
+                    (* Split the distribution (count, min, max, avg, sigma) into
+                     * the main dataset (list of mins, maxs, avgs, sigmas) and the
+                     * secondary dataset (for the counts) *)
+                    let dataset2 = "#Transactions", 0, string_of_number,
+                                   Array.map (Tuple5.first |- float_of_int) datasets in
+                    let mins = "Min", 0,
+                               Array.map Tuple5.second datasets
+                    and maxs = "Max", 0,
+                               Array.map Tuple5.third datasets
+                    and avgs = "Avg", 0,
+                               Array.map Tuple5.fourth datasets
+                    and avg_los = "Avg-&sigma;", 0,
+                                  Array.map (fun (_,_,_,a,s) -> max 0. (a-.s)) datasets
+                    and avg_his = "Avg+&sigma;", 0,
+                                  Array.map (fun (_,_,_,a,s) -> a+.s) datasets in
+                    let datasets = [ mins ; avg_los ; avgs ; avg_his ; maxs ] in
+                    let time_step = (Int64.to_float time_step) *. 0.001 in
+                    View.plot_chart "time" "response time (s)" ~string_of_x:string_of_date (Timestamp.to_unixfloat start) time_step bucket_min bucket_max ~dataset2 datasets
                 | _ -> [] in
             View.make_graph_page "DNS Response Time" filters_form disp_graph
 
