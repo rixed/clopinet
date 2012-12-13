@@ -594,7 +594,7 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
 
 (* Helpers for axis and grids *)
 
-let axis ?(extend_ticks=0.) ?(stroke="#000") ?(stroke_width=1.) ?(arrow_size=0.) ?(tick_spacing=100.) ?(tick_length=5.) ?(label="") ?(font_size=16.) ?(string_of_v=Datatype.string_of_number) ?(invert=false) (x1, y1) (x2, y2) v_min v_max =
+let axis ?(extend_ticks=0.) ?(stroke="#000") ?(stroke_width=1.) ?(arrow_size=0.) ?(tick_spacing=100.) ?(tick_length=5.) ?(label="") ?(font_size=16.) ?opacity ?(string_of_v=Datatype.string_of_number) ?(invert=false) (x1, y1) (x2, y2) v_min v_max =
     let sq x = x *. x in
     let axis_len = sqrt (sq (x2-.x1) +. sq (y2-.y1)) in
     (* u, v are unit vectors along axis and perpendicular to it *)
@@ -605,7 +605,7 @@ let axis ?(extend_ticks=0.) ?(stroke="#000") ?(stroke_width=1.) ?(arrow_size=0.)
     let add (ax, ay) (bx, by) = ax +. bx, ay +. by in
     let goto x y = x *. ux +. y *. vx, x *. uy +. y *. vy in
     g (
-        (path ~stroke ~stroke_width ~fill:"none"
+        (path ~stroke ~stroke_width ~fill:"none" ?stroke_opacity:opacity
             (moveto (x1, y1) ^
             lineto (x2, y2) ^
             lineto (add (x2, y2) (goto ~-.arrow_size ~-.arrow_size)) ^
@@ -617,14 +617,14 @@ let axis ?(extend_ticks=0.) ?(stroke="#000") ?(stroke_width=1.) ?(arrow_size=0.)
         let style =
             if mostly_horiz then "text-anchor:end; dominant-baseline:alphabetic"
                             else "text-anchor:start; dominant-baseline:central" in
-        text ~font_size:(1.2 *. font_size) ~x ~y ~style label) ::
+        text ~font_size:(1.2 *. font_size) ?stroke_opacity:opacity ?fill_opacity:opacity ~x ~y ~style label) ::
         (
             Plot.grid (axis_len /. tick_spacing |> Int.of_float) v_min v_max /@
             (fun v ->
                 let t = ((v -. v_min) /. (v_max -. v_min)) *. axis_len in
                 let tick_start = add (x1, y1) (goto t ~-.tick_length) in
                 let tick_stop  = add (x1, y1) (goto t tick_length) in
-                g [ line ~stroke ~stroke_width tick_start tick_stop ;
+                g [ line ?stroke_opacity:opacity ~stroke ~stroke_width tick_start tick_stop ;
                     line ~stroke ~stroke_width:(stroke_width *. 0.6) ~stroke_opacity:0.1
                          tick_stop (add tick_stop (goto 0. extend_ticks)) ;
                     let x, y =
@@ -640,7 +640,7 @@ let axis ?(extend_ticks=0.) ?(stroke="#000") ?(stroke_width=1.) ?(arrow_size=0.)
                         string_of_v v |>
                         String.nsplit ~by:"\n" |>
                         List.map (fun s -> s, font_size) |>
-                        texts ~style x y
+                        texts ?stroke_opacity:opacity ?fill_opacity:opacity ~style x y
                     )
                   ]) |>
             List.of_enum
@@ -670,7 +670,7 @@ let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size ?arrow_size ?x_t
         | None -> g []
         | Some (label, string_of_v, vy2_min, vy2_max) ->
             axis ?stroke ?stroke_width ?arrow_size ?tick_spacing:y_tick_spacing ?font_size
-                 ?tick_length ~invert:true ~label ~string_of_v
+                 ?tick_length ~invert:true ~label ~string_of_v ~opacity:0.5
                  (x_max, y_min) (x_max, y_max) vy2_min vy2_max in
     g [ x_axis ; y_axis ; y2_axis ]
 
