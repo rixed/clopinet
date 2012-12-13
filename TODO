@@ -1,13 +1,6 @@
 TODO stack
 ----------
 
-- To avoid crashing the files too often, flush at some safe points from time 
-  to time (and not between safe points). Currently meta file is written every
-  10 secs or so, in order to provide up to date values for readers - let's use
-  this to additionaly flush the corresponding sequence to disk (using a new
-  obuf_flush function, writing it's buffer and calling fdatasync)
-
-
 - rewrite plot charts without google charts API
 
 - extract plot charts in a separate lib as a first step to clean the code.
@@ -146,6 +139,13 @@ body)
 - Fix multiple writer by flushing in O_APPEND after complete tuples
 
 
+- To avoid crashing the files too often, flush at some safe points from time 
+  to time (and not between safe points). Currently meta file is written every
+  10 secs or so, in order to provide up to date values for readers - let's use
+  this to additionaly flush the corresponding sequence to disk (using a new
+  obuf_flush function, writing it's buffer and calling fdatasync)
+
+
 - In the same spirit than locking, write a file with the textual 
 representation of the record type in a table directory (and check it when 
 opening the table).
@@ -170,3 +170,5 @@ distributed querying
 - an indexer process that adds N.idx to N files once closed, to speed up 
   searches in the past.
 
+
+- rewrite BW chart using two passes to avoid awakening the OOM killer

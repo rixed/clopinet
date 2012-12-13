@@ -654,8 +654,12 @@ let get_ratio x_min x_max v_min v_max v =
 let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size ?arrow_size ?x_tick_spacing ?y_tick_spacing ?tick_length ?x_label ?y_label ?string_of_y ?y2 ?string_of_x (x_min, x_max) (y_min, y_max) (vx_min, vx_max) (vy_min, vy_max) =
     let get_x = get_ratio x_min x_max vx_min vx_max
     and get_y = get_ratio y_min y_max vy_min vy_max in
-    let x_orig = if vx_min >= 0. then x_min else min (get_x 0.) x_max
-    and y_orig = if vy_min >= 0. then y_min else min (get_y 0.) y_max in
+    let bound_by mi ma v =
+        if v < mi then mi else
+        if v > ma then ma else
+        v in
+    let x_orig = bound_by x_min x_max (get_x 0.)
+    and y_orig = bound_by y_max y_min (get_y 0.) in (* note that y_min, the Y of the origin, is actually greater the y_max, due to the fact that SVG Y starts at top of img *)
     let x_axis =
         axis ?stroke ?stroke_width ?arrow_size ?tick_spacing:x_tick_spacing ?font_size ?tick_length
              ?label:x_label ?string_of_v:string_of_x (x_min, y_orig) (x_max, y_orig) vx_min vx_max
