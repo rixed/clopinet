@@ -1,12 +1,7 @@
 TODO stack
 ----------
 
-- rewrite plot charts without google charts API
-
-- extract plot charts in a separate lib as a first step to clean the code.
-  ploting function should take the required iterators (next,[prev]) instead
-  of list of arrays or any other specific structure, so that it's uniform
-  and robust to changes in mlrrd
+- Use logarithmic Y scale for primary Y in resp times vs time charts
 
 
 - Use geoip database to offer another layout in netgraph, and other
@@ -23,7 +18,7 @@ under that form rather than resolved
 - rework tables
 
 
-- Factorize distribution out of DNS+WEB
+- Factorize distribution out of DNS+WEB (and the pieces in www/index.ml)
 
 
 - A selection area for any svg, calling a given handler when the drag box is
@@ -40,12 +35,6 @@ done
 
 User prefs
 ----------
-
-- IHM per session: User prefs with svg dimensions, wether to resolve 
-IPs/MACs...
-
-- A config file (envvars?) for setting agr levels and max age of files 
-(available from web, so should not need recompilation)
 
 - (key->value db in regular file) Une config permettant d'associer des 
   couleurs à des hosts (basé sur mac ou ip), et qu'on utiliserait pour colorer 
@@ -85,7 +74,7 @@ un paramètre (ip src, ip dst, hostname, hostname+url, noms requit...)
 et c'est ça qu'on grapherait dans netgraph.
 
 
-- Aussi pouvoir déclencher des pcap
+- Aussi pouvoir déclencher / récupérer des pcap?
 
 
 - Filters for http method, vlan, etc, should be multiselect or
@@ -138,7 +127,6 @@ body)
 
 - Fix multiple writer by flushing in O_APPEND after complete tuples
 
-
 - To avoid crashing the files too often, flush at some safe points from time 
   to time (and not between safe points). Currently meta file is written every
   10 secs or so, in order to provide up to date values for readers - let's use
@@ -172,3 +160,8 @@ distributed querying
 
 
 - rewrite BW chart using two passes to avoid awakening the OOM killer
+
+
+- distrib chart for HTTP should give choice for grouping field (for instance,
+  response code, method...)
+

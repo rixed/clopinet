@@ -87,14 +87,23 @@ struct
                         []
                     else
                         let what = if what = PacketCount then "Packets" else "Bytes" in
-                        (*View.bandwidth_chart ("Traffic - "^what^"/sec") time_step start datasets*)
-                        (* we want each array to be prefixed with bucket offset, here 0 *)
-                        let datasets = List.map (fun (l, a) -> (l, 0, a)) datasets in
-                        let bucket_min, bucket_max =
-                            List.fold_left (fun (mi, ma) (_l, mi', a) ->
-                                min mi mi', max ma (mi' + Array.length a)) (max_int, 0) datasets in
-                        let time_step = (Int64.to_float time_step) *. 0.001 in
-                        View.plot_chart "time" what ~string_of_x:string_of_date (Timestamp.to_unixfloat start) time_step bucket_min bucket_max datasets
+                        let nb_vx =
+                            List.fold_left (fun ma (_l, a) ->
+                                max ma (Array.length a))
+                                0 datasets in
+                        let time_step = (Int64.to_float time_step) *. 0.001
+                        and svg_width  = Prefs.get_float "gui/svg/width" 1000.
+                        and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                        let fold f i =
+                            List.fold_left (fun prev (l, a) ->
+                                let get i = Array.get a i in
+                                f prev l true get)
+                                i datasets in
+                        Svg.xy_plot ~svg_width ~svg_height ~stacked:true
+                                    ~string_of_x:string_of_date
+                                    "time" what
+                                    (Timestamp.to_unixfloat start) time_step nb_vx 
+                                    { Svg.fold = fold }
                 | _ -> [] in
             View.make_graph_page "Bandwidth" filters_form disp_graph
 
@@ -249,7 +258,30 @@ struct
                     let rt_max = i2s ?min:rt_min rt_max in
                     let tblname = Forms.Web.TblNames.options.(tblname) in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
-                    View.resp_times_chart "Web - Average Response Time (sec)" time_step start datasets
+                    (* TODO: plot_resp_time should return 0 in count instead of None... *)
+                    let datasets = Array.map (BatOption.default (0, 0.,0.,0.,0.)) datasets in
+                    let fold f i =
+                        let i = f i "Min" true
+                            (fun i -> Distribution.min datasets.(i)) in
+                        let i = f i "Avg-&sigma;" true
+                            (fun i -> max 0. Distribution.(avg datasets.(i) -. std_dev datasets.(i))) in
+                        let i = f i "Avg" true
+                            (fun i -> Distribution.avg datasets.(i)) in
+                        let i = f i "Avg+&sigma;" true
+                            (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
+                        let i = f i "Max" true
+                            (fun i -> Distribution.max datasets.(i)) in
+                        let i = f i "#Transactions" false
+                            (fun i -> Distribution.count datasets.(i) |> float_of_int) in
+                        i in
+                    let nb_vx = Array.length datasets in
+                    let time_step = (Int64.to_float time_step) *. 0.001
+                    and svg_width  = Prefs.get_float "gui/svg/width" 1000.
+                    and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                    Svg.xy_plot ~svg_width ~svg_height ~string_of_x:string_of_date ~stacked:true
+                                "time" "response time (s)"
+                                (Timestamp.to_unixfloat start) time_step nb_vx
+                                { Svg.fold = fold }
                 | _ -> [] in
             View.make_graph_page "Web Response Time" filters_form disp_graph
 
@@ -326,26 +358,28 @@ struct
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
                     (* TODO: plot_resp_time should return 0 in count instead of None... *)
                     let datasets = Array.map (BatOption.default (0, 0.,0.,0.,0.)) datasets in
-                    let bucket_min = 0
-                    and bucket_max = Array.length datasets in
-                    (* Split the distribution (count, min, max, avg, sigma) into
-                     * the main dataset (list of mins, maxs, avgs, sigmas) and the
-                     * secondary dataset (for the counts) *)
-                    let dataset2 = "#Transactions", 0, string_of_number,
-                                   Array.map (Tuple5.first |- float_of_int) datasets in
-                    let mins = "Min", 0,
-                               Array.map Tuple5.second datasets
-                    and maxs = "Max", 0,
-                               Array.map Tuple5.third datasets
-                    and avgs = "Avg", 0,
-                               Array.map Tuple5.fourth datasets
-                    and avg_los = "Avg-&sigma;", 0,
-                                  Array.map (fun (_,_,_,a,s) -> max 0. (a-.s)) datasets
-                    and avg_his = "Avg+&sigma;", 0,
-                                  Array.map (fun (_,_,_,a,s) -> a+.s) datasets in
-                    let datasets = [ mins ; avg_los ; avgs ; avg_his ; maxs ] in
-                    let time_step = (Int64.to_float time_step) *. 0.001 in
-                    View.plot_chart "time" "response time (s)" ~string_of_x:string_of_date (Timestamp.to_unixfloat start) time_step bucket_min bucket_max ~dataset2 datasets
+                    let fold f i =
+                        let i = f i "Min" true
+                            (fun i -> Distribution.min datasets.(i)) in
+                        let i = f i "Avg-&sigma;" true
+                            (fun i -> max 0. Distribution.(avg datasets.(i) -. std_dev datasets.(i))) in
+                        let i = f i "Avg" true
+                            (fun i -> Distribution.avg datasets.(i)) in
+                        let i = f i "Avg+&sigma;" true
+                            (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
+                        let i = f i "Max" true
+                            (fun i -> Distribution.max datasets.(i)) in
+                        let i = f i "#Transactions" false
+                            (fun i -> Distribution.count datasets.(i) |> float_of_int) in
+                        i in
+                    let nb_vx = Array.length datasets in
+                    let time_step = (Int64.to_float time_step) *. 0.001
+                    and svg_width  = Prefs.get_float "gui/svg/width" 1000.
+                    and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                    Svg.xy_plot ~svg_width ~svg_height ~string_of_x:string_of_date ~stacked:true
+                                "time" "response time (s)"
+                                (Timestamp.to_unixfloat start) time_step nb_vx
+                                { Svg.fold = fold }
                 | _ -> [] in
             View.make_graph_page "DNS Response Time" filters_form disp_graph
 

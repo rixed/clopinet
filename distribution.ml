@@ -56,3 +56,10 @@ let std_dev (c, _mi, _ma, _avg, v) =
     if c > 1 then sqrt(v /. float_of_int (pred c))
     else 0.
 
+(* Various accessors *)
+let count (c, _mi, _ma, _avg, _v) = c
+let min   (_c, mi, _ma, _avg, _v) = mi
+let max   (_c, _mi, ma, _avg, _v) = ma
+let avg   (_c, _mi, _ma, avg, _v) = avg
+let var   (_c, _mi, _ma, _avg, v) = v
+

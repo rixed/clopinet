@@ -2,6 +2,7 @@ top_srcdir = ..
 
 SOURCES  = \
 	color.ml \
+	svg.ml \
 	my_view.ml \
 	my_time.ml \
 	my_forms.ml \
