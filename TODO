@@ -8,10 +8,6 @@ TODO stack
 various stats (+ additional fields in tables)
 
 
-- whatever we entered in an IP field (IP or name), it should be left
-under that form rather than resolved
-
-
 - BW from -2months gives no result?
 
 
@@ -164,4 +160,7 @@ distributed querying
 
 - distrib chart for HTTP should give choice for grouping field (for instance,
   response code, method...)
+
+
+- use cmdliner for more powerfull cmd line?
 

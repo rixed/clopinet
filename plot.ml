@@ -261,6 +261,7 @@ struct
         (* reduce number of datasets to max_graphs *)
         top_plot_datasets max_graphs datasets nb_steps label_of_key other_key
 
+    (* FIXME: a single pass using the array trick for fold *)
     module FindSignificant =
     struct
         (* amongst a collection of (key, value),

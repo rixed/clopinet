@@ -13,6 +13,7 @@ let add_msg_with_class c txt =
     msgs := (p ~attrs:["class",c] [cdata txt]) :: !msgs
 let add_msg = add_msg_with_class "ok"
 let add_err = add_msg_with_class "nok"
+let add_exc exc = add_err (Printexc.to_string exc ^"<br/>\n"^ Printexc.get_backtrace ())
 
 let msgs () = div ~id:"notifs" !msgs
 
@@ -126,7 +127,7 @@ let top_chart lab datasets units =
     let js =
         let os = IO.output_string () in
         Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
-            lab units 
+            lab units
             (* display the rows *)
             (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
                            (fun oc s -> Printf.fprintf oc "{c:[{v:'%s'}" s)
@@ -305,7 +306,7 @@ layout=\"%s\";\n"
            iif the div box actually stick to svg's boundary). *)
         [ table ~attrs:["class","svg"] [ tr
             [ td ~id:"netgraph"
-                [ svg 
+                [ svg
                     [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
                         [ g svg_edges ;
                           g ~attrs:["style","text-anchor:middle; dominant-baseline:central" ;
@@ -462,7 +463,7 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
                            "onmouseout", "timeline_unselect(evt, '"^ip^"')" ]
                     [ line ~attrs:["stroke-dasharray","5,5"; "class","fitem "^senders^ip ]
                            ~stroke:"#000" ~stroke_width:2. (!x, y1) (!x, y2) ;
-                      text ~attrs:["class","fitem "^senders^ip ] 
+                      text ~attrs:["class","fitem "^senders^ip ]
                            ~x:!x ~y:(y1-.10.)
                            ~style:("text-anchor:middle; dominant-baseline:central")
                            ~font_size:13.
@@ -719,7 +720,7 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
     let tot_queries = Array.fold_left (+) 0 tot_count |> float_of_int in
     let tot_rt = Array.fold_lefti (fun p i c ->
         p +. rt_of_bucket i *. float_of_int c) 0. tot_count in
-    let avg_rt = if tot_queries > 0. then 
+    let avg_rt = if tot_queries > 0. then
                      (Datatype.string_of_number (tot_rt /. tot_queries)) ^ "s"
                  else "none" in
     let cursor = rect ~attrs:["id","cursor"] ~stroke:"none" ~fill:"#d8a" ~fill_opacity:0.3 x_axis_xmin y_axis_ymax 0. (y_axis_ymin -. y_axis_ymax) in

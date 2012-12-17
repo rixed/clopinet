@@ -8,97 +8,81 @@ module InputOfDatatype (D : DATATYPE) :
 struct
     module String = Input.String (struct let min = Some 1 let max = None end)
     type t = D.t
-    let name = D.name
-    let to_html v = [ cdata (html_of_user_value D.to_string v) ]
-    let edit name v =
+    let to_edit name args =
         [ input [ "name", name ;
-                  "value", input_of_user_value D.to_string v ] ] @
-        err_msg_of v
+                  "value", input_text_of name args ] ]
     let from_args name args =
-        match String.from_args name args with
-        | Error _ as x -> x
-        | Value s  ->
-            (try Value (D.of_string s)
-            with End_of_file -> Error ("Not enough data", s)
-               | Overflow    -> Error ("Integer overflow", s)
-               | exn         -> Error (Printexc.to_string exn, s))
-end
-
-module OptInputOfDatatype (D : DATATYPE) :
-    TYPE with type t = D.t option =
-struct
-    module String = Input.OptString (struct let min = Some 0 let max = None end)
-    type t = D.t option
-    let name = D.name
-    let to_html v = [ cdata (html_of_user_value (function None -> "<i>unset</i>"
-                                                        | Some s -> D.to_string s) v) ]
-    let edit name v =
-        [ input [ "name", name ;
-                  "value", input_of_user_value (function None -> ""
-                                                       | Some s -> D.to_string s) v ] ] @
-        err_msg_of v
-    let from_args name args =
-        match String.from_args name args with
-        | Error _ | Value None as x -> x
-        | Value (Some s) -> 
-            (try Value (Some (D.of_string s))
-            with End_of_file -> Error ("Not enough data", s)
-               | Overflow    -> Error ("Integer overflow", s)
-               | exn         -> Error (Printexc.to_string exn, s))
+        let s = String.from_args name args in
+        try D.of_string s
+        with End_of_file -> input_error "Not enough data"
+           | Overflow    -> input_error "Integer overflow"
+           | exn         -> input_error (Printexc.to_string exn)
 end
 
 open Input
 
 module StartField = struct
-    module Type = My_time.Mandatory
+    module Type = My_time
     let display_name = "start"
     let uniq_name = "start"
     let persistant = true
 end
 module StopField = struct
-    module Type = My_time.Mandatory
+    module Type = My_time
     let display_name = "stop"
     let uniq_name = "stop"
     let persistant = true
 end
 module VlanField = struct
-    module Type = OptInputOfDatatype(Integer16)
+    module Type = Optional(InputOfDatatype(Integer16))
     let display_name = "vlan"
     let uniq_name = "vlan"
     let persistant = false
 end
 module MacSrcField = struct
-    module Type = OptInputOfDatatype(EthAddr)
+    module Type = Optional(InputOfDatatype(EthAddr))
     let display_name = "Eth src"
     let uniq_name = "eth-src"
     let persistant = false
 end
 module MacDstField = struct
-    module Type = OptInputOfDatatype(EthAddr)
+    module Type = Optional(InputOfDatatype(EthAddr))
     let display_name = "Eth dest"
     let uniq_name = "eth-dest"
     let persistant = false
 end
 module EthProtoField = struct
-    module Type = OptInputOfDatatype(Integer16)
+    module Type = Optional(InputOfDatatype(Integer16))
     let display_name = "Eth proto"
     let uniq_name = "eth-proto"
     let persistant = false
 end
+module IpCltField = struct
+    module Type = Optional(InputOfDatatype(Cidr))
+    let display_name = "IP clt"
+    let uniq_name = "ip-clt"
+    let persistant = true
+end
+module IpSrvField = struct
+    module Type = Optional(InputOfDatatype(Cidr))
+    let display_name = "IP srv"
+    let uniq_name = "ip-srv"
+    let persistant = true
+end
 module IpSrcField = struct
-    module Type = OptInputOfDatatype(Cidr)
+    module Type = Optional(InputOfDatatype(Cidr))
     let display_name = "IP src"
     let uniq_name = "ip-src"
     let persistant = false
 end
 module IpDstField = struct
-    module Type = OptInputOfDatatype(Cidr)
+    module Type = Optional(InputOfDatatype(Cidr))
     let display_name = "IP dst"
     let uniq_name = "ip-dst"
     let persistant = false
 end
 module IpField = struct
-    module Type = OptInputOfDatatype(Cidr)
+    module Type = Optional(InputOfDatatype(Cidr))
     let display_name = "IP src/dst"
     let uniq_name = "ip"
     let persistant = false
@@ -110,25 +94,25 @@ module IpStartField = struct
     let persistant = true
 end
 module IpProtoField = struct
-    module Type = OptInputOfDatatype(Integer8)
+    module Type = Optional(InputOfDatatype(Integer8))
     let display_name = "IP proto"
     let uniq_name = "ip-proto"
     let persistant = false
 end
 module L4SrcPortField = struct
-    module Type = OptInputOfDatatype(Integer16)
+    module Type = Optional(InputOfDatatype(Integer16))
     let display_name = "src port"
     let uniq_name = "src-port"
     let persistant = true
 end
 module L4DstPortField = struct
-    module Type = OptInputOfDatatype(Integer16)
+    module Type = Optional(InputOfDatatype(Integer16))
     let display_name = "dst port"
     let uniq_name = "dst-port"
     let persistant = true
 end
 module L4PortField = struct
-    module Type = OptInputOfDatatype(Integer16)
+    module Type = Optional(InputOfDatatype(Integer16))
     let display_name = "port"
     let uniq_name = "port"
     let persistant = true
@@ -179,25 +163,25 @@ module PlotWhat = struct
     let persistant = false
 end
 module MaxGraphsField = struct
-    module Type = OptInteger (struct let min = Some 1 let max = Some 10000 end)
+    module Type = Optional(Integer (struct let min = Some 1 let max = Some 10000 end))
     let display_name = "#series"
     let uniq_name = "series"
     let persistant = false
 end
 module TxMin = struct
-    module Type = OptInteger (struct let min = Some 1 let max = None end)
+    module Type = Optional(Integer (struct let min = Some 1 let max = None end))
     let display_name = "#tx min"
     let uniq_name = "txmin"
     let persistant = false
 end
 module MinRespTime = struct
-    module Type = OptInputOfDatatype (Interval)
+    module Type = Optional(InputOfDatatype (Interval))
     let display_name = "min resp time"
     let uniq_name = "minrt"
     let persistant = false
 end
 module MaxRespTime = struct
-    module Type = OptInputOfDatatype (Interval)
+    module Type = Optional(InputOfDatatype (Interval))
     let display_name = "max resp time"
     let uniq_name = "maxrt"
     let persistant = false
@@ -213,7 +197,7 @@ module SortOrder = struct
     let persistant = false
 end
 module DistPrecField = struct
-    module Type = OptInputOfDatatype (Interval)
+    module Type = Optional(InputOfDatatype (Interval))
     let display_name = "Precision"
     let uniq_name = "distr-prec"
     let persistant = true
@@ -231,7 +215,7 @@ module Traffic = struct
         let persistant = true
     end
     module MinTraffic = struct
-        module Type = OptInputOfDatatype (UInteger)
+        module Type = Optional(InputOfDatatype (UInteger))
         let display_name = "volume min"
         let uniq_name = "volume_min"
         let persistant = false
@@ -324,19 +308,19 @@ module Web = struct
         let persistant = true
     end
     module HttpStatus = struct
-        module Type = OptInteger (struct let min = Some 100 let max = Some 999 end)
+        module Type = Optional(Integer (struct let min = Some 100 let max = Some 999 end))
         let display_name = "status"
         let uniq_name = "status"
         let persistant = false
     end
     module HttpHost = struct
-        module Type = OptString (NoLimit)
+        module Type = Optional(String (NoLimit))
         let display_name = "host"
         let uniq_name = "host"
         let persistant = false
     end
     module HttpURL = struct
-        module Type = OptString (NoLimit)
+        module Type = Optional(String (NoLimit))
         let display_name = "URL"
         let uniq_name = "url"
         let persistant = false
@@ -354,8 +338,8 @@ module Web = struct
                                (ConsOf (FieldOf (VlanField))
                                (ConsOf (FieldOf (MacSrcField))
                                (ConsOf (FieldOf (MacDstField))
-                               (ConsOf (FieldOf (IpSrcField))
-                               (ConsOf (FieldOf (IpDstField))
+                               (ConsOf (FieldOf (IpCltField))
+                               (ConsOf (FieldOf (IpSrvField))
                                (ConsOf (FieldOf (HttpMethod))
                                (ConsOf (FieldOf (HttpStatus))
                                (ConsOf (FieldOf (HttpHost))
@@ -372,8 +356,8 @@ module Web = struct
                           (ConsOf (FieldOf (VlanField))
                           (ConsOf (FieldOf (MacSrcField))
                           (ConsOf (FieldOf (MacDstField))
-                          (ConsOf (FieldOf (IpSrcField))
-                          (ConsOf (FieldOf (IpDstField))
+                          (ConsOf (FieldOf (IpCltField))
+                          (ConsOf (FieldOf (IpSrvField))
                           (ConsOf (FieldOf (HttpMethod))
                           (ConsOf (FieldOf (HttpStatus))
                           (ConsOf (FieldOf (HttpHost))
@@ -389,8 +373,8 @@ module Web = struct
                               (ConsOf (FieldOf (VlanField))
                               (ConsOf (FieldOf (MacSrcField))
                               (ConsOf (FieldOf (MacDstField))
-                              (ConsOf (FieldOf (IpSrcField))
-                              (ConsOf (FieldOf (IpDstField))
+                              (ConsOf (FieldOf (IpCltField))
+                              (ConsOf (FieldOf (IpSrvField))
                               (ConsOf (FieldOf (HttpMethod))
                               (ConsOf (FieldOf (HttpStatus))
                               (ConsOf (FieldOf (HttpHost))
@@ -416,13 +400,13 @@ module Dns = struct
         let persistant = true
     end
     module Error = struct
-        module Type = OptInteger (struct let min = Some 0 let max = Some 255 end)
+        module Type = Optional(Integer (struct let min = Some 0 let max = Some 255 end))
         let display_name = "Error code"
         let uniq_name = "err-code"
         let persistant = false
     end
     module QueryName = struct
-        module Type = OptString (NoLimit)
+        module Type = Optional(String (NoLimit))
         let display_name = "Query Name"
         let uniq_name = "qname"
         let persistant = false
@@ -432,8 +416,8 @@ module Dns = struct
                                (ConsOf (FieldOf (VlanField))
                                (ConsOf (FieldOf (MacSrcField))
                                (ConsOf (FieldOf (MacDstField))
-                               (ConsOf (FieldOf (IpSrcField))
-                               (ConsOf (FieldOf (IpDstField))
+                               (ConsOf (FieldOf (IpCltField))
+                               (ConsOf (FieldOf (IpSrvField))
                                (ConsOf (FieldOf (TxMin))
                                (ConsOf (FieldOf (MinRespTime))
                                (ConsOf (FieldOf (MaxRespTime))
@@ -446,8 +430,8 @@ module Dns = struct
                           (ConsOf (FieldOf (VlanField))
                           (ConsOf (FieldOf (MacSrcField))
                           (ConsOf (FieldOf (MacDstField))
-                          (ConsOf (FieldOf (IpSrcField))
-                          (ConsOf (FieldOf (IpDstField))
+                          (ConsOf (FieldOf (IpCltField))
+                          (ConsOf (FieldOf (IpSrvField))
                           (ConsOf (FieldOf (MinRespTime))
                           (ConsOf (FieldOf (MaxRespTime))
                           (ConsOf (FieldOf (Error))
@@ -461,8 +445,8 @@ module Dns = struct
                               (ConsOf (FieldOf (VlanField))
                               (ConsOf (FieldOf (MacSrcField))
                               (ConsOf (FieldOf (MacDstField))
-                              (ConsOf (FieldOf (IpSrcField))
-                              (ConsOf (FieldOf (IpDstField))
+                              (ConsOf (FieldOf (IpCltField))
+                              (ConsOf (FieldOf (IpSrvField))
                               (ConsOf (FieldOf (MinRespTime))
                               (ConsOf (FieldOf (MaxRespTime))
                               (ConsOf (FieldOf (DistPrecField))
@@ -484,37 +468,32 @@ module Flow = struct
 end
 
 module Admin = struct
-    (* We use regular persistant values here, but there is a catch: Prefs.get_option
-     * want to retrieve a string and will itself parse it into some type. So in our
-     * overwriting function we must unparse the value first, which is somewhat
-     * convoluted. *)
-    (* TODO: change they from_args so that their read user prefs as a last resort *)
     module SVGWidth = struct
-        module Type = OptFloat (NoLimit_float)
+        module Type = Optional(Float (NoLimit_float))
         let display_name = "graph width"
         let uniq_name = "gui/svg/width"
         let persistant = true
     end
     module SVGHeight = struct
-        module Type = OptFloat (NoLimit_float)
+        module Type = Optional(Float (NoLimit_float))
         let display_name = "graph height"
         let uniq_name = "gui/svg/height"
         let persistant = true
     end
     module ResolveIp = struct
-        module Type = OptBoolean
+        module Type = Optional(Boolean)
         let display_name = "ip as names"
         let uniq_name = "resolver/ip"
         let persistant = true
     end
     module ResolveMac = struct
-        module Type = OptBoolean
+        module Type = Optional(Boolean)
         let display_name = "MAC as names"
         let uniq_name = "resolver/mac"
         let persistant = true
     end
     module NCores = struct
-        module Type = OptInteger (struct let min = Some 1 let max = Some 1000 end)
+        module Type = Optional(Integer (struct let min = Some 1 let max = Some 1000 end))
         let display_name = "#CPU cores"
         let uniq_name = "db/#cores"
         let persistant = true

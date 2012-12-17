@@ -74,7 +74,7 @@ let get_ratio x_min x_max v_min v_max v =
     let r = (v -. v_min) /. (v_max -. v_min) in
     x_min +. r *. (x_max -. x_min)
 
-(** Draws the whole canvas for a xy_plot *)
+(** Draws a grid ready for any XY chart *)
 let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size
             ?arrow_size ?x_tick_spacing ?y_tick_spacing ?tick_length
             ?x_label ?y_label ?string_of_y ?y2 ?string_of_x
@@ -116,14 +116,18 @@ let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size
 
 type fold_t = { fold : 'a. ('a -> string -> bool -> (int -> float) -> 'a) -> 'a -> 'a }
             (* I wonder what's the world record in argument list length? *)
+type stacked = NotStacked | Stacked | StackedCentered
 let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
-            ?(stacked=false) ?(svg_width=800.) ?(svg_height=600.) ?(font_size=14.)
+            ?(svg_width=800.) ?(svg_height=600.) ?(font_size=14.)
             ?(margin_bottom=30.) ?(margin_left=10.) ?(margin_top=30.) ?(margin_right=10.)
             ?(y_tick_spacing=100.) ?(x_tick_spacing=200.) ?(tick_length=5.5)
             ?(axis_arrow_h=11.)
+            ?(vxmin_filter="filter.start") ?(vxmax_filter="filter.stop") ?(vxstep_filter="filter.tstep")
+            ?(stacked=NotStacked) ?(force_show_0=false)
             x_label y_label
             vx_min vx_step nb_vx
             fold =
+    let force_show_0 = if stacked = StackedCentered then true else force_show_0 in
     (* build iter and map from fold *)
     let iter_datasets f = fold.fold (fun _prev label prim get -> f label prim get) ()
     and map_datasets f = fold.fold (fun prev label prim get -> (f label prim get) :: prev) [] in
@@ -141,12 +145,12 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
     let max_vy = Array.init 2 (fun _ -> Array.create nb_vx 0.) in
     let label2 = ref None in
     let set_max pi =
-        if stacked then
-            (* sum the Ys *)
-            (fun i c -> max_vy.(pi).(i) <- max_vy.(pi).(i) +. c)
-        else
+        if stacked = NotStacked then
             (* keep the max of the Ys *)
-            (fun i c -> max_vy.(pi).(i) <- max max_vy.(pi).(i) c) in
+            (fun i c -> max_vy.(pi).(i) <- max max_vy.(pi).(i) c)
+        else
+            (* sum the Ys *)
+            (fun i c -> max_vy.(pi).(i) <- max_vy.(pi).(i) +. c) in
     iter_datasets
         (fun label prim get ->
             if not prim then label2 := Some label ;
@@ -161,20 +165,30 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
                 max ma y, min mi y)
                 (0., max_float)
                 max_vy.(pi) in
-        vy_max.(pi) <- ma ;
-        vy_min.(pi) <- mi
+        vy_max.(pi) <- if force_show_0 then max ma 0. else ma ;
+        vy_min.(pi) <- if force_show_0 then min mi 0. else mi
     done ;
+    if stacked = StackedCentered then (
+        vy_max.(0) <- vy_max.(0) *. 0.5 ;
+        vy_min.(0) <- -. vy_max.(0)
+    ) ;
     let get_x    = get_ratio x_axis_xmin x_axis_xmax vx_min vx_max
     and get_y pi = get_ratio y_axis_ymin y_axis_ymax vy_min.(pi) vy_max.(pi) in
     (* In case we stack the values *)
-    let prev_vy = Array.create nb_vx 0. in
+    let prev_vy =
+        if stacked = StackedCentered then
+            (* Start from -0.5 * tot_y for this bucket *)
+            Array.init nb_vx (fun i -> ~-.0.5 *. max_vy.(0).(i))
+        else
+            Array.create nb_vx 0. in
     let path_of_dataset label prim get =
+        let is_stacked = stacked <> NotStacked && prim in
         let pi = if prim then 0 else 1 in
         let color = Color.random_of_string label in
         let stroke = Color.to_html color in
-        path ~stroke:(if stacked && prim then "none" else stroke)
-             ~fill:(if stacked && prim then stroke else "none")
-             ?fill_opacity:(if stacked && prim then Some 0.5 else None)
+        path ~stroke:(if is_stacked then "none" else stroke)
+             ~fill:(if is_stacked then stroke else "none")
+             ?fill_opacity:(if is_stacked then Some 0.5 else None)
              ~attrs:["class","fitem "^label ;
                      "onmouseover","plot_select(evt, '"^label^"')" ;
                      "onmouseout", "plot_unselect(evt)" ]
@@ -182,12 +196,12 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
                 let buf = Buffer.create 100 in (* to write path commands in *)
                 (* Top line *)
                 for i = 0 to nb_vx-1 do
-                    let vy' = get i +. prev_vy.(i) in
+                    let vy' = get i +. (if is_stacked then prev_vy.(i) else 0.) in
                     Buffer.add_string buf
                         ((if i = 0 then moveto else lineto)
                             (get_x (vx_of_bucket i), get_y pi vy'))
                 done ;
-                if stacked && prim then (
+                if is_stacked then (
                     (* Bottom line (to close the area) (note: we loop here from last to first) *)
                     for i = nb_vx-1 downto 0 do
                         let vy' = prev_vy.(i) in
@@ -235,5 +249,5 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
                    h3 "Legend" ] @
                  (map_datasets legend_of_dataset)) ] ] ] ;
         (* for this we really do want stdlib's string_of_float not our stripped down version *)
-        script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", 'filter.start', 'filter.stop', 'filter.tstep');") ]
+        script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", '"^vxmin_filter^"', '"^vxmax_filter^"', '"^vxstep_filter^"');") ]
 

@@ -542,7 +542,7 @@ module Cidr_base = struct
         n, UInteger16.read ic
     let read_txt ic =
         let n = read_txt_until ic "/\t\n" |>
-                Unix.inet_addr_of_string in
+                InetAddr.of_string in
         let delim = peek_eof2nl ic in
         if delim = '/' then (
             TxtInput.swallow ic ;

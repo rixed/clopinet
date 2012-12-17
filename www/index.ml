@@ -61,16 +61,20 @@ struct
         let msg = "Hello "^username in
         View.make_app_page [cdata msg]
 
+    let display_errs (from_args : 'a -> 'b -> 'c) (name : 'a) (args : 'b) : 'c option =
+        try Some (from_args name args)
+        with InputError str -> View.add_err str ; None
+           | exc -> View.add_exc exc ; None
+
     (* DB search pages *)
     module Traffic =
     struct
         include Traffic
         let dbdir = dbdir^"/traffic"
         let bandwidth args =
-            let filters = Forms.Traffic.Bandwidth.from_args "filter" args in
-            let filters_form = form "Traffic/bandwidth" (Forms.Traffic.Bandwidth.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value time_step, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ()))))))))))))))) ->
+            let filters_form = form "Traffic/bandwidth" (Forms.Traffic.Bandwidth.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Traffic.Bandwidth.from_args "filter" args with
+                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (time_step, (tblname, (what, (group_by, (max_graphs, ())))))))))))))))) ->
                     let time_step = Interval.to_ms time_step
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
@@ -99,19 +103,18 @@ struct
                                 let get i = Array.get a i in
                                 f prev l true get)
                                 i datasets in
-                        Svg.xy_plot ~svg_width ~svg_height ~stacked:true
-                                    ~string_of_x:string_of_date
-                                    "time" what
-                                    (Timestamp.to_unixfloat start) time_step nb_vx 
-                                    { Svg.fold = fold }
-                | _ -> [] in
+                        Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.Stacked
+                                      ~force_show_0:true ~string_of_x:string_of_date
+                                      "time" what
+                                      (Timestamp.to_unixfloat start) time_step nb_vx
+                                      { Chart.fold = fold }
+                | None -> [] in
             View.make_graph_page "Bandwidth" filters_form disp_graph
 
         let peers args =
-            let filters = Forms.Traffic.Peers.from_args "filter" args in
-            let filters_form = form "Traffic/peers" (Forms.Traffic.Peers.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))))) ->
+            let filters_form = form "Traffic/peers" (Forms.Traffic.Peers.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Traffic.Peers.from_args "filter" args with
+                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
@@ -128,14 +131,13 @@ struct
                         View.peers_chart ~is_bytes datasets @
                         [ tag "hr" [] ] @
                         View.peers_table ~is_bytes "src" "dst" datasets
-                | _ -> [] in
+                | None -> [] in
             View.make_graph_page "Peers" filters_form disp_graph
 
         let graph args =
-            let filters = Forms.Traffic.Graph.from_args "filter" args in
-            let filters_form = form "Traffic/graph" (Forms.Traffic.Graph.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value eth_proto, (Value ip_proto, (Value port, (Value min_volume, (Value layout, (Value tblname, (Value group_by, ()))))))))) ->
+            let filters_form = form "Traffic/graph" (Forms.Traffic.Graph.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Traffic.Graph.from_args "filter" args with
+                | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (layout, (tblname, (group_by, ())))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
@@ -145,14 +147,13 @@ struct
                         []
                     else
                         View.peers_graph datasets Forms.Traffic.LayoutType.options.(layout)
-                | _ -> [] in
+                | None -> [] in
             View.make_graph_page "Network" filters_form disp_graph
 
         let tops args =
-            let filters = Forms.Traffic.Tops.from_args "filter" args in
-            let filters_form = form "Traffic/tops" (Forms.Traffic.Tops.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_src, (Value mac_dst, (Value eth_proto, (Value ip_src, (Value ip_dst, (Value ip, (Value ip_proto, (Value port, (Value tblname, (Value what, (Value group_by, (Value max_graphs, ())))))))))))))) ->
+            let filters_form = form "Traffic/tops" (Forms.Traffic.Tops.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Traffic.Tops.from_args "filter" args with
+                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
@@ -178,7 +179,7 @@ struct
                     else
                         let units = if what = PacketCount then "Packets" else "Bytes" in
                         View.top_chart key datasets units
-                | _ -> [] in
+                | None -> [] in
             View.make_graph_page "Tops" filters_form disp_graph
 
     end
@@ -188,10 +189,9 @@ struct
         include Flow
         let flow_dbdir = dbdir^"/flow"
         let callflow args =
-            let filters = Forms.Flow.Callflow.from_args "filter" args in
-            let filters_form = form "Traffic/callflow" (Forms.Flow.Callflow.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value ip_start, (Value ip_dst, (Value ip_proto, (Value port_src, (Value port_dst, ()))))))) ->
+            let filters_form = form "Traffic/callflow" (Forms.Flow.Callflow.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Flow.Callflow.from_args "filter" args with
+                | Some (start, (stop, (vlan, (ip_start, (ip_dst, (ip_proto, (port_src, (port_dst, ())))))))) ->
                     let start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop in
                     let datasets =
@@ -199,7 +199,7 @@ struct
                                      ~dns_dbdir:(dbdir^"/dns") ~web_dbdir:(dbdir^"/web")
                                      ~tcp_dbdir:(dbdir^"/tcp") flow_dbdir in
                     View.callflow_chart (InetAddr.to_string ip_start) datasets
-                | _ -> [] in
+                | None -> [] in
             View.make_graph_page "Call Flow" filters_form disp_graph
     end
 
@@ -213,10 +213,9 @@ struct
             url
 
         let top args =
-            let filters = Forms.Web.Top.from_args "filter" args in
-            let filters_form = form "Web/top" (Forms.Web.Top.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value n, (Value sort_order, ())))))))))))))) ->
+            let filters_form = form "Web/top" (Forms.Web.Top.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Web.Top.from_args "filter" args with
+                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (n, (sort_order, ()))))))))))))))) ->
                     let n = BatOption.default 30 n
                     and start  = My_time.to_timeval start
                     and stop   = My_time.to_timeval stop in
@@ -236,21 +235,20 @@ struct
                         [ string_of_vlan vlan ;
                           EthAddr.to_string eclt ;
                           Cidr.to_string clt ;
-                          EthAddr.to_string esrv ;
-                          InetAddr.to_string srv ;
-                          string_of_method meth ;
-                          string_of_int err ;
-                          Timestamp.to_string ts ;
-                          string_of_float rt ;
-                          url_name host port url ])
-                | _ -> [] in
+                              EthAddr.to_string esrv ;
+                              InetAddr.to_string srv ;
+                              string_of_method meth ;
+                              string_of_int err ;
+                              Timestamp.to_string ts ;
+                              string_of_float rt ;
+                              url_name host port url ])
+                | None -> [] in
             View.make_graph_page "Web Top Requests" filters_form disp_graph
 
         let resp_time args =
-            let filters = Forms.Web.RespTime.from_args "filter" args in
-            let filters_form = form "Web/resptime" (Forms.Web.RespTime.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ())))))))))))))) ->
+            let filters_form = form "Web/resptime" (Forms.Web.RespTime.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Web.RespTime.from_args "filter" args with
+                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (time_step, (tblname, ()))))))))))))))) ->
                     let time_step = Interval.to_ms time_step (* FIXME: plot_resp_time should take seconds instead *)
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop in
@@ -278,23 +276,22 @@ struct
                     let time_step = (Int64.to_float time_step) *. 0.001
                     and svg_width  = Prefs.get_float "gui/svg/width" 1000.
                     and svg_height = Prefs.get_float "gui/svg/height" 600. in
-                    Svg.xy_plot ~svg_width ~svg_height ~string_of_x:string_of_date ~stacked:true
-                                "time" "response time (s)"
-                                (Timestamp.to_unixfloat start) time_step nb_vx
-                                { Svg.fold = fold }
-                | _ -> [] in
+                    Chart.xy_plot ~svg_width ~svg_height
+                                  ~string_of_x:string_of_date ~stacked:Chart.Stacked
+                                  "time" "response time (s)"
+                                  (Timestamp.to_unixfloat start) time_step nb_vx
+                                  { Chart.fold = fold }
+                | None -> [] in
             View.make_graph_page "Web Response Time" filters_form disp_graph
 
         let distrib args =
-            let filters = Forms.Web.Distrib.from_args "filter" args in
-            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.edit "filter" filters) in
+            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.to_edit "filter" args) in
             View.make_filter_page "Web Response Times" filters_form
 
         let distrib_show args =
-            let filters = Forms.Web.Distrib.from_args "filter" args in
-            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value methd, (Value status, (Value host, (Value url, (Value rt_min, (Value rt_max, (Value prec, (Value top_nth, (Value tblname, ()))))))))))))))) ->
+            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Web.Distrib.from_args "filter" args with
+                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))))))) ->
                     let tblname = Forms.Dns.TblNames.options.(tblname)
                     and start  = My_time.to_timeval start
                     and stop   = My_time.to_timeval stop in
@@ -303,7 +300,7 @@ struct
                     let prec   = i2s ~min:0.00001 ~max:1. prec in
                     let datasets = plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
                     View.distrib_chart "response time (s)" "#queries" datasets
-                | _ -> [] in
+                | None -> [] in
             View.make_graph_page "Web Response Times" filters_form disp_graph
 
     end
@@ -314,10 +311,9 @@ struct
         let dbdir = dbdir^"/dns"
 
         let top args =
-            let filters = Forms.Dns.Top.from_args "filter" args in
-            let filters_form = form "DNS/top" (Forms.Dns.Top.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value error, (Value qname, (Value n, (Value sort_order, ())))))))))))) ->
+            let filters_form = form "DNS/top" (Forms.Dns.Top.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Dns.Top.from_args "filter" args with
+                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (error, (qname, (n, (sort_order, ()))))))))))))) ->
                     let start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop in
                     let rt_min = i2s ~min:0. rt_min in
@@ -341,14 +337,13 @@ struct
                           Timestamp.to_string ts ;
                           string_of_float rt ;
                           name ])
-                | _ -> [] in
+                | None -> [] in
             View.make_graph_page "DNS Top Requests" filters_form disp_graph
 
         let resp_time args =
-            let filters = Forms.Dns.RespTime.from_args "filter" args in
-            let filters_form = form "DNS/resptime" (Forms.Dns.RespTime.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value tx_min, (Value rt_min, (Value rt_max, (Value time_step, (Value tblname, ()))))))))))) ->
+            let filters_form = form "DNS/resptime" (Forms.Dns.RespTime.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Dns.RespTime.from_args "filter" args with
+                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (tx_min, (rt_min, (rt_max, (time_step, (tblname, ())))))))))))) ->
                     let time_step = Interval.to_ms time_step
                     and tblname = Forms.Dns.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
@@ -376,32 +371,49 @@ struct
                     let time_step = (Int64.to_float time_step) *. 0.001
                     and svg_width  = Prefs.get_float "gui/svg/width" 1000.
                     and svg_height = Prefs.get_float "gui/svg/height" 600. in
-                    Svg.xy_plot ~svg_width ~svg_height ~string_of_x:string_of_date ~stacked:true
-                                "time" "response time (s)"
-                                (Timestamp.to_unixfloat start) time_step nb_vx
-                                { Svg.fold = fold }
-                | _ -> [] in
+                    Chart.xy_plot ~svg_width ~svg_height
+                                  ~string_of_x:string_of_date ~stacked:Chart.Stacked
+                                  "time" "response time (s)"
+                                  (Timestamp.to_unixfloat start) time_step nb_vx
+                                  { Chart.fold = fold }
+                | None -> [] in
             View.make_graph_page "DNS Response Time" filters_form disp_graph
 
         let distrib args =
-            let filters = Forms.Dns.Distrib.from_args "filter" args in
-            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.edit "filter" filters) in
+            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.to_edit "filter" args) in
             View.make_filter_page "DNS Response Times" filters_form
 
         let distrib_show args =
-            let filters = Forms.Dns.Distrib.from_args "filter" args in
-            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.edit "filter" filters) in
-            let disp_graph = match filters with
-                | Value start, (Value stop, (Value vlan, (Value mac_clt, (Value mac_srv, (Value client, (Value server, (Value rt_min, (Value rt_max, (Value prec, (Value top_nth, (Value tblname, ()))))))))))) ->
+            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.to_edit "filter" args) in
+            let disp_graph = match display_errs Forms.Dns.Distrib.from_args "filter" args with
+                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))) ->
                     let tblname = Forms.Dns.TblNames.options.(tblname)
                     and start  = My_time.to_timeval start
                     and stop   = My_time.to_timeval stop in
                     let rt_min = i2s ~min:0. rt_min in
                     let rt_max = i2s ?min:rt_min rt_max in
                     let prec   = i2s ~min:0.00001 ~max:1. prec in
-                    let datasets = plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
-                    View.distrib_chart "response time (s)" "#queries" datasets
-                | _ -> [] in
+                    let vx_step, bucket_min, bucket_max, datasets =
+                        plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
+                    let vx_min = (float_of_int bucket_min +. 0.5) *. vx_step
+                    and nb_vx = bucket_max - bucket_min |> succ in
+                    let fold f i =
+                        List.fold_left (fun p (label, mi, d) ->
+                            let get i =
+                                let i = i - mi in
+                                if i < 0 || i >= Array.length d then 0.
+                                else float_of_int d.(i) in
+                            f p label true get)
+                            i datasets
+                    and svg_width  = Prefs.get_float "gui/svg/width" 1000.
+                    and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                    Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
+                                  ~vxmin_filter:"filter.minrt" ~vxmax_filter:"filter.maxrt"
+                                  ~vxstep_filter:"filter.distr-prec"
+                                  "response time (s)" "#queries"
+                                  vx_min vx_step nb_vx
+                                  { Chart.fold = fold }
+                | None -> [] in
             View.make_graph_page "DNS Response Times" filters_form disp_graph
 
     end
@@ -409,15 +421,24 @@ struct
     module Admin =
     struct
         let preferences args =
-            let prefs = Forms.Admin.Preferences.from_args "prefs" args in
-            let prefs_form = form "Admin/preferences/save" (Forms.Admin.Preferences.edit "prefs" prefs) in
+            (* fill args from preferences *)
+            let pref_to_args name =
+                if not (Hashtbl.mem args name) then
+                    Prefs.get_option name |>
+                    BatOption.may (fun v ->
+                        Hashtbl.add args ("prefs."^name) v) in
+            List.iter pref_to_args [ "gui/svg/width" ; "gui/svg/height" ;
+                                     "resolver/ip" ; "resolver/mac" ;
+                                     "db/#cores" ] ;
+            let prefs_form = form "Admin/preferences/save" (Forms.Admin.Preferences.to_edit "prefs" args) in
             View.make_app_page [
                 h1 "DNS Response Times" ;
                 div ~id:"preferences" [ prefs_form ]
             ]
+
         let save_preferences args =
-            (match Forms.Admin.Preferences.from_args "prefs" args with
-            | Value svg_width, (Value svg_height, (Value resolve_ip, (Value resolve_mac, (Value ncores, ())))) ->
+            (match display_errs Forms.Admin.Preferences.from_args "prefs" args with
+            | Some (svg_width, (svg_height, (resolve_ip, (resolve_mac, (ncores, ()))))) ->
                 (* Save as much as possible in cookies as base64 string (not marshalled) *)
                 let save_param n v to_string =
                     BatOption.may (fun v ->
@@ -428,28 +449,18 @@ struct
                 save_param "gui/svg/height" svg_height string_of_float ;
                 save_param "db/#cores" ncores string_of_int ;
                 View.add_msg "Saved"
-            | _ ->
-                View.add_err "Cannot Save") ;
+            | None -> ()) ;
             preferences args
     end
 end
 
 let _ =
-    let get_marshalled_from_cookie name =
+    (* Get preferences from the session *)
+    let get_from_cookie name =
         try let s = List.assoc name !Dispatch.current_cookies in
-            Some (Base64.str_decode s)
+            Some (decode_cookie s)
         with Not_found -> None in
-    Prefs.set_overwrite_function (fun name ->
-        let unparser = match name with
-        | "gui/svg/width"
-        | "gui/svg/height" -> (fun s -> BatOption.map string_of_float (Marshal.from_string s 0))
-        | "resolver/ip"
-        | "resolver/mac"   -> (fun s -> BatOption.map string_of_bool (Marshal.from_string s 0))
-        | "db/#cores"      -> (fun s -> BatOption.map string_of_int (Marshal.from_string s 0))
-        | _                -> (fun s -> Marshal.from_string s 0) in
-        BatOption.bind
-            (get_marshalled_from_cookie name)
-            unparser) ;
+    Prefs.set_overwrite_function get_from_cookie ;
     Dispatch.run (function
         | ["info"] -> Ctrl.Info.run
         | [""] | ["main"] ->

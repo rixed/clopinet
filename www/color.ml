@@ -42,4 +42,4 @@ let random_colors =
 
 let random_of_string str =
     let i = Hashtbl.hash str in random_colors.(i mod nb_random_colors)
-    
+
