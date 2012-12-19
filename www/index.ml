@@ -298,8 +298,27 @@ struct
                     let rt_min = i2s ~min:0. rt_min in
                     let rt_max = i2s ?min:rt_min rt_max in
                     let prec   = i2s ~min:0.00001 ~max:1. prec in
-                    let datasets = plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
-                    View.distrib_chart "response time (s)" "#queries" datasets
+                    let vx_step, bucket_min, bucket_max, datasets =
+                        plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
+                    let vx_min = (float_of_int bucket_min +. 0.5) *. vx_step
+                    and nb_vx = bucket_max - bucket_min |> succ in
+                    let fold f i =
+                        List.fold_left (fun p (label, mi, d) ->
+                            let get i =
+                                let i = i - (mi - bucket_min) in
+                                if i < 0 || i >= Array.length d then 0.
+                                else float_of_int d.(i) in
+                            f p label true get)
+                            i datasets
+                    and svg_width  = Prefs.get_float "gui/svg/width" 1000.
+                    and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                    pre [ raw (Printf.sprintf "vx_min=%f, vx_step=%f, nb_vx=%d, bucket_min=%d\n" vx_min vx_step nb_vx bucket_min) ] ::
+                    Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
+                                  ~vxmin_filter:"filter.minrt" ~vxmax_filter:"filter.maxrt"
+                                  ~vxstep_filter:"filter.distr-prec"
+                                  "response time (s)" "#queries"
+                                  vx_min vx_step nb_vx
+                                  { Chart.fold = fold }
                 | None -> [] in
             View.make_graph_page "Web Response Times" filters_form disp_graph
 
@@ -400,13 +419,14 @@ struct
                     let fold f i =
                         List.fold_left (fun p (label, mi, d) ->
                             let get i =
-                                let i = i - mi in
+                                let i = i - (mi - bucket_min) in
                                 if i < 0 || i >= Array.length d then 0.
                                 else float_of_int d.(i) in
                             f p label true get)
                             i datasets
                     and svg_width  = Prefs.get_float "gui/svg/width" 1000.
                     and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                    pre [ raw (Printf.sprintf "vx_min=%f, vx_step=%f, nb_vx=%d, bucket_min=%d\n" vx_min vx_step nb_vx bucket_min) ] ::
                     Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
                                   ~vxmin_filter:"filter.minrt" ~vxmax_filter:"filter.maxrt"
                                   ~vxstep_filter:"filter.distr-prec"
