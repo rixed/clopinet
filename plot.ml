@@ -70,19 +70,46 @@ let stacked_area datasets =
         Printf.printf "\n\n")
         datasets
 
+let row_of_time start step t =
+    Int64.div (Int64.sub t start) step |> Int64.to_int
+
+(* clip the given y (between t1 and t2) value according to specified time intervals.
+ * then return the time interval as ints and divide y between all these rows. *)
+let clip_y start stop step t1 t2 y =
+    let t1, y =
+        if t1 >= start then t1, y
+        else start, y -. (Int64.to_float (Int64.div (Int64.sub start t1) (Int64.sub t2 t1))) in
+    let t2, y =
+        if t2 <= stop then t2, y
+        else stop, y -. (Int64.to_float (Int64.div (Int64.sub t2 stop) (Int64.sub t2 t1))) in
+    let r1 = row_of_time start step t1
+    and r2 = row_of_time start step t2 in
+    (*
+    let check_r r =
+        if r < 0 || r >= nb_steps then Printf.printf "XXX: r=%d while nb_steps=%d\n%!" r nb_steps in
+    check_r r1 ; check_r r2 ;*)
+    if r1 = r2 then (
+        r1, r2, y
+    ) else (
+        (* We should split value more accurately here *)
+        let dt = r2-r1 |> float_of_int in
+        let y = y /. dt in
+        r1, r2-1, y
+    )
+
 (* clip the given y (between t1 and t2) value according to specified time intervals *)
-let clip_y ?start ?stop t1 t2 y =
+let clip_y_only ?start ?stop t1 t2 y =
     let t1, y = match start with
         | Some start ->
             if t1 >= start then t1, y
             else start, y -. (Int64.to_float (Int64.div (Int64.sub start t1) (Int64.sub t2 t1)))
         | None -> t1, y in
-    let t2, y = match stop with
-        | Some stop ->
-            if t2 <= stop then t2, y
-            else stop, y -. (Int64.to_float (Int64.div (Int64.sub t2 stop) (Int64.sub t2 t1)))
-        | None -> t2, y in
-    t1, t2, y
+    match stop with
+    | Some stop ->
+        if t2 <= stop then y
+        else y -. (Int64.to_float (Int64.div (Int64.sub t2 stop) (Int64.sub t2 t1)))
+    | None -> y
+
 
 (* [fold] iterate over some portion of the database, and call back with
  * timestamp, a distribution, and the previous value.  We are going to
@@ -91,8 +118,7 @@ let clip_y ?start ?stop t1 t2 y =
 let per_date start stop step fold =
     assert (step > 0L) ;
     (* Fetch min and max available time *)
-    let row_of_time t = Int64.div (Int64.sub t start) step |> Int64.to_int in
-    let nb_steps = row_of_time stop |> succ in
+    let nb_steps = row_of_time start step stop |> succ in
     assert (nb_steps > 0) ;
     let flat_dataset () = Array.make nb_steps None in
     (* accumulation of a distribution into a.(r) *)
@@ -100,7 +126,7 @@ let per_date start stop step fold =
         a.(r) <- Some (Distribution.combine d a.(r)) in
     fold (fun ts d a ->
         if ts < start || ts >= stop then a else
-        let r = row_of_time ts in
+        let r = row_of_time start step ts in
         accum_distr a r d ;
         a)
         flat_dataset
@@ -196,6 +222,44 @@ let netgraph fold aggr =
                 update_h_node h1 k1 n) h2 ;
             h1)
 
+(* We often build arrays of Ys, merge them, etc. This representation is supposed
+ * to be fast. *)
+type y_array = Array of float array | Chunk of (int * int * float) | Empty
+
+let array_of_chunk nb_steps (r1, r2, y) =
+    Array.init nb_steps (fun r -> if r < r1 || r > r2 then 0. else y)
+
+let array_of_y_array nb_steps = function
+    | Empty -> Array.make nb_steps 0.
+    | Chunk c -> array_of_chunk nb_steps c
+    | Array a -> a
+
+(* Merge _destructively_ two y_arrays *)
+let rec merge_y_array nb_steps ya1 ya2 =
+    match ya1, ya2 with
+    | Chunk c, Chunk _ ->
+        merge_y_array nb_steps (Array (array_of_chunk nb_steps c)) ya2
+    | Chunk (r1, r2, y), (Array a as ya)
+    | (Array a as ya), Chunk (r1, r2, y) ->
+        for r = r1 to r2 do a.(r) <- a.(r) +. y done ;
+        ya
+    | Array a1, Array a2 ->
+        for r = 0 to nb_steps-1 do a1.(r) <- a1.(r) +. a2.(r) done ;
+        ya1
+    | Empty, x | x, Empty -> x
+
+(* helper function that returns a graph (as an array of floats) representing a chunk of volume *)
+let cumul_time_graph start step nb_steps t1 t2 y prev =
+    let stop = Int64.add start (Int64.mul (Int64.of_int nb_steps) step) in
+    let cumul_y r1 r2 y = match prev with
+        | None ->
+            Array.init nb_steps (fun r -> if r < r1 || r > r2 then 0. else y)
+        | Some a ->
+            for r = r1 to r2 do a.(r) <- a.(r) +. y done ;
+            a in
+    let r1, r2, y = clip_y start stop step t1 t2 y in
+    cumul_y r1 r2 y
+
 module DataSet (Key : DATATYPE) =
 struct
     module Maplot = Finite_map_impl.Finite_map (struct
@@ -207,8 +271,7 @@ struct
     let per_time ?(max_graphs=10) start stop step fold label_of_key other_key =
         assert (step > 0L) ;
         (* Fetch min and max available time *)
-        let row_of_time t = Int64.div (Int64.sub t start) step |> Int64.to_int in
-        let nb_steps = row_of_time stop |> succ in
+        let nb_steps = row_of_time start step stop |> succ in
         assert (nb_steps > 0) ;
         (* Now prepare the datasets as a map of Key.t to array of Y *)
         let flat_dataset () = Array.make nb_steps 0. in
@@ -227,22 +290,8 @@ struct
                 (* clip t1 and t2. beware that [t1;t2] is closed while [start;stop[ is semi-closed *)
                 (* FIXME: use timestamps comparison function, sub, etc..? *)
                 assert (t1 < stop && t2 >= start) ;
-                let t1, t2, y = clip_y ~start ~stop t1 t2 y in
-                let r1 = row_of_time t1
-                and r2 = row_of_time t2 in
-                (*
-                let check_r r =
-                    if r < 0 || r >= nb_steps then Printf.printf "XXX: r=%d while nb_steps=%d\n%!" r nb_steps in
-                check_r r1 ; check_r r2 ;*)
-
-                if r1 = r2 then (
-                    cumul_y m k r1 r1 y
-                ) else (
-                    (* We should split value more accurately here *)
-                    let dt = r2-r1 |> float_of_int in
-                    let y' = y /. dt in
-                    cumul_y m k r1 (r2 - 1) y'
-                ))
+                let r1, r2, y = clip_y start stop step t1 t2 y in
+                cumul_y m k r1 r2 y)
                 (fun () -> Maplot.empty)
                 (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
                     Maplot.fold_left (fun m k a ->
@@ -261,6 +310,10 @@ struct
         (* reduce number of datasets to max_graphs *)
         top_plot_datasets max_graphs datasets nb_steps label_of_key other_key
 
+    (* We need a fold function useable polymorphically. See:
+     * http://caml.inria.fr/resources/doc/faq/core.en.html#polymorphic-arguments *)
+    type fold_t = { fold : 'a. (Maplot.key * float -> 'a -> 'a) -> (unit -> 'a) -> ('a -> 'a -> 'a) -> 'a }
+
     (* FIXME: a single pass using the array trick for fold *)
     module FindSignificant =
     struct
@@ -270,8 +323,6 @@ struct
          * A second pass is required to get the list
          * of the at most N (key, tot value) that are significant enough (according to
          * the definition above), and the tot value of all other keys. *)
-        (* We must split the various pass in various functions since ML does not
-         * allow to use fold twice with different type for 'a in a single function. *)
         let pass1 fold n =
             assert (n > 0) ;
             (* Helper: given a map m of size s, another key k and value v, add this
@@ -354,14 +405,26 @@ struct
                 )) result in
             new_result, !new_rest, !new_tv_rest
 
-        (* Same as above, but with no additional value *)
+        (* Same as pass2, but with no additional value *)
         let pass2' result fold n =
             let fold' f i m = fold (fun (k, v) p ->
                 f (k, v, ()) p) i m
             and fake_aggr () () = () in
             let new_result, new_rest, () = pass2 result fold' fake_aggr () n in
             Maplot.map (fun _k (v, ()) -> v) new_result, new_rest
+
+        (* Try the array trick to replace pass1 + pass2'*)
+        let combined fold n =
+            let result = pass1 fold.fold n in
+            pass2' result fold.fold n
+
     end
+
+    (* Return a mere list of label -> float array from a Maplot of key -> (_ * y_array) *)
+    let arrays_of_volume_chunks nb_steps vols rest_vols label_of_key =
+        Maplot.fold_left (fun prev k (_, ya) ->
+            (label_of_key k, array_of_y_array nb_steps ya) :: prev)
+            ["others", array_of_y_array nb_steps rest_vols] vols
 
     (* Distributions of response times: *)
     let distributions_of_response_times prec m rest_rts label_of_key =
