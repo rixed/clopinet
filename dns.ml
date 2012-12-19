@@ -136,39 +136,14 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_
         Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max dbdir tblname
             (fun (_vl, _clte, _clt, _srve, srv, _err, _ts, rt, _name) p ->
                 let nb_queries, _, _, avg, _ = rt in
-                (* TODO: instead of a single [avg], fake a distribution of nb_queries values *)
+                (* FIXME: instead of a single [avg], return the whole distrib so that we can
+                 *        later fake a (gaussian) distribution of nb_queries values, or merely
+                 *        reports the correct number of queries *)
                 f (srv, float_of_int nb_queries, [avg]) p)
             i m
     and aggr_rts prev_rts rts = List.rev_append rts prev_rts in
     let result, _rest_count, rest_rts = DnsDataSet.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in
-    (* So we now have all the response times. Build N array of number of rts for each time interval *)
-    let distrib_of_rts rts =
-        let mi, ma =
-            List.fold_left (fun (mi, ma) rt ->
-                min mi rt, max ma rt)
-                (max_float, 0.)
-                rts in
-        (* return the prec interval in which to store a RT *)
-        let floor_rt rt = rt /. prec |> int_of_float in
-        let mi = floor_rt mi and ma = floor_rt ma in
-        let nb_buckets = ma - mi |> succ in
-        let d = Array.create nb_buckets 0 in
-        List.iter
-            (fun rt ->
-                let i = floor_rt rt - mi in
-                d.(i) <- succ d.(i))
-            rts ;
-        mi, ma, d in
-    let other_mi, other_ma, other_d = distrib_of_rts rest_rts in
-    let mi, ma, d =
-        DnsDataSet.Maplot.fold_left (fun (prev_mi, prev_ma, prev_d)  srv (_, rts) ->
-            let mi, ma, d = distrib_of_rts rts in
-            min prev_mi mi,
-            max prev_ma ma,
-            (InetAddr.to_string srv, mi, d) :: prev_d)
-            (other_mi, other_ma, [ "others", other_mi, other_d ])
-            result in
-    prec, mi, ma, d
+    DnsDataSet.distributions_of_response_times prec result rest_rts InetAddr.to_string
 
 (* Lod1: degraded client, rounded query_date (to 1min), distribution of resptimes *)
 (* Lod2: round timestamp to 10 mins *)

@@ -363,6 +363,37 @@ struct
             Maplot.map (fun _k (v, ()) -> v) new_result, new_rest
     end
 
+    (* Distributions of response times: *)
+    let distributions_of_response_times prec m rest_rts label_of_key =
+        let distrib_of_rts rts =
+            let mi, ma =
+                List.fold_left (fun (mi, ma) rt ->
+                    min mi rt, max ma rt)
+                    (max_float, min_float)
+                    rts in
+            (* return the prec interval in which to store a RT *)
+            let floor_rt rt = rt /. prec |> int_of_float in
+            let mi = floor_rt mi and ma = floor_rt ma in
+            let nb_buckets = ma - mi |> succ in
+            let d = Array.create nb_buckets 0 in
+            List.iter
+                (fun rt ->
+                    let i = floor_rt rt - mi in
+                    d.(i) <- succ d.(i))
+                rts ;
+            mi, ma, d in
+        let other_mi, other_ma, other_d = distrib_of_rts rest_rts in
+        let mi, ma, d =
+            Maplot.fold_left (fun (prev_mi, prev_ma, prev_d) k (_, rts) ->
+                let mi, ma, d = distrib_of_rts rts in
+                let label = label_of_key k in
+                min prev_mi mi,
+                max prev_ma ma,
+                (label, mi, d) :: prev_d)
+                (other_mi, other_ma, [ "others", other_mi, other_d ])
+                m in
+        prec, mi, ma, d
+
 end
 
 let grid_interv n start stop =

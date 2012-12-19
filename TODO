@@ -8,17 +8,10 @@ TODO stack
 various stats (+ additional fields in tables)
 
 
-- BW from -2months gives no result?
-
-
 - rework tables
 
 
 - Factorize distribution out of DNS+WEB (and the pieces in www/index.ml)
-
-
-- A selection area for any svg, calling a given handler when the drag box is
-done
 
 
 - An html legend next to the callflow svg, with y mouse coordinate translated
@@ -153,9 +146,6 @@ distributed querying
 
 - an indexer process that adds N.idx to N files once closed, to speed up 
   searches in the past.
-
-
-- rewrite BW chart using two passes to avoid awakening the OOM killer
 
 
 - distrib chart for HTTP should give choice for grouping field (for instance,
