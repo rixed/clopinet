@@ -312,7 +312,6 @@ struct
                             i datasets
                     and svg_width  = Prefs.get_float "gui/svg/width" 1000.
                     and svg_height = Prefs.get_float "gui/svg/height" 600. in
-                    pre [ raw (Printf.sprintf "vx_min=%f, vx_step=%f, nb_vx=%d, bucket_min=%d\n" vx_min vx_step nb_vx bucket_min) ] ::
                     Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
                                   ~vxmin_filter:"filter.minrt" ~vxmax_filter:"filter.maxrt"
                                   ~vxstep_filter:"filter.distr-prec"
@@ -426,7 +425,6 @@ struct
                             i datasets
                     and svg_width  = Prefs.get_float "gui/svg/width" 1000.
                     and svg_height = Prefs.get_float "gui/svg/height" 600. in
-                    pre [ raw (Printf.sprintf "vx_min=%f, vx_step=%f, nb_vx=%d, bucket_min=%d\n" vx_min vx_step nb_vx bucket_min) ] ::
                     Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
                                   ~vxmin_filter:"filter.minrt" ~vxmax_filter:"filter.maxrt"
                                   ~vxstep_filter:"filter.distr-prec"
