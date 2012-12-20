@@ -36,7 +36,7 @@ reinstall: uninstall install
 endif
 
 # Common rules
-.SUFFIXES: .mll .mly .ml .mli .cmo .cmi .cmx .opt .byte
+.SUFFIXES: .mll .mly .ml .mli .cmo .cmi .cmx .cmxs .opt .byte
 
 .cmo.byte:
 	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES) $(PKG_NAME)" $(EXTRALIBS) -linkpkg $(OCAMLFLAGS) $^
@@ -53,6 +53,9 @@ endif
 .ml.cmx:
 	$(OCAMLOPT) $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) -c $<
 
+.ml.cmxs:
+	$(OCAMLOPT) $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) -o $@ -shared $<
+
 .mll.ml:
 	$(OCAMLLEX) $<
 
@@ -64,7 +67,7 @@ endif
 
 # Clean up
 clean: clean-spec
-	rm -f *.cm[ioxa] *.cmxa *.a *.s *.o *.byte *.opt .depend *.annot
+	rm -f *.cm[ioxa] *.cmxa *.cmxs *.a *.s *.o *.byte *.opt .depend *.annot
 
 # Dependencies
 .depend:

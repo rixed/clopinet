@@ -28,7 +28,7 @@ let main =
         "-dbck",  Unit (fun () -> Metric.dbck !dbdir lods Traffic.read Traffic.meta_read), "scan the DB and try to repair it" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
-        "-vlan", String (fun s -> vlan := Some (Integer16.of_string s)), "limit queries to this VLAN" ;
+        "-vlan", String (fun s -> vlan := Some (Metric.VLan.of_string s)), "limit queries to this VLAN" ;
         "-eth-proto", String (fun s -> eth_proto := Some (Integer16.of_string s)), "select only queries with this Eth protocol" ;
         "-ip-proto", String (fun s -> ip_proto := Some (Integer16.of_string s)), "select only queries with this IP protocol" ;
         "-mac-src", String (fun s -> mac_src := Some (EthAddr.of_string s)), "limit to these sources" ;

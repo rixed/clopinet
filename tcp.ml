@@ -10,7 +10,7 @@ let lods = [| "sockets"; "1min"; "10mins"; "1hour" |];
 
 module Tcp =
 struct
-    include Altern1 (Tuple10.Make (Option (Integer16))  (* VLAN *)
+    include Altern1 (Tuple10.Make (VLan)                (* VLAN *)
                                   (EthAddr)             (* client MAC *)
                                   (Cidr)                (* client IP *)
                                   (EthAddr)             (* server MAC *)
@@ -77,7 +77,7 @@ struct
                                check mac_clt (fun mac   -> EthAddr.equal mac clte) &&
                                check mac_srv (fun mac   -> EthAddr.equal mac srve) &&
                                check peer    (fun cidr  -> in_cidr srv cidr || inter_cidr clt cidr) &&
-                               check vlan    (fun vlan  -> vl = Some vlan) then
+                               check vlan    (fun vlan  -> vl = vlan) then
                                f x prev
                             else prev)
                             prev

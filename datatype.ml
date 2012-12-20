@@ -28,6 +28,7 @@ sig
     val write_txt : Output.t -> t -> unit
     val read      : ibuf -> t
     val read_txt  : TxtInput.t -> t
+    val to_imm    : t -> string
 end
 
 module type DATATYPE =
@@ -141,7 +142,7 @@ let peek_sign ic =
 
 module Bool_base = struct
     type t = bool
-    let equal = (=)
+    let equal (a:t) (b:t) = a = b
     let compare a b = if a = b then 0 else if a then -1 else 1
     let hash = function true -> 1 | false -> 0
     let name = "bool"
@@ -149,6 +150,7 @@ module Bool_base = struct
     let write_txt oc t = Output.char oc (if t then 't' else 'f')
     let read = deser1
     let read_txt ic = TxtInput.read ic = 't'
+    let to_imm = function true -> "true" | false -> "false"
 end
 module Bool : DATATYPE with type t = bool =
 struct
@@ -166,6 +168,7 @@ module Void_base = struct
     let write_txt _ _ = ()
     let read _ = ()
     let read_txt _ = ()
+    let to_imm _ = "()"
 end
 module Void : DATATYPE with type t = unit =
 struct
@@ -176,7 +179,7 @@ end
 module Text_base = struct
     type t = string
     let name = "string"
-    let equal = (=)
+    let equal (a:t) (b:t) = a = b
     let compare = String.compare
     let hash = Hashtbl.hash
     let write oc t =
@@ -186,6 +189,7 @@ module Text_base = struct
         deser_string ic
     let read_txt ic =
         read_txt_until ic "\t\n"
+    let to_imm t = "\""^ String.escaped t ^"\""
 end
 module Text : DATATYPE with type t = string =
 struct
@@ -195,8 +199,8 @@ end
 
 module Float_base = struct
     type t = float
-    let equal = (=)
-    let compare a b = if a = b then 0 else if a < b then -1 else 1
+    let equal (a:t) (b:t) = a = b
+    let compare (a:t) (b:t) = if a = b then 0 else if a < b then -1 else 1
     let hash = Hashtbl.hash
     let name = "float"
     let write oc f =
@@ -209,6 +213,7 @@ module Float_base = struct
     let read_txt ic =
         (* hello, I'm slow! *)
         read_chars ic "+-0123456789.e" |> float_of_string
+    let to_imm t = "("^ Float.to_string t ^")"    (* need parenths for negative values *)
 end
 module Float : NUMBER with type t = float =
 struct
@@ -274,8 +279,8 @@ exception Overflow
 module Integer_base = struct
     type t = int
     let name = "int"
-    let equal = (=)
-    let compare a b = if a = b then 0 else if a < b then -1 else 1
+    let equal (a:t) (b:t) = a = b
+    let compare (a:t) (b:t) = if a = b then 0 else if a < b then -1 else 1
     let hash = identity
     let write = ser_varint
     let write_txt oc i =
@@ -302,6 +307,7 @@ module Integer_base = struct
         let n = aux 0 in
         let n = n * handle_num_suffix ic in
         (if neg then (~-) else identity) n
+    let to_imm t = "("^ Int.to_string t ^")"    (* need parenths for negative numbers *)
 end
 module Integer : NUMBER with type t = int =
 struct
@@ -390,8 +396,8 @@ end
 module UInteger32_base = struct
     type t = Int32.t
     let name = "int32"
-    let equal = (=)
-    let compare a b = if a = b then 0 else if a < b then -1 else 1
+    let equal (a:t) (b:t) = a = b
+    let compare (a:t) (b:t) = if a = b then 0 else if a < b then -1 else 1
     let hash = Int32.to_int
     let write = ser32
     let write_txt oc i = Printf.sprintf "%lu" i |> Output.string oc
@@ -407,6 +413,7 @@ module UInteger32_base = struct
             ) in
         let n = aux 0l in
         Int32.mul n (handle_num_suffix ic |> Int32.of_int)
+    let to_imm t = "("^ Int32.to_string t ^"l)"
 
 end
 module UInteger32 : NUMBER with type t = Int32.t =
@@ -436,8 +443,8 @@ end
 module UInteger64_base = struct
     type t = Int64.t
     let name = "int64"
-    let equal = (=)
-    let compare a b = if a = b then 0 else if a < b then -1 else 1
+    let equal (a:t) (b:t) = a = b
+    let compare (a:t) (b:t) = if a = b then 0 else if a < b then -1 else 1
     let hash = Int64.to_int
     let write = ser64
     let write_txt oc i = Printf.sprintf "%Lu" i |> Output.string oc
@@ -453,6 +460,7 @@ module UInteger64_base = struct
             ) in
         let n = aux 0L in
         Int64.mul n (handle_num_suffix ic |> Int64.of_int)
+    let to_imm t = "("^ Int64.to_string t ^"L)"
 end
 module UInteger64 : NUMBER with type t = Int64.t =
 struct
@@ -516,6 +524,9 @@ module InetAddr_base = struct
         try inet_addr_of_string str
         with Failure _ ->
             (gethostbyname str).h_addr_list.(0)
+    let to_imm t =
+        let (str : string) = Obj.magic t in
+        "(Obj.magic \""^ String.escaped str ^"\" : Unix.inet_addr)"
 end
 module InetAddr : DATATYPE with type t = Unix.inet_addr =
 struct
@@ -548,6 +559,8 @@ module Cidr_base = struct
             TxtInput.swallow ic ;
             n, UInteger16.read_txt ic
         ) else n, 32
+    let to_imm (n,m) =
+        "("^ InetAddr.to_imm n ^", "^ UInteger16.to_imm m ^")"
 end
 module Cidr : DATATYPE with type t = InetAddr.t * UInteger16.t =
 struct
@@ -621,7 +634,7 @@ let subnet_size ((net : Unix.inet_addr), mask) =
 module EthAddr_base = struct
     type t = char * char * char * char * char * char
     let name = "ethAddr"
-    let equal = (=)
+    let equal (a:t) (b:t) = a = b
     let compare (a1,a2,a3,a4,a5,a6) (b1,b2,b3,b4,b5,b6) =
         let c = int_of_char b1 - int_of_char a1 in if c <> 0 then c else
         let c = int_of_char b2 - int_of_char a2 in if c <> 0 then c else
@@ -659,6 +672,7 @@ module EthAddr_base = struct
         let c = byte_sep () in let d = byte_sep () in
         let e = byte_sep () in let f = byte () in
         a,b,c,d,e,f
+    let to_imm (a,b,c,d,e,f) = Printf.sprintf "(%C,%C,%C,%C,%C,%C)" a b c d e f
 end
 module EthAddr : DATATYPE with type t = char * char * char * char * char * char =
 struct
@@ -809,6 +823,11 @@ module Interval_base = struct
                       hours = !hours ; mins = !mins ; secs = !secs ; msecs = !msecs }
             else
                 raise End_of_file
+
+    let to_imm t =
+        Printf.sprintf "Unix.({ year=(%F); months=(%F); weeks =(%F); days =(%F); hours =(%F); mins =(%F); secs = %F; msecs =(%F)})"
+            t.years t.months t.weeks t.days t.hours t.mins t.secs t.msecs
+
 end
 module Interval : sig
     (* Trick to have the record fields known when opening Interval in addition
@@ -1088,6 +1107,9 @@ module ListOf_base (T : DATATYPE) = struct
         let lst = TxtInput.read ic in
         assert (lst = ']') ;
         res
+
+    let to_imm t =
+        "["^ (List.map T.to_imm t |> String.concat ";") ^"]"
 end
 module ListOf (T : DATATYPE) :
     DATATYPE with type t = T.t list =
@@ -1112,6 +1134,7 @@ module Altern1_base (T: DATATYPE) = struct
         assert (v = 0) ;
         T.read ic
     let read_txt = T.read_txt
+    let to_imm = T.to_imm
 end
 module Altern1 (T:DATATYPE) :
     DATATYPE with type t = T.t =
@@ -1153,6 +1176,9 @@ module Altern2_base (T1 : DATATYPE) (T2 : DATATYPE) = struct
         | '1' -> V1of2 (T1.read_txt ic)
         | '2' -> V2of2 (T2.read_txt ic)
         | c -> failwith ("Bad version "^Char.escaped c)
+    let to_imm = function
+        | V1of2 a -> "(Datatype.Altern1.V1of2 "^ T1.to_imm a ^")"
+        | V2of2 a -> "(Datatype.Altern1.V2of2 "^ T2.to_imm a ^")"
 end
 module Altern2 (T1:DATATYPE) (T2:DATATYPE) :
     DATATYPE with type t = (T1.t, T2.t) versions_2 =
@@ -1192,12 +1218,13 @@ module Option_base (T : DATATYPE) = struct
         ) else None
     let read_txt ic =
         let o = TxtInput.nread ic 4 in
-        if o = "None" then None
+        if o = "None" || o = "none" then None
         else (
-            assert (o = "Some") ;
+            assert (o = "Some" || o = "some") ;
             let sep = TxtInput.read ic in assert (sep = ' ') ;
             Some (T.read_txt ic)
         )
+    let to_imm = function None -> "None" | Some x -> "(Some "^ T.to_imm x ^")"
 end
 module Option (T:DATATYPE) :
     DATATYPE with type t = T.t option =

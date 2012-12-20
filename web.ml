@@ -29,7 +29,7 @@ let lods = [| "queries"; "1min"; "10mins"; "1hour" |];
 
 module Web =
 struct
-    include Altern1 (Tuple12.Make (Option (Integer16))  (* VLAN *)
+    include Altern1 (Tuple12.Make (VLan)                (* VLAN *)
                                   (EthAddr)             (* client MAC *)
                                   (Cidr)                (* client IP *)
                                   (EthAddr)             (* server MAC *)
@@ -116,7 +116,7 @@ struct
                                check status  (fun st    -> st = err) &&
                                check host    (fun host  -> ends_with host h) &&
                                check url     (fun url   -> starts_with url u) &&
-                               check vlan    (fun vlan  -> vl = Some vlan) then
+                               check vlan    (fun vlan  -> vl = vlan) then
                                f x prev
                             else prev)
                             prev

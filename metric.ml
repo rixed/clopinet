@@ -117,3 +117,5 @@ let dbck dbdir lods read meta_read =
         Table.iter_hnums tdir (ck_hnum tdir) in
     Array.iter ck_lod lods
 
+module VLan = Datatype.Option (Datatype.UInteger16)
+

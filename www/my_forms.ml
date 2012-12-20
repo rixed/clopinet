@@ -34,7 +34,7 @@ module StopField = struct
     let persistant = true
 end
 module VlanField = struct
-    module Type = Optional(InputOfDatatype(Integer16))
+    module Type = Optional(InputOfDatatype(Metric.VLan))
     let display_name = "vlan"
     let uniq_name = "vlan"
     let persistant = false

@@ -16,7 +16,7 @@ module Traffic =
 struct
     include Altern1 (Tuple16.Make (Timestamp) (Timestamp)        (* start, stop *)
                                   (UInteger)                     (* packet count *)
-                                  (Option (UInteger16)) (EthAddr) (EthAddr) (* Eth vlan, source, dest *)
+                                  (VLan) (EthAddr) (EthAddr)     (* Eth vlan, source, dest *)
                                   (UInteger16)                   (* Eth proto *)
                                   (UInteger)                     (* Eth payload *)
                                   (UInteger16)                   (* Eth MTU *)
@@ -88,29 +88,34 @@ struct
             ip_pld + ip_pld',
             l4_pld + l4_pld'
 
+
+    let pass = ref (fun (_ : t) -> true)
+    let set_pass f = pass := f
+
     (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
     let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name f make_fst merge =
+        Dynlinker.(loadpass "Traffic.Traffic"
+            "ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, l4src, l4dst, _"
+            [
+                check start     Timestamp.to_imm  "Datatype.Timestamp.compare ts2 %s >= 0" ;
+                check stop      Timestamp.to_imm  "Datatype.Timestamp.compare %s ts1 > 0" ;
+                check mac_src   EthAddr.to_imm    "Datatype.EthAddr.equal mac_s %s" ;
+                check mac_dst   EthAddr.to_imm    "Datatype.EthAddr.equal mac_d %s" ;
+                check eth_proto UInteger16.to_imm "mac_prot = %s" ;
+                check ip_src    Cidr.to_imm       "Datatype.in_cidr ip_s %s" ;
+                check ip_dst    Cidr.to_imm       "Datatype.in_cidr ip_d %s" ;
+                check ip        Cidr.to_imm       "(let x = %s in Datatype.in_cidr ip_s x || Datatype.in_cidr ip_d x)" ;
+                check ip_proto  UInteger8.to_imm  "ip_prot = %s" ;
+                check port      UInteger16.to_imm "(let x = %s in l4src = x || l4dst = x)" ;
+                check vlan      VLan.to_imm       "vl = %s"
+            ]) ;
         let tdir = table_name dbdir name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
-                let cmp = Timestamp.compare in
                 let res =
                     if is_within bounds start stop then (
-                        Table.fold_file tdir hnum snum read (fun ((ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, l4src, l4dst, _) as x) prev ->
-                            (* ocamlopt won't inline check function here, which hurts! *)
-                            if check start     (fun start -> cmp ts2 start >= 0) &&
-                               check stop      (fun stop  -> cmp stop ts1 > 0) &&
-                               check mac_src   (fun mac   -> EthAddr.equal mac mac_s) &&
-                               check mac_dst   (fun mac   -> EthAddr.equal mac mac_d) &&
-                               check eth_proto (fun proto -> proto = mac_prot) &&
-                               check ip_src    (fun cidr  -> in_cidr ip_s cidr) &&
-                               check ip_dst    (fun cidr  -> in_cidr ip_d cidr) &&
-                               check ip        (fun cidr  -> in_cidr ip_s cidr || in_cidr ip_d cidr) &&
-                               check ip_proto  (fun proto -> proto = ip_prot) &&
-                               check port      (fun port  -> port = l4src || port = l4dst) &&
-                               check vlan      (fun vlan  -> vl = Some vlan) then
-                               f x prev
-                            else prev)
+                        Table.fold_file tdir hnum snum read (fun x prev ->
+                            if !pass x then f x prev else prev)
                             prev
                     ) else (
                         prev
@@ -127,9 +132,9 @@ end
 
 (* Querries *)
 
-module EthKey = Tuple2.Make (Option (UInteger16)) (EthAddr) (* Eth vlan, source/dest *)
+module EthKey = Tuple2.Make (VLan) (EthAddr) (* Eth vlan, source/dest *)
 module EthPld = Plot.DataSet (EthKey)
-module EthKey2 = Tuple3.Make (Option (UInteger16)) (EthAddr) (EthAddr) (* Eth vlan, source, dest *)
+module EthKey2 = Tuple3.Make (VLan) (EthAddr) (EthAddr) (* Eth vlan, source, dest *)
 module EthPld2 = Plot.DataSet (EthKey2)
 
 let optmin a b = match a, b with

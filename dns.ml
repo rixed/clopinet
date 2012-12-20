@@ -13,7 +13,7 @@ let lods = [| "queries"; "1min"; "10mins"; "1hour" |];
 
 module Dns =
 struct
-    include Altern1 (Tuple9.Make (Option (Integer16))   (* VLAN *)
+    include Altern1 (Tuple9.Make (VLan)                 (* VLAN *)
                                  (EthAddr)              (* client MAC *)
                                  (Cidr)                 (* client IP *)
                                  (EthAddr)              (* server MAC *)
@@ -86,7 +86,7 @@ struct
                                check mac_clt (fun mac   -> EthAddr.equal mac clte) &&
                                check mac_srv (fun mac   -> EthAddr.equal mac srve) &&
                                check error   (fun error -> error = err) &&
-                               check vlan    (fun vlan  -> vl = Some vlan) &&
+                               check vlan    (fun vlan  -> vl = vlan) &&
                                check qname   (fun qname -> ends_with qname name) then
                                f x prev
                             else prev)

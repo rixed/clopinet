@@ -11,7 +11,7 @@ let lods = [| "flows" |];
 
 module Flow =
 struct
-    include Altern1 (Tuple12.Make (Option (UInteger16))          (* vlan *)
+    include Altern1 (Tuple12.Make (VLan)                         (* vlan *)
                                   (EthAddr)                      (* src mac *)
                                   (InetAddr)                     (* src IP *)
                                   (EthAddr)                      (* dst mac *)
@@ -92,7 +92,7 @@ struct
                                check port_src  (fun port  -> port = port_s) &&
                                check port_dst  (fun port  -> port = port_d) &&
                                check port      (fun port  -> port = port_s || port = port_d) &&
-                               check vlan      (fun vlan  -> vl = Some vlan) then
+                               check vlan      (fun vlan  -> vl = vlan) then
                                f x prev
                             else prev)
                             prev
