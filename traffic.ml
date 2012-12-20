@@ -277,7 +277,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
         IPPld.FindSignificant.pass2 interm fold2 (Plot.merge_y_array nb_steps) Plot.Empty max_graphs in
     let label_of_key (mac_proto, ip) = label_of_ip_key mac_proto ip in
     (* returns a (string * float array) list *)
-    IPPld.arrays_of_volume_chunks nb_steps vols rest_vols label_of_key
+    IPPld.arrays_of_volume_chunks step nb_steps vols rest_vols label_of_key
     (* FIXME: pass2 should return the same as pass2 |> arrays_of_volume_chunks... *)
 
 (* Returns traffic per pair of IPs *)
@@ -487,5 +487,4 @@ let load dbdir create fname =
         Table.close table2 in
 
     load fname Traffic.read_txt append0 flush_all
-
 

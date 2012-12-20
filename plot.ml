@@ -421,10 +421,16 @@ struct
     end
 
     (* Return a mere list of label -> float array from a Maplot of key -> (_ * y_array) *)
-    let arrays_of_volume_chunks nb_steps vols rest_vols label_of_key =
+    let arrays_of_volume_chunks step nb_steps vols rest_vols label_of_key =
+        let step_s = Int64.to_float step /. 1000. in
+        let to_scaled_array ya =
+            let a = array_of_y_array nb_steps ya in
+            (* while we are at it, convert from bytes to bytes/secs *)
+            Array.iteri (fun i y -> a.(i) <- y /. step_s) a ;
+            a in
         Maplot.fold_left (fun prev k (_, ya) ->
-            (label_of_key k, array_of_y_array nb_steps ya) :: prev)
-            ["others", array_of_y_array nb_steps rest_vols] vols
+            (label_of_key k, to_scaled_array ya) :: prev)
+            ["others", to_scaled_array rest_vols] vols
 
     (* Distributions of response times: *)
     let distributions_of_response_times prec m rest_rts label_of_key =

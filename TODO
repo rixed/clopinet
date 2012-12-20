@@ -1,6 +1,12 @@
 TODO stack
 ----------
 
+- Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr *or*
+  make all these available from cmd line
+
+- A better automatic benchmark, using the CLI interface
+
+
 - Use logarithmic Y scale for primary Y in resp times vs time charts
 
 
@@ -9,9 +15,6 @@ various stats (+ additional fields in tables)
 
 
 - rework tables
-
-
-- Factorize distribution out of DNS+WEB (and the pieces in www/index.ml)
 
 
 - An html legend next to the callflow svg, with y mouse coordinate translated
@@ -88,9 +91,6 @@ for this IP).
 - Apart in places where we have Y per secs, keep integers instead of floats
   for volumes.
 
-
-- Move code from traffic.ml / dns.ml / web.ml into www/index.ml Ctlr *or*
-  make all these available from cmd line
 
 - A max packet size chart, as an histogram
 
