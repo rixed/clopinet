@@ -1,11 +1,6 @@
 TODO stack
 ----------
 
-- Dynlinker module with a low level function from string to unit
-
-- Dynlinker.Make from a dbtable to a dedicated function taking optional values
-  and returning the code for corresponding filter
-
 - make a new 'filter' cli param to apply on dbtables - each metric should
   come with a filter function, and a filter_compile function, to apply during
   folding.
@@ -13,16 +8,15 @@ TODO stack
 - later: make all graph functions of traffic.ml/dns.ml/etc.ml available from 
   cmd line via an ascii chart output.
 
-- code metrics to measure time spend in fold, group by...
+
+
+- code metrics to measure time spent in fold, group by...
 
 - log function that output to anything (like stdout, a special file, a special
   div...)
 
 - overall structure : (table -> filter)* -> ploting function (parameters) -> 
   chart (parameters). Only the filter needs to be optimized.
-
-
-- get rid of bricabrac to get read of -thread
 
 
 - base 10 for choosing timestamps is not the best. See:

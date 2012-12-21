@@ -1,5 +1,5 @@
 description = "Multi-Level Round-Robbin Database"
 version = "1"
-requires = "bricabrac pfds bitstring bitstring.syntax parmap owww dynlink"
+requires = "pfds bitstring bitstring.syntax parmap owww dynlink"
 archive(byte) = "mlrrd.cma"
 archive(native) = "mlrrd.cmxa"

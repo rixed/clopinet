@@ -47,8 +47,9 @@ let load fname read append flush =
           sigpipe; sigquit; sigsegv; sigterm ]) ;
 
     let lineno = ref 0 in
-    Bricabrac.try_finalize (fun () ->
-        Bricabrac.with_file_in fname (fun ic ->
+    finally flush (fun () ->
+        let ic = Legacy.open_in fname in
+        with_dispose ~dispose:Legacy.close_in (fun ic ->
             Printf.fprintf stderr "loading from %s\n%!" fname ;
             let ic = TxtInput.from_file ic in
             try forever (fun () ->
@@ -60,8 +61,7 @@ let load fname read append flush =
                 if !verbose then Printf.fprintf stderr "Inserted %d lines\n" !lineno
                | e ->
                 Printf.fprintf stderr "Error at line %d\n" !lineno ;
-                raise e)) ()
-        flush ()
+                raise e) ic) ()
 
 
 (* misc *)

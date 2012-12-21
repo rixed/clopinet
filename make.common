@@ -1,11 +1,11 @@
 # vim:filetype=make
-OCAMLC     = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlc -thread -rectypes
-OCAMLOPT   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlopt -thread -rectypes
+OCAMLC     = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlc -rectypes
+OCAMLOPT   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlopt -rectypes
 OCAMLLEX   = ocamllex
 OCAMLYACC  = ocamlyacc
 OCAMLDEP   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldep
-OCAMLDOC   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldoc -html -colorize-code -thread -all-params
-OCAMLMKTOP = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlmktop -thread -g -rectypes
+OCAMLDOC   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldoc -html -colorize-code -all-params
+OCAMLMKTOP = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlmktop -g -rectypes
 override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -inline 9 -S
 override OCAMLFLAGS    += $(INCS) -w Ael -g -annot
 CAMLINCLUDE = $(shell ocamlfind printconf stdlib)

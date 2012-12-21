@@ -176,9 +176,23 @@ let rotate t hnum h_cache =
     h_cache.max_snum <- h_cache.max_snum + 1 ;
     h_cache.aggr <- None
 
+(* FIXME: this should go into batteries *)
+let mkdir_all dir =
+    let dir_exist d =
+        try Sys.is_directory d with Sys_error _ -> false in
+    let rec ensure_exist d =
+        if String.length d > 0 && not (dir_exist d) then (
+            ensure_exist (Filename.dirname d) ;
+            try Unix.mkdir d 0o755
+            with Unix.Unix_error (Unix.EEXIST, "mkdir", _) ->
+                (* Happen when we have "somepath//someother" (dirname should handle this IMHO *)
+                ()
+        ) in
+    ensure_exist dir
+
 let create_h_cache t hnum =
     let dir = Dbfile.dir t.dir hnum in
-    Bricabrac.mkdir_all dir ;
+    mkdir_all dir ;
     let max_snum = get_max_snum dir in
     { max_snum ;
       file = None ;

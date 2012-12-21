@@ -41,7 +41,7 @@ EXAMPLES_BYTE = \
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
 
-REQUIRES = batteries bricabrac pfds bitstring bitstring.syntax parmap dynlink
+REQUIRES = batteries pfds bitstring bitstring.syntax parmap dynlink
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc
