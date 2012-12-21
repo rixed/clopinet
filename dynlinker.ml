@@ -18,16 +18,16 @@ let loadstring str =
 let check opt_v to_imm fmt =
     Option.map (fun v -> Printf.sprintf fmt (to_imm v)) opt_v
 
-let loadpass module_name param_names checks =
+let loadfilter module_name param_names checks =
     let checks =
         List.fold_left (fun p ->
             function None -> p | Some x -> x::p) [] checks |>
         List.rev in
-    if checks <> [] then (* otherwise default pass is ok *)
+    if checks <> [] then (* otherwise default filter is ok *)
         let os = IO.output_string () in
         Printf.fprintf os "\
 let () =\n\
-    %s.set_pass (fun (%s) ->\n\
+    %s.set_filter (fun (%s) ->\n\
         %s)\n"
             module_name param_names
             (String.concat " && " checks) ;

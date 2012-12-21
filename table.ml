@@ -70,11 +70,10 @@ let fold_file tdir hnum snum reader f start =
     let hnum = hnum mod max_hash_size in
     let fname = Dbfile.path tdir hnum snum in
     Serial.with_file_in fname (fun ic ->
+        let r = ref start in
         let rec aux res =
-            match (try Some (reader ic) with End_of_file -> None) with
-            | Some x -> aux (f x res)
-            | None   -> res in
-        aux start)
+            aux (f (try reader ic with e -> r := res; raise e) res) in
+        try aux start with End_of_file -> !r)
 
 let fold_snums tdir hnum aggr_reader f start merge =
     let hnum = hnum mod max_hash_size in

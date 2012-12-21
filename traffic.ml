@@ -88,13 +88,11 @@ struct
             ip_pld + ip_pld',
             l4_pld + l4_pld'
 
-
-    let pass = ref (fun (_ : t) -> true)
-    let set_pass f = pass := f
-
-    (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
-    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name f make_fst merge =
-        Dynlinker.(loadpass "Traffic.Traffic"
+    (* This is just a way for our dynamically loaded code to reach us *)
+    let filter_ = ref (fun (_ : t) -> true)
+    let set_filter f = filter_ := f
+    let compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port () =
+        Dynlinker.(loadfilter "Traffic.Traffic"
             "ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, l4src, l4dst, _"
             [
                 check start     Timestamp.to_imm  "Datatype.Timestamp.compare ts2 %s >= 0" ;
@@ -109,13 +107,18 @@ struct
                 check port      UInteger16.to_imm "(let x = %s in l4src = x || l4dst = x)" ;
                 check vlan      VLan.to_imm       "vl = %s"
             ]) ;
+        !filter_
+
+    (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
+    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name f make_fst merge =
+        let filter = compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port () in
         let tdir = table_name dbdir name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let res =
                     if is_within bounds start stop then (
-                        Table.fold_file tdir hnum snum read (fun x prev ->
-                            if !pass x then f x prev else prev)
+                        Table.fold_file tdir hnum snum read
+                            (fun x prev -> if filter x then f x prev else prev)
                             prev
                     ) else (
                         prev
@@ -261,6 +264,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
     let start, stop = min start stop, max start stop in
     let nb_steps = Plot.row_of_time start step stop |> succ in
     (* First pass: find the biggest contributors *)
+    Printf.fprintf stderr "Pass 1...\n%!" ;
     let fold1 f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (_, _, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst
@@ -268,6 +272,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
             f (key, float_of_int value) p)
             i m in
     let interm = IPPld.FindSignificant.pass1 fold1 max_graphs in
+    Printf.fprintf stderr "Pass 2...\n%!" ;
     let fold2 f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst
@@ -280,6 +285,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
             i m in
     let vols, _rest_t, rest_vols =
         IPPld.FindSignificant.pass2 interm fold2 (Plot.merge_y_array nb_steps) Plot.Empty max_graphs in
+    Printf.fprintf stderr "Final convertion...\n%!" ;
     let label_of_key (mac_proto, ip) = label_of_ip_key mac_proto ip in
     (* returns a (string * float array) list *)
     IPPld.arrays_of_volume_chunks step nb_steps vols rest_vols label_of_key
