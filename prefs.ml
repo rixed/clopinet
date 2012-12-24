@@ -104,7 +104,7 @@ let get_int name default =
 
 let get_bool_option name =
     get_option name |>
-    Option.map (String.lowercase |- bool_of_string)
+    Option.map (String.lowercase %> bool_of_string)
 
 let get_bool name default =
     get_bool_option name |>

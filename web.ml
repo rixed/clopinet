@@ -157,7 +157,7 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?stat
         Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir tblname
             (fun (_vl, _mac_clt, _clt, _mac_srv, srv, _srvp, _met, _err, _ts, rt, _h, _u) p ->
                 let nb_queries, _, _, _, _ = rt in
-                f (srv, float_of_int nb_queries) p)
+                f (srv, nb_queries) p)
             i m in
     let interm = WebDataSet.FindSignificant.pass1 fold top_nth in
     let fold2 f i m =
@@ -165,7 +165,7 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?stat
             (fun (_vl, _mac_clt, _clt, _mac_srv, srv, _srvp, _met, _err, _ts, rt, _h, _u) p ->
                 let nb_queries, _, _, avg, _ = rt in
                 (* TODO: instead of a single [avg], fake a distribution of nb_queries values *)
-                f (srv, float_of_int nb_queries, [avg]) p)
+                f (srv, nb_queries, [avg]) p)
             i m
     and aggr_rts prev_rts rts = List.rev_append rts prev_rts in
     let result, _rest_count, rest_rts = WebDataSet.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in

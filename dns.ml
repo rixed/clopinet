@@ -129,7 +129,7 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_
         Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max dbdir tblname
             (fun (_vl, _clte, _clt, _srve, srv, _err, _ts, rt, _name) p ->
                 let nb_queries, _, _, _, _ = rt in
-                f (srv, float_of_int nb_queries) p)
+                f (srv, nb_queries) p)
             i m in
     let interm = DnsDataSet.FindSignificant.pass1 fold top_nth in
     let fold2 f i m =
@@ -139,7 +139,7 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_
                 (* FIXME: instead of a single [avg], return the whole distrib so that we can
                  *        later fake a (gaussian) distribution of nb_queries values, or merely
                  *        reports the correct number of queries *)
-                f (srv, float_of_int nb_queries, [avg]) p)
+                f (srv, nb_queries, [avg]) p)
             i m
     and aggr_rts prev_rts rts = List.rev_append rts prev_rts in
     let result, _rest_count, rest_rts = DnsDataSet.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in

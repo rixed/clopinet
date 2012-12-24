@@ -183,7 +183,7 @@ let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     let fold f i m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
             (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
-                let y = float_of_int (if what = PacketCount then count else mac_pld) in
+                let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
                 let k = vlan, mac_src, mac_dst in
                 f (k, y) p)
@@ -197,7 +197,7 @@ let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     EthPld2.Maplot.iter result (fun k v ->
         Hashtbl.add h (label_of_key k) v) ;
     Hashtbl.add h ("other","") rest ;
-    h
+    Hashtbl.map (fun _k v -> float_of_int v) h
 
 (* Returns traffic per pair of MACs *)
 let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) by_src what dbdir name =
@@ -205,7 +205,7 @@ let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     let fold f i m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
             (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
-                let y = float_of_int (if what = PacketCount then count else mac_pld) in
+                let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
                 let k = vlan, if by_src then mac_src else mac_dst in
                 f (k, y) p)
@@ -219,7 +219,7 @@ let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     EthPld.Maplot.iter result (fun k v ->
         Hashtbl.add h (label_of_eth_key k) v) ;
     Hashtbl.add h "other" rest ;
-    h
+    Hashtbl.map (fun _k v -> float_of_int v) h
 
 (* Returns traffic per pair of MACs *)
 let eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) what dbdir name =
@@ -230,7 +230,7 @@ let eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_sr
     let fold f i m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
             (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
-                let y = float_of_int (if what = PacketCount then count else mac_pld) in
+                let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
                 let k = vlan, mac_src, mac_dst in
                 f (k, y) p)
@@ -244,7 +244,7 @@ let eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_sr
     EthPld2.Maplot.iter result (fun k v ->
         Hashtbl.add h (label_of_key k) v) ;
     Hashtbl.add h "other" rest ;
-    h
+    Hashtbl.map (fun _k v -> float_of_int v) h
 
 module IPKey = Tuple2.Make (UInteger16) (InetAddr) (* eth proto, source/dest *)
 module IPPld = Plot.DataSet (IPKey)
@@ -269,7 +269,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (_, _, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst
             and value = if what = PacketCount then count else mac_pld in
-            f (key, float_of_int value) p)
+            f (key, value) p)
             i m in
     let interm = IPPld.FindSignificant.pass1 fold1 max_graphs in
     Log.info "Pass 2..." ;
@@ -277,8 +277,8 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst
             and value = if what = PacketCount then count else mac_pld in
-            let value = float_of_int value in
-            let r1, r2, y = Plot.clip_y start stop step t1 t2 value in
+            let r1, r2, y = Plot.clip_y start stop step t1 t2 (float_of_int value) in
+            let y = int_of_float y in
             (* Compute the total value for this, ie. the array of volumes *)
             let tv = Plot.Chunk (r1, r2, y) in
             f (key, y, tv) p)
@@ -300,7 +300,7 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     let fold f i m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
             (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
-                let y = float_of_int (if what = PacketCount then count else mac_pld) in
+                let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
                 let k = mac_proto, src, dst in
                 f (k, y) p)
@@ -314,14 +314,14 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     IPPld2.Maplot.iter result (fun k v ->
         Hashtbl.add h (label_of_key k) v) ;
     Hashtbl.add h ("other","") rest ;
-    h
+    Hashtbl.map (fun _k v -> float_of_int v) h
 
 let ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) by_src what dbdir name =
     let start, stop = optmin start stop, optmax start stop in
     let fold f i m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
             (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
-                let y = float_of_int (if what = PacketCount then count else mac_pld) in
+                let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
                 let k = mac_proto, if by_src then src else dst in
                 f (k, y) p)
@@ -335,7 +335,7 @@ let ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     IPPld.Maplot.iter result (fun (mac_proto, ip) v ->
         Hashtbl.add h (label_of_ip_key mac_proto ip) v) ;
     Hashtbl.add h "other" rest ;
-    h
+    Hashtbl.map (fun _k v -> float_of_int v) h
 
 let ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) what dbdir name =
     let start, stop = optmin start stop, optmax start stop in
@@ -345,7 +345,7 @@ let ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src
     let fold f i m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
             (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
-                let y = float_of_int (if what = PacketCount then count else mac_pld) in
+                let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
                 let k = mac_proto, src, dst in
                 f (k, y) p)
@@ -359,7 +359,7 @@ let ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src
     IPPld2.Maplot.iter result (fun k v ->
         Hashtbl.add h (label_of_key k) v) ;
     Hashtbl.add h "other" rest ;
-    h
+    Hashtbl.map (fun _k v -> float_of_int v) h
 
 (* FIXME: app should be a string, and we should also report various eth apps *)
 module AppKey = Tuple2.Make (UInteger8) (UInteger16)
@@ -388,7 +388,7 @@ let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     let fold f i m =
         Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
             (fun (t1, t2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) p ->
-                let y = float_of_int (if what = PacketCount then count else mac_pld) in
+                let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
                 let k = (proto, min p1 p2) in
                 f (k, y) p)
@@ -402,7 +402,7 @@ let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     AppPld.Maplot.iter result (fun k v ->
         Hashtbl.add h (label_of_app_key k) v) ;
     Hashtbl.add h "other" rest ;
-    h
+    Hashtbl.map (fun _k v -> float_of_int v) h
 
 type netgraph_key = Mac of (int option * EthAddr.t) | Ip of InetAddr.t
 let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_mac show_ip dbdir name =
@@ -413,13 +413,13 @@ let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_m
     let fold f i m =
         Traffic.fold ~start ~stop ?vlan ?eth_proto ?ip_proto ?port dbdir name
             (fun (t1, t2, _, vlan, mac_src, mac_dst, mac_proto, mac_pld, _, ip_src, ip_dst, _, _, _, _, _) p ->
-                let y = float_of_int mac_pld in
+                let y = mac_pld in
                 let y = Plot.clip_y_only ~start ~stop t1 t2 y in
                 (* FIXME: wait till Plot.netgraph is done before converting keys
                  * to string representation !*)
                 let p = if show_mac then (
                         let src, dst, y = if EthAddr.compare mac_src mac_dst <= 0 then mac_src, mac_dst, y
-                                                                                  else mac_dst, mac_src, ~-.y in
+                                                                                  else mac_dst, mac_src, ~-y in
                         f (Mac (vlan, src)) (Mac (vlan, dst)) y p
                     ) else p in
                 if show_ip && (mac_proto = 0x0800 || mac_proto = 0x86DD) then (
@@ -430,19 +430,18 @@ let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_m
                     ) else (
                         (* show direct link between IPs *)
                         let src, dst, y = if InetAddr.compare ip_src ip_dst <= 0 then ip_src, ip_dst, y
-                                                                                 else ip_dst, ip_src, ~-.y in
+                                                                                 else ip_dst, ip_src, ~-y in
                         f (Ip src) (Ip dst) y p
                     )
                 ) else p)
             i m
         in
-    let graph = Plot.netgraph fold (+.) in
+    let graph = Plot.netgraph fold (+) in
     let graph =
         match min_volume with
         | None ->
             graph
         | Some min_volume ->
-            let min_volume = float_of_int min_volume in
             Hashtbl.filter_map (fun _k1 n ->
                 let n' = Hashtbl.filter (fun y -> y >= min_volume) n in
                 if Hashtbl.is_empty n' then None
@@ -451,7 +450,7 @@ let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_m
     let res = Hashtbl.create (Hashtbl.length graph) in
     Hashtbl.iter (fun k1 n ->
         let n' = Hashtbl.create (Hashtbl.length n) in
-        Hashtbl.iter (fun k2 y -> Hashtbl.add n' (label_of_key k2) y) n ;
+        Hashtbl.iter (fun k2 y -> Hashtbl.add n' (label_of_key k2) (float_of_int y)) n ;
         Hashtbl.add res (label_of_key k1) n')
         graph ;
     res

@@ -102,12 +102,12 @@ let clip_y_only ?start ?stop t1 t2 y =
     let t1, y = match start with
         | Some start ->
             if t1 >= start then t1, y
-            else start, y -. (Int64.to_float (Int64.div (Int64.sub start t1) (Int64.sub t2 t1)))
+            else start, y - (Int64.to_int (Int64.div (Int64.sub start t1) (Int64.sub t2 t1)))
         | None -> t1, y in
     match stop with
     | Some stop ->
         if t2 <= stop then y
-        else y -. (Int64.to_float (Int64.div (Int64.sub t2 stop) (Int64.sub t2 t1)))
+        else y - (Int64.to_int (Int64.div (Int64.sub t2 stop) (Int64.sub t2 t1)))
     | None -> y
 
 
@@ -224,13 +224,15 @@ let netgraph fold aggr =
 
 (* We often build arrays of Ys, merge them, etc. This representation is supposed
  * to be fast. *)
-type y_array = Array of float array | Chunk of (int * int * float) | Empty
+type y_array = Array of int array
+             | Chunk of (int (*start*) * int (*stop*) * int (*value*))
+             | Empty
 
 let array_of_chunk nb_steps (r1, r2, y) =
-    Array.init nb_steps (fun r -> if r < r1 || r > r2 then 0. else y)
+    Array.init nb_steps (fun r -> if r < r1 || r > r2 then 0 else y)
 
 let array_of_y_array nb_steps = function
-    | Empty -> Array.make nb_steps 0.
+    | Empty -> Array.make nb_steps 0
     | Chunk c -> array_of_chunk nb_steps c
     | Array a -> a
 
@@ -241,10 +243,10 @@ let rec merge_y_array nb_steps ya1 ya2 =
         merge_y_array nb_steps (Array (array_of_chunk nb_steps c)) ya2
     | Chunk (r1, r2, y), (Array a as ya)
     | (Array a as ya), Chunk (r1, r2, y) ->
-        for r = r1 to r2 do a.(r) <- a.(r) +. y done ;
+        for r = r1 to r2 do a.(r) <- a.(r) + y done ;
         ya
     | Array a1, Array a2 ->
-        for r = 0 to nb_steps-1 do a1.(r) <- a1.(r) +. a2.(r) done ;
+        for r = 0 to nb_steps-1 do a1.(r) <- a1.(r) + a2.(r) done ;
         ya1
     | Empty, x | x, Empty -> x
 
@@ -312,7 +314,7 @@ struct
 
     (* We need a fold function useable polymorphically. See:
      * http://caml.inria.fr/resources/doc/faq/core.en.html#polymorphic-arguments *)
-    type fold_t = { fold : 'a. (Maplot.key * float -> 'a -> 'a) -> (unit -> 'a) -> ('a -> 'a -> 'a) -> 'a }
+    type fold_t = { fold : 'a. (Maplot.key * int -> 'a -> 'a) -> (unit -> 'a) -> ('a -> 'a -> 'a) -> 'a }
 
     (* FIXME: a single pass using the array trick for fold *)
     module FindSignificant =
@@ -331,7 +333,7 @@ struct
              * values of m until eventualy one reach 0 and we can remove it and insert
              * what's left from k. Return the new map, it's new size and new min. *)
             let update1 (k, v) (m, sz, mi) =
-                try Maplot.update_exn m k (fun v' -> v +. v'), sz, mi
+                try Maplot.update_exn m k (fun v' -> v + v'), sz, mi
                 with Not_found ->
                     if sz < n then (
                         Maplot.bind m k v, sz+1, min mi v
@@ -339,13 +341,13 @@ struct
                         (* the map cannot grow: reduce all entries by either v (if it fits) or the min *)
                         if mi >= v then (
                             (* m swallow v entirely *)
-                            Maplot.map (fun _k v' -> v' -. v) m, sz, mi -. v
+                            Maplot.map (fun _k v' -> v' - v) m, sz, mi - v
                         ) else (
                             (* reduce by min and remove all entries reaching 0 *)
-                            let sz' = ref sz and mi' = ref max_float in
+                            let sz' = ref sz and mi' = ref max_int in
                             let m' = Maplot.filter_map (fun _k v' ->
                                 if v' > mi then (
-                                    let new_v' = v' -. mi in
+                                    let new_v' = v' - mi in
                                     if new_v' < !mi' then mi' := new_v' ;
                                     Some new_v'
                                 ) else (
@@ -353,14 +355,14 @@ struct
                                     None
                                 )) m in
                             (* add k with what's left from v *)
-                            let new_v = v -. mi in
+                            let new_v = v - mi in
                             Maplot.bind m' k new_v, !sz'+1, min !mi' new_v
                         )
                     ) in
             (* First pass: find all keys that have more than n/Nth of the value (and others) *)
             let result, _sz, _mi =
                 fold update1
-                    (fun () -> Maplot.empty, 0, max_float)
+                    (fun () -> Maplot.empty, 0, max_int)
                     (fun m_sz_mi1 (m2, _sz2, _mi2) ->
                         (* Merge the small m2 into the big m1 *)
                         Maplot.fold_left (fun prev1 k2 v2 ->
@@ -375,30 +377,30 @@ struct
          * See below if you do not need a total value different from v (so that
          * you can reuse the same fold function than the one for pass1) *)
         let pass2 result fold tv_aggr tv_zero n =
-            let zeroed () = Maplot.map (fun _k _v -> 0., tv_zero) result, 0., tv_zero in
+            let zeroed () = Maplot.map (fun _k _v -> 0, tv_zero) result, 0, tv_zero in
             let result, rest, tv_rest = fold
                 (fun (k, v, tv) (m, rest, tv_rest) ->
                     try Maplot.update_exn m k (fun (v', tv') ->
-                        v +. v', tv_aggr tv tv'), rest, tv_rest
-                    with Not_found -> m, v +. rest, tv_aggr tv tv_rest)
+                        v + v', tv_aggr tv tv'), rest, tv_rest
+                    with Not_found -> m, v + rest, tv_aggr tv tv_rest)
                 zeroed
                 (fun (m1, rest1, tv_rest1) (m2, rest2, tv_rest2) ->
                     (* Merge the small m2 into the big m1 *)
                     Maplot.fold_left (fun m1 k2 (v2, tv2) ->
                         Maplot.update_exn m1 k2 (fun (v', tv') ->
-                            v' +. v2, tv_aggr tv' tv2) (* we *must* have k already in m1 ! *))
+                            v' + v2, tv_aggr tv' tv2) (* we *must* have k already in m1 ! *))
                         m1 m2,
-                    rest1 +. rest2,
+                    rest1 + rest2,
                     tv_aggr tv_rest1 tv_rest2) in
             (* Final touch: move insignificant keys from result to rest *)
-            let tot_v = Maplot.fold_left (fun p _k (v, _tv) -> v +. p) rest result in
+            let tot_v = Maplot.fold_left (fun p _k (v, _tv) -> v + p) rest result in
             let new_rest = ref rest
             and new_tv_rest = ref tv_rest
-            and min_v = tot_v /. (float_of_int n) in (* min value to stay out of "others" *)
+            and min_v = tot_v / n in (* min value to stay out of "others" *)
             let new_result = Maplot.filter (fun _k (v, tv) ->
                 if v >= min_v then true
                 else (
-                    new_rest := !new_rest +. v ;
+                    new_rest := !new_rest + v ;
                     new_tv_rest := tv_aggr !new_tv_rest tv ;
                     false
                 )) result in
@@ -425,8 +427,7 @@ struct
         let to_scaled_array ya =
             let a = array_of_y_array nb_steps ya in
             (* while we are at it, convert from bytes to bytes/secs *)
-            Array.iteri (fun i y -> a.(i) <- y /. step_s) a ;
-            a in
+            Array.map (fun y -> float_of_int y /. step_s) a in
         Maplot.fold_left (fun prev k (_, ya) ->
             (label_of_key k, to_scaled_array ya) :: prev)
             ["others", to_scaled_array rest_vols] vols
