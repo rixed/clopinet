@@ -12,9 +12,6 @@ TODO stack
 
 - code metrics to measure time spent in fold, group by...
 
-- log function that output to anything (like stdout, a special file, a special
-  div...)
-
 - overall structure : (table -> filter)* -> ploting function (parameters) -> 
   chart (parameters). Only the filter needs to be optimized.
 

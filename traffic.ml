@@ -264,7 +264,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
     let start, stop = min start stop, max start stop in
     let nb_steps = Plot.row_of_time start step stop |> succ in
     (* First pass: find the biggest contributors *)
-    Printf.fprintf stderr "Pass 1...\n%!" ;
+    Log.info "Pass 1..." ;
     let fold1 f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (_, _, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst
@@ -272,7 +272,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
             f (key, float_of_int value) p)
             i m in
     let interm = IPPld.FindSignificant.pass1 fold1 max_graphs in
-    Printf.fprintf stderr "Pass 2...\n%!" ;
+    Log.info "Pass 2..." ;
     let fold2 f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst
@@ -285,7 +285,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
             i m in
     let vols, _rest_t, rest_vols =
         IPPld.FindSignificant.pass2 interm fold2 (Plot.merge_y_array nb_steps) Plot.Empty max_graphs in
-    Printf.fprintf stderr "Final convertion...\n%!" ;
+    Log.info "Final convertion..." ;
     let label_of_key (mac_proto, ip) = label_of_ip_key mac_proto ip in
     (* returns a (string * float array) list *)
     IPPld.arrays_of_volume_chunks step nb_steps vols rest_vols label_of_key

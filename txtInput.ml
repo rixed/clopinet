@@ -1,7 +1,5 @@
 (* Custom IO with a peek facility *)
 
-let debug = false
-
 type strofs = { s : string ; mutable o : int }
 type char_source = File of in_channel | String of strofs
 
@@ -24,11 +22,9 @@ let read t = match t.peeked with
     | Some b -> t.peeked <- None ; b
 
 let read t =
-    if debug then (
-        let c = read t in
-        Printf.printf "read '%c'\n%!" c ;
-        c
-    ) else read t
+    let c = read t in
+    Log.debug "read '%c'\n%!" c ;
+    c
 
 let nread t n =
     assert (n >= 0) ;
@@ -43,11 +39,9 @@ let nread t n =
     s
 
 let nread t n =
-    if debug then (
-        let s = nread t n in
-        Printf.printf "nread '%s'\n%!" s ;
-        s
-    ) else nread t n
+    let s = nread t n in
+    Log.debug "nread '%s'\n%!" s ;
+    s
 
 let peek t = match t.peeked with
     | Some b -> b
@@ -57,11 +51,9 @@ let peek t = match t.peeked with
         b
 
 let peek t =
-    if debug then (
-        let c = peek t in
-        Printf.printf "peek '%c'\n%!" c ;
-        c
-    ) else peek t
+    let c = peek t in
+    Log.debug "peek '%c'\n%!" c ;
+    c
 
 let swallow t =
     if t.peeked <> None then t.peeked <- None
