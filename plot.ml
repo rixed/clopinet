@@ -97,6 +97,30 @@ let clip_y start stop step t1 t2 y =
         r1, r2-1, y
     )
 
+(* clip the given y (between t1 and t2) value according to specified time intervals.
+ * then return the time interval as ints and divide y between all these rows. *)
+let clip_y_int start stop step t1 t2 y =
+    let t1, y =
+        if t1 >= start then t1, y
+        else start, y - (Int64.to_int (Int64.div (Int64.sub start t1) (Int64.sub t2 t1))) in
+    let t2, y =
+        if t2 <= stop then t2, y
+        else stop, y - (Int64.to_int (Int64.div (Int64.sub t2 stop) (Int64.sub t2 t1))) in
+    let r1 = row_of_time start step t1
+    and r2 = row_of_time start step t2 in
+    (*
+    let check_r r =
+        if r < 0 || r >= nb_steps then Printf.printf "XXX: r=%d while nb_steps=%d\n%!" r nb_steps in
+    check_r r1 ; check_r r2 ;*)
+    if r1 = r2 then (
+        r1, r2, y
+    ) else (
+        (* We should split value more accurately here *)
+        let dt = r2-r1 in
+        let y = y / dt in
+        r1, r2-1, y
+    )
+
 (* clip the given y (between t1 and t2) value according to specified time intervals *)
 let clip_y_only ?start ?stop t1 t2 y =
     let t1, y = match start with
@@ -377,13 +401,13 @@ struct
          * See below if you do not need a total value different from v (so that
          * you can reuse the same fold function than the one for pass1) *)
         let pass2 result fold tv_aggr tv_zero n =
-            let zeroed () = Maplot.map (fun _k _v -> 0, tv_zero) result, 0, tv_zero in
+            let zeroed = Maplot.map (fun _k _v -> 0, tv_zero) result, 0, tv_zero in
             let result, rest, tv_rest = fold
                 (fun (k, v, tv) (m, rest, tv_rest) ->
                     try Maplot.update_exn m k (fun (v', tv') ->
                         v + v', tv_aggr tv tv'), rest, tv_rest
                     with Not_found -> m, v + rest, tv_aggr tv tv_rest)
-                zeroed
+                (fun () -> zeroed)
                 (fun (m1, rest1, tv_rest1) (m2, rest2, tv_rest2) ->
                     (* Merge the small m2 into the big m1 *)
                     Maplot.fold_left (fun m1 k2 (v2, tv2) ->

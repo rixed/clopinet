@@ -28,4 +28,5 @@ let debug = nolog
 let info = logf
 let warn = logf
 let err = logf
-
+let error = err
+let warning = warn

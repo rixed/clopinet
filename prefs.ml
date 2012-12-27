@@ -22,7 +22,7 @@ let set_base d = base := d
 
 let cache_timeout = 60. (* re-read param files every minutes *)
 type cache_file = float * (string, string) Hashtbl.t
-let file_cache = Hashtbl.create 11 (* from filename to cache_file *)
+let file_cache : (string, cache_file) Hashtbl.t = Hashtbl.create 11 (* from filename to cache_file *)
 
 (** Read a whole file into a hash *)
 let load_file fname =

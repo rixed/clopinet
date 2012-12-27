@@ -1,5 +1,4 @@
 open Batteries
-open LargeFile
 
 let max_file_size = Prefs.get_int "db/max_file_size" 10_000_000
 let max_hash_size = Prefs.get_int "db/max_hash_size" 1009

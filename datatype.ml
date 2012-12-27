@@ -535,7 +535,7 @@ struct
 end
 
 module Cidr_base = struct
-    type t = InetAddr.t * UInteger16.t
+    type t = InetAddr.t * UInteger8.t
     let name = "cidr"
     let equal (n1,m1) (n2,m2) =
         n1 = n2 && m1 = m2
@@ -543,26 +543,26 @@ module Cidr_base = struct
     let hash (n,m) =
         InetAddr.hash n + m
     let write oc (n,m) =
-        InetAddr.write oc n ; UInteger16.write oc m
+        InetAddr.write oc n ; UInteger8.write oc m
     let write_txt oc (n,m) =
         InetAddr.write_txt oc n ;
         Output.char oc '/' ;
-        UInteger16.write_txt oc m
+        UInteger8.write_txt oc m
     let read ic =
         let n = InetAddr.read ic in
-        n, UInteger16.read ic
+        n, UInteger8.read ic
     let read_txt ic =
         let n = read_txt_until ic "/\t\n" |>
                 InetAddr.of_string in
         let delim = peek_eof2nl ic in
         if delim = '/' then (
             TxtInput.swallow ic ;
-            n, UInteger16.read_txt ic
+            n, UInteger8.read_txt ic
         ) else n, 32
     let to_imm (n,m) =
-        "("^ InetAddr.to_imm n ^", "^ UInteger16.to_imm m ^")"
+        "("^ InetAddr.to_imm n ^", "^ UInteger8.to_imm m ^")"
 end
-module Cidr : DATATYPE with type t = InetAddr.t * UInteger16.t =
+module Cidr : DATATYPE with type t = InetAddr.t * UInteger8.t =
 struct
     include Cidr_base
     include Datatype_of (Cidr_base)
@@ -1091,7 +1091,7 @@ module ListOf_base (T : DATATYPE) = struct
         let len = VarInt.read ic in
         assert (len >= 0) ;
         let res = ref [] in
-        for i = 1 to len do
+        for _i = 1 to len do
             res := (T.read ic) :: !res
         done ;
         !res

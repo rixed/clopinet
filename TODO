@@ -3,7 +3,7 @@ TODO stack
 
 - make a new 'filter' cli param to apply on dbtables - each metric should
   come with a filter function, and a filter_compile function, to apply during
-  folding.
+  folding. This filter function should be buildable from a parsed string.
 
 - later: make all graph functions of traffic.ml/dns.ml/etc.ml available from 
   cmd line via an ascii chart output.
@@ -53,6 +53,9 @@ des lignes ou des nodes svg.
 
 - Et une config pour nommer des filtres?
 
+- Save under a given name some user defined graphs (such as: last_week_BW)
+
+- LoD time aggregations should be configurable (and lod name as well)
 
 
 - callflow: when mouse if over an arrow display time in legend
@@ -65,7 +68,7 @@ des lignes ou des nodes svg.
 
 - Move in junkie the server discovery mechanism
 
-Add is_server + certainty bit in tcp_proto_info.
+- Add is_server + certainty bit in tcp_proto_info.
 
 
 - Un graph pour les métriques HTTP/DNS qui permet de grapher en fonction du 

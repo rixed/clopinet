@@ -277,14 +277,14 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst
             and value = if what = PacketCount then count else mac_pld in
-            let r1, r2, y = Plot.clip_y start stop step t1 t2 (float_of_int value) in
-            let y = int_of_float y in
+            let r1, r2, y = Plot.clip_y_int start stop step t1 t2 value in
             (* Compute the total value for this, ie. the array of volumes *)
             let tv = Plot.Chunk (r1, r2, y) in
             f (key, y, tv) p)
             i m in
+    let tv_aggr a1 a2 = Plot.merge_y_array nb_steps a1 a2 in
     let vols, _rest_t, rest_vols =
-        IPPld.FindSignificant.pass2 interm fold2 (Plot.merge_y_array nb_steps) Plot.Empty max_graphs in
+        IPPld.FindSignificant.pass2 interm fold2 tv_aggr Plot.Empty max_graphs in
     Log.info "Final convertion..." ;
     let label_of_key (mac_proto, ip) = label_of_ip_key mac_proto ip in
     (* returns a (string * float array) list *)

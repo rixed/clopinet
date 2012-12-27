@@ -8,16 +8,22 @@ let main =
 (*        "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;*)
         "-iter", String (fun tbl ->
-            Traffic.(iter !dbdir tbl ignore)), "scan this table" ;
+            Log.info "Start itering..." ;
+            Traffic.(iter !dbdir tbl ignore) ;
+            Log.info "done."), "scan this table" ;
         "-batread_i64", String (fun f ->
             let ic = File.open_in f in
-            try forever IO.read_i64 ic
-            with _ -> ignore (IO.close_in ic)), "read a whole file as int64s using batteries" ;
+            Log.info "Start reading..." ;
+            (try forever IO.read_i64 ic
+            with _ -> ignore (IO.close_in ic)) ;
+            Log.info "done."), "read a whole file as int64s using batteries" ;
         "-deser_i64", String (fun f ->
             let open Serial in
+            Log.info "Start reading..." ;
             let ic = make_ibuf f in
-            try forever deser64 ic
-            with _ -> close_ibuf ic), "read a while file as int64s using deser" ]
+            (try forever deser64 ic
+            with _ -> close_ibuf ic) ;
+            Log.info "done."), "read a while file as int64s using deser" ]
         (fun x -> raise (Bad x))
         "Run some perf test")
 
