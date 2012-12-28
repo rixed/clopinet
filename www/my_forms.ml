@@ -34,55 +34,55 @@ module StopField = struct
     let persistant = true
 end
 module VlanField = struct
-    module Type = Optional(InputOfDatatype(Metric.VLan))
+    module Type = Optional (InputOfDatatype(Metric.VLan))
     let display_name = "vlan"
     let uniq_name = "vlan"
     let persistant = false
 end
 module MacSrcField = struct
-    module Type = Optional(InputOfDatatype(EthAddr))
+    module Type = Optional (InputOfDatatype(EthAddr))
     let display_name = "Eth src"
     let uniq_name = "eth-src"
     let persistant = false
 end
 module MacDstField = struct
-    module Type = Optional(InputOfDatatype(EthAddr))
+    module Type = Optional (InputOfDatatype(EthAddr))
     let display_name = "Eth dest"
     let uniq_name = "eth-dest"
     let persistant = false
 end
 module EthProtoField = struct
-    module Type = Optional(InputOfDatatype(Integer16))
+    module Type = Optional (InputOfDatatype(Integer16))
     let display_name = "Eth proto"
     let uniq_name = "eth-proto"
     let persistant = false
 end
 module IpCltField = struct
-    module Type = Optional(InputOfDatatype(Cidr))
+    module Type = Optional (InputOfDatatype(Cidr))
     let display_name = "IP clt"
     let uniq_name = "ip-clt"
     let persistant = true
 end
 module IpSrvField = struct
-    module Type = Optional(InputOfDatatype(Cidr))
+    module Type = Optional (InputOfDatatype(Cidr))
     let display_name = "IP srv"
     let uniq_name = "ip-srv"
     let persistant = true
 end
 module IpSrcField = struct
-    module Type = Optional(InputOfDatatype(Cidr))
+    module Type = Optional (InputOfDatatype(Cidr))
     let display_name = "IP src"
     let uniq_name = "ip-src"
     let persistant = false
 end
 module IpDstField = struct
-    module Type = Optional(InputOfDatatype(Cidr))
+    module Type = Optional (InputOfDatatype(Cidr))
     let display_name = "IP dst"
     let uniq_name = "ip-dst"
     let persistant = false
 end
 module IpField = struct
-    module Type = Optional(InputOfDatatype(Cidr))
+    module Type = Optional (InputOfDatatype(Cidr))
     let display_name = "IP src/dst"
     let uniq_name = "ip"
     let persistant = false
@@ -94,25 +94,25 @@ module IpStartField = struct
     let persistant = true
 end
 module IpProtoField = struct
-    module Type = Optional(InputOfDatatype(Integer8))
+    module Type = Optional (InputOfDatatype(Integer8))
     let display_name = "IP proto"
     let uniq_name = "ip-proto"
     let persistant = false
 end
 module L4SrcPortField = struct
-    module Type = Optional(InputOfDatatype(Integer16))
+    module Type = Optional (InputOfDatatype(Integer16))
     let display_name = "src port"
     let uniq_name = "src-port"
     let persistant = true
 end
 module L4DstPortField = struct
-    module Type = Optional(InputOfDatatype(Integer16))
+    module Type = Optional (InputOfDatatype(Integer16))
     let display_name = "dst port"
     let uniq_name = "dst-port"
     let persistant = true
 end
 module L4PortField = struct
-    module Type = Optional(InputOfDatatype(Integer16))
+    module Type = Optional (InputOfDatatype(Integer16))
     let display_name = "port"
     let uniq_name = "port"
     let persistant = true
@@ -163,25 +163,25 @@ module PlotWhat = struct
     let persistant = false
 end
 module MaxGraphsField = struct
-    module Type = Optional(Integer (struct let min = Some 1 let max = Some 10000 end))
+    module Type = Optional (Integer (struct let min = Some 1 let max = Some 10000 end))
     let display_name = "#series"
     let uniq_name = "series"
     let persistant = false
 end
 module TxMin = struct
-    module Type = Optional(Integer (struct let min = Some 1 let max = None end))
+    module Type = Optional (Integer (struct let min = Some 1 let max = None end))
     let display_name = "#tx min"
     let uniq_name = "txmin"
     let persistant = false
 end
 module MinRespTime = struct
-    module Type = Optional(InputOfDatatype (Interval))
+    module Type = Optional (InputOfDatatype (Interval))
     let display_name = "min resp time"
     let uniq_name = "minrt"
     let persistant = false
 end
 module MaxRespTime = struct
-    module Type = Optional(InputOfDatatype (Interval))
+    module Type = Optional (InputOfDatatype (Interval))
     let display_name = "max resp time"
     let uniq_name = "maxrt"
     let persistant = false
@@ -197,7 +197,7 @@ module SortOrder = struct
     let persistant = false
 end
 module DistPrecField = struct
-    module Type = Optional(InputOfDatatype (Interval))
+    module Type = Optional (InputOfDatatype (Interval))
     let display_name = "Precision"
     let uniq_name = "distr-prec"
     let persistant = true
@@ -215,7 +215,7 @@ module Traffic = struct
         let persistant = true
     end
     module MinTraffic = struct
-        module Type = Optional(InputOfDatatype (UInteger))
+        module Type = Optional (InputOfDatatype (UInteger))
         let display_name = "volume min"
         let uniq_name = "volume_min"
         let persistant = false
@@ -230,6 +230,12 @@ module Traffic = struct
         let uniq_name = "layout"
         let persistant = true
     end
+    module UsrFilter = struct
+        module Type = Optional (String (NoLimit))
+        let display_name = "free filter"
+        let uniq_name = "usr_filter"
+        let persistant = true
+    end
     module Bandwidth = RecordOf (ConsOf (FieldOf (StartField))
                                 (ConsOf (FieldOf (StopField))
                                 (ConsOf (FieldOf (VlanField))
@@ -241,12 +247,13 @@ module Traffic = struct
                                 (ConsOf (FieldOf (IpField))
                                 (ConsOf (FieldOf (IpProtoField))
                                 (ConsOf (FieldOf (L4PortField))
+                                (ConsOf (FieldOf (UsrFilter))
                                 (ConsOf (FieldOf (TimeStepField))
                                 (ConsOf (FieldOf (TblNameField))
                                 (ConsOf (FieldOf (PlotWhat))
                                 (ConsOf (FieldOf (GroupByField))
                                 (ConsOf (FieldOf (MaxGraphsField))
-                                        (NulType)))))))))))))))))
+                                        (NulType))))))))))))))))))
 
     module Peers = RecordOf (ConsOf (FieldOf (StartField))
                             (ConsOf (FieldOf (StopField))
@@ -259,11 +266,12 @@ module Traffic = struct
                             (ConsOf (FieldOf (IpField))
                             (ConsOf (FieldOf (IpProtoField))
                             (ConsOf (FieldOf (L4PortField))
+                            (ConsOf (FieldOf (UsrFilter))
                             (ConsOf (FieldOf (TblNameField))
                             (ConsOf (FieldOf (PlotWhat))
                             (ConsOf (FieldOf (GroupByPeerField))
                             (ConsOf (FieldOf (MaxGraphsField))
-                                    (NulType))))))))))))))))
+                                    (NulType)))))))))))))))))
 
     module Graph = RecordOf (ConsOf (FieldOf (StartField))
                             (ConsOf (FieldOf (StopField))
@@ -272,10 +280,11 @@ module Traffic = struct
                             (ConsOf (FieldOf (IpProtoField))
                             (ConsOf (FieldOf (L4PortField))
                             (ConsOf (FieldOf (MinTraffic))
+                            (ConsOf (FieldOf (UsrFilter))
                             (ConsOf (FieldOf (Layout))
                             (ConsOf (FieldOf (TblNameField))
                             (ConsOf (FieldOf (GroupByGraphField))
-                                    (NulType)))))))))))
+                                    (NulType))))))))))))
 
     module Tops = RecordOf (ConsOf (FieldOf (StartField))
                            (ConsOf (FieldOf (StopField))
@@ -288,11 +297,12 @@ module Traffic = struct
                            (ConsOf (FieldOf (IpField))
                            (ConsOf (FieldOf (IpProtoField))
                            (ConsOf (FieldOf (L4PortField))
+                           (ConsOf (FieldOf (UsrFilter))
                            (ConsOf (FieldOf (TblNameField))
                            (ConsOf (FieldOf (PlotWhat))
                            (ConsOf (FieldOf (GroupByTopField))
                            (ConsOf (FieldOf (MaxGraphsField))
-                                   (NulType))))))))))))))))
+                                   (NulType)))))))))))))))))
 
 end
 
@@ -308,19 +318,19 @@ module Web = struct
         let persistant = true
     end
     module HttpStatus = struct
-        module Type = Optional(Integer (struct let min = Some 100 let max = Some 999 end))
+        module Type = Optional (Integer (struct let min = Some 100 let max = Some 999 end))
         let display_name = "status"
         let uniq_name = "status"
         let persistant = false
     end
     module HttpHost = struct
-        module Type = Optional(String (NoLimit))
+        module Type = Optional (String (NoLimit))
         let display_name = "host"
         let uniq_name = "host"
         let persistant = false
     end
     module HttpURL = struct
-        module Type = Optional(String (NoLimit))
+        module Type = Optional (String (NoLimit))
         let display_name = "URL"
         let uniq_name = "url"
         let persistant = false
@@ -400,13 +410,13 @@ module Dns = struct
         let persistant = true
     end
     module Error = struct
-        module Type = Optional(Integer (struct let min = Some 0 let max = Some 255 end))
+        module Type = Optional (Integer (struct let min = Some 0 let max = Some 255 end))
         let display_name = "Error code"
         let uniq_name = "err-code"
         let persistant = false
     end
     module QueryName = struct
-        module Type = Optional(String (NoLimit))
+        module Type = Optional (String (NoLimit))
         let display_name = "Query Name"
         let uniq_name = "qname"
         let persistant = false
@@ -469,31 +479,31 @@ end
 
 module Admin = struct
     module SVGWidth = struct
-        module Type = Optional(Float (NoLimit_float))
+        module Type = Optional (Float (NoLimit_float))
         let display_name = "graph width"
         let uniq_name = "gui/svg/width"
         let persistant = true
     end
     module SVGHeight = struct
-        module Type = Optional(Float (NoLimit_float))
+        module Type = Optional (Float (NoLimit_float))
         let display_name = "graph height"
         let uniq_name = "gui/svg/height"
         let persistant = true
     end
     module ResolveIp = struct
-        module Type = Optional(Boolean)
+        module Type = Optional (Boolean)
         let display_name = "ip as names"
         let uniq_name = "resolver/ip"
         let persistant = true
     end
     module ResolveMac = struct
-        module Type = Optional(Boolean)
+        module Type = Optional (Boolean)
         let display_name = "MAC as names"
         let uniq_name = "resolver/mac"
         let persistant = true
     end
     module NCores = struct
-        module Type = Optional(Integer (struct let min = Some 1 let max = Some 1000 end))
+        module Type = Optional (Integer (struct let min = Some 1 let max = Some 1000 end))
         let display_name = "#CPU cores"
         let uniq_name = "db/#cores"
         let persistant = true

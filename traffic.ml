@@ -91,14 +91,16 @@ struct
     (* This is just a way for our dynamically loaded code to reach us *)
     let filter_ = ref (fun (_ : t) -> true)
     let set_filter f = filter_ := f
-    let compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter () =
+    (* globally accessible so that one can get the list of available fields *)
+    let filter_fields =
         let open User_filter in
-        Dynlinker.(load_filter "Traffic.Traffic" ?usr_filter
-            [ "start", TNum ; "stop", TNum ;
-              "packets", TNum ; "vlan", TNum ; "eth_src", TNum ; "eth_dst", TNum ;
-              "eth_proto", TNum ; "eth_payload", TNum ; "mtu", TNum ;
-              "ip_src", TIp ; "ip_dst", TIp ; "ip_proto", TNum ; "ip_payload", TNum ;
-              "port_src", TNum ; "port_dst", TNum ; "t4_payload", TNum ]
+        [ "start", TNum ; "stop", TNum ;
+          "packets", TNum ; "vlan", TNum ; "eth_src", TNum ; "eth_dst", TNum ;
+          "eth_proto", TNum ; "eth_payload", TNum ; "mtu", TNum ;
+          "ip_src", TIp ; "ip_dst", TIp ; "ip_proto", TNum ; "ip_payload", TNum ;
+          "port_src", TNum ; "port_dst", TNum ; "t4_payload", TNum ]
+    let compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter () =
+        Dynlinker.(load_filter "Traffic.Traffic" ?usr_filter filter_fields
             [ check start     Timestamp.to_imm  "Datatype.Timestamp.compare stop %s >= 0" ;
               check stop      Timestamp.to_imm  "Datatype.Timestamp.compare %s start > 0" ;
               check mac_src   EthAddr.to_imm    "Datatype.EthAddr.equal eth_src %s" ;

@@ -348,7 +348,7 @@ let decimal_number = number 10
 let hexadecimal_number = number 16
 
 let c_like_number_prefix c =
-    seq [ item '0' ; either [ item (Char.lowercase c) ; item (Char.uppercase c) ] ] 
+    seq [ item '0' ; either [ item (Char.lowercase c) ; item (Char.uppercase c) ] ]
 
 let c_like_hex_number =
     seqf [ none (c_like_number_prefix 'x') ; some hexadecimal_number ] >>: List.hd

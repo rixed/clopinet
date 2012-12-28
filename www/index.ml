@@ -74,7 +74,7 @@ struct
         let bandwidth args =
             let filters_form = form "Traffic/bandwidth" (Forms.Traffic.Bandwidth.to_edit "filter" args) in
             let disp_graph = match display_errs Forms.Traffic.Bandwidth.from_args "filter" args with
-                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (time_step, (tblname, (what, (group_by, (max_graphs, ())))))))))))))))) ->
+                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (time_step, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))))) ->
                     let time_step = Interval.to_ms time_step
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
@@ -82,11 +82,11 @@ struct
                     and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
                         | 1 (* src-mac *) | 2 (* dst-mac *) as sd ->
-                            eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs (sd = 1) what time_step dbdir tblname
+                            eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 1) what time_step dbdir tblname
                         | 3 (* src-ip *) | 4 (* dst-ip *) as sd ->
-                            ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs (sd = 3) what time_step dbdir tblname
+                            ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 3) what time_step dbdir tblname
                         | _ (* default, apps *) ->
-                            app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what time_step dbdir tblname in
+                            app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what time_step dbdir tblname in
                     if datasets = [] then
                         []
                     else
@@ -114,16 +114,16 @@ struct
         let peers args =
             let filters_form = form "Traffic/peers" (Forms.Traffic.Peers.to_edit "filter" args) in
             let disp_graph = match display_errs Forms.Traffic.Peers.from_args "filter" args with
-                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))) ->
+                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (tblname, (what, (group_by, (max_graphs, ())))))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
                     and what = if what = 0 then Volume else PacketCount in
                     let datasets = match group_by with
                         | 0 (* mac *) ->
-                            eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir tblname
+                            eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname
                         | _ (* ip *) ->
-                            ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir tblname in
+                            ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname in
                     if Hashtbl.is_empty datasets then
                         []
                     else
@@ -137,12 +137,12 @@ struct
         let graph args =
             let filters_form = form "Traffic/graph" (Forms.Traffic.Graph.to_edit "filter" args) in
             let disp_graph = match display_errs Forms.Traffic.Graph.from_args "filter" args with
-                | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (layout, (tblname, (group_by, ())))))))))) ->
+                | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (usr_filter, (layout, (tblname, (group_by, ()))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
                     and show_ip = group_by <> 2 and show_mac = group_by <> 1 in
-                    let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_mac show_ip dbdir tblname in
+                    let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter show_mac show_ip dbdir tblname in
                     if Hashtbl.is_empty datasets then
                         []
                     else
@@ -153,26 +153,26 @@ struct
         let tops args =
             let filters_form = form "Traffic/tops" (Forms.Traffic.Tops.to_edit "filter" args) in
             let disp_graph = match display_errs Forms.Traffic.Tops.from_args "filter" args with
-                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))) ->
+                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (tblname, (what, (group_by, (max_graphs, ())))))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop
                     and what = if what = 0 then Volume else PacketCount in
                     let key, datasets = match group_by with
                         | 1 (* src-mac *) ->
-                            "src mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs true what dbdir tblname
+                            "src mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs true what dbdir tblname
                         | 2 (* dst-mac *) ->
-                            "dst mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs false what dbdir tblname
+                            "dst mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs false what dbdir tblname
                         | 3 (* mac (both) *) ->
-                            "mac (both)", eth_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip ?ip_dst ?ip_proto ?port ?max_graphs what dbdir tblname
+                            "mac (both)", eth_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip ?ip_dst ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname
                         | 4 (* src-ip *) ->
-                            "src IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs true what dbdir tblname
+                            "src IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs true what dbdir tblname
                         | 5 (* dst-ip *) ->
-                            "dst IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs false what dbdir tblname
+                            "dst IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs false what dbdir tblname
                         | 6 (* ip (both) *) ->
-                            "IP (both)", ip_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir tblname
+                            "IP (both)", ip_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname
                         | _ (* app *) ->
-                            "Port", app_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what dbdir tblname in
+                            "Port", app_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname in
 
                     if Hashtbl.is_empty datasets then
                         []

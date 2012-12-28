@@ -17,7 +17,7 @@ struct
         last_t := now ;
         last_w := w ;
         Printf.sprintf "[%+ 8.3fs,%+ 12.0fw]" dt dw
-    
+
     let flags = [ `Date; `Time; `Custom bench ]
 end
 
