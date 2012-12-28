@@ -1,6 +1,8 @@
 TODO stack
 ----------
 
+- User_filter: some operators must have higher precedence than others
+  ( || and && must have lower precedence than comparisons etc )
 - make a new 'filter' cli param to apply on dbtables - each metric should
   come with a filter function, and a filter_compile function, to apply during
   folding. This filter function should be buildable from a parsed string.

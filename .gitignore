@@ -16,3 +16,4 @@
 *.log
 tuple*.ml
 nohup.out
+all_tests.ml

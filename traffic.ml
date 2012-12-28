@@ -91,27 +91,30 @@ struct
     (* This is just a way for our dynamically loaded code to reach us *)
     let filter_ = ref (fun (_ : t) -> true)
     let set_filter f = filter_ := f
-    let compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port () =
-        Dynlinker.(loadfilter "Traffic.Traffic"
-            "ts1, ts2, _, vl, mac_s, mac_d, mac_prot, _, _, ip_s, ip_d, ip_prot, _, l4src, l4dst, _"
-            [
-                check start     Timestamp.to_imm  "Datatype.Timestamp.compare ts2 %s >= 0" ;
-                check stop      Timestamp.to_imm  "Datatype.Timestamp.compare %s ts1 > 0" ;
-                check mac_src   EthAddr.to_imm    "Datatype.EthAddr.equal mac_s %s" ;
-                check mac_dst   EthAddr.to_imm    "Datatype.EthAddr.equal mac_d %s" ;
-                check eth_proto UInteger16.to_imm "mac_prot = %s" ;
-                check ip_src    Cidr.to_imm       "Datatype.in_cidr ip_s %s" ;
-                check ip_dst    Cidr.to_imm       "Datatype.in_cidr ip_d %s" ;
-                check ip        Cidr.to_imm       "(let x = %s in Datatype.in_cidr ip_s x || Datatype.in_cidr ip_d x)" ;
-                check ip_proto  UInteger8.to_imm  "ip_prot = %s" ;
-                check port      UInteger16.to_imm "(let x = %s in l4src = x || l4dst = x)" ;
-                check vlan      VLan.to_imm       "vl = %s"
-            ]) ;
+    let compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter () =
+        let open User_filter in
+        Dynlinker.(load_filter "Traffic.Traffic" ?usr_filter
+            [ "start", TNum ; "stop", TNum ;
+              "packets", TNum ; "vlan", TNum ; "eth_src", TNum ; "eth_dst", TNum ;
+              "eth_proto", TNum ; "eth_payload", TNum ; "mtu", TNum ;
+              "ip_src", TIp ; "ip_dst", TIp ; "ip_proto", TNum ; "ip_payload", TNum ;
+              "port_src", TNum ; "port_dst", TNum ; "t4_payload", TNum ]
+            [ check start     Timestamp.to_imm  "Datatype.Timestamp.compare stop %s >= 0" ;
+              check stop      Timestamp.to_imm  "Datatype.Timestamp.compare %s start > 0" ;
+              check mac_src   EthAddr.to_imm    "Datatype.EthAddr.equal eth_src %s" ;
+              check mac_dst   EthAddr.to_imm    "Datatype.EthAddr.equal eth_dst %s" ;
+              check eth_proto UInteger16.to_imm "eth_proto = %s" ;
+              check ip_src    Cidr.to_imm       "Datatype.in_cidr ip_src %s" ;
+              check ip_dst    Cidr.to_imm       "Datatype.in_cidr ip_dst %s" ;
+              check ip        Cidr.to_imm       "(let x = %s in Datatype.in_cidr ip_src x || Datatype.in_cidr ip_dst x)" ;
+              check ip_proto  UInteger8.to_imm  "ip_proto = %s" ;
+              check port      UInteger16.to_imm "(let x = %s in port_src = x || port_dst = x)" ;
+              check vlan      VLan.to_imm       "vlan = %s" ]) ;
         !filter_
 
     (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
-    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name f make_fst merge =
-        let filter = compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port () in
+    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name f make_fst merge =
+        let filter = compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter () in
         let tdir = table_name dbdir name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
@@ -127,9 +130,9 @@ struct
                 fst merge in
         fold_using_indexed ip_src tdir fold_hnum make_fst merge
 
-    let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto dbdir name f =
+    let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?usr_filter dbdir name f =
         let dummy_merge _ _ = () in
-        fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto dbdir name (fun x _ -> f x) ignore dummy_merge
+        fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?usr_filter dbdir name (fun x _ -> f x) ignore dummy_merge
 
 end
 
@@ -166,22 +169,22 @@ let label_of_ip_key mac_proto ip =
     else label_of_eth_proto mac_proto
 
 (* Returns traffic against time, with a different plot per MAC sockpair *)
-let eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs by_src what step dbdir name =
+let eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs by_src what step dbdir name =
     let start, stop = min start stop, max start stop in
     let fold f i m =
-        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
+        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
             f (vlan, if by_src then mac_src else mac_dst) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
             i m in
     EthPld.per_time ?max_graphs start stop step fold label_of_eth_key "others"
 
 (* Returns traffic per pair of MACs *)
-let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) what dbdir name =
+let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) what dbdir name =
     let start, stop = optmin start stop, optmax start stop in
     let label_of_key (vlan, mac_src, mac_dst) =
         label_of_eth_key (vlan, mac_src),
         label_of_eth_key (vlan, mac_dst) in
     let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
+        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
             (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
                 let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
@@ -200,10 +203,10 @@ let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     Hashtbl.map (fun _k v -> float_of_int v) h
 
 (* Returns traffic per pair of MACs *)
-let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) by_src what dbdir name =
+let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) by_src what dbdir name =
     let start, stop = optmin start stop, optmax start stop in
     let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
+        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
             (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
                 let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
@@ -222,13 +225,13 @@ let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     Hashtbl.map (fun _k v -> float_of_int v) h
 
 (* Returns traffic per pair of MACs *)
-let eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) what dbdir name =
+let eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) what dbdir name =
     let start, stop = optmin start stop, optmax start stop in
     let label_of_key (vlan, mac_src, mac_dst) =
         label_of_eth_key (vlan, mac_src) ^"\\u2192"^
         EthAddr.to_string mac_dst in
     let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
+        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
             (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
                 let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
@@ -252,21 +255,21 @@ module IPKey2 = Tuple3.Make (UInteger16) (InetAddr) (InetAddr) (* eth proto, sou
 module IPPld2 = Plot.DataSet (IPKey2)
 
 (* Returns traffic against time, with a different plot per IP sockpair *)
-let ip_plot_vol_time_singlepass start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs by_src what step dbdir name =
+let ip_plot_vol_time_singlepass start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs by_src what step dbdir name =
     let start, stop = min start stop, max start stop in
     let fold f i m =
-        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
+        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             f (mac_proto, if by_src then src else dst) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
             i m in
     IPPld.per_time ?max_graphs start stop step fold (fun (mac_proto, ip) -> label_of_ip_key mac_proto ip) "others"
 
-let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=100) by_src what step dbdir name =
+let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=100) by_src what step dbdir name =
     let start, stop = min start stop, max start stop in
     let nb_steps = Plot.row_of_time start step stop |> succ in
     (* First pass: find the biggest contributors *)
     Log.info "Pass 1..." ;
     let fold1 f i m =
-        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (_, _, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
+        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun (_, _, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst
             and value = if what = PacketCount then count else mac_pld in
             f (key, value) p)
@@ -274,7 +277,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
     let interm = IPPld.FindSignificant.pass1 fold1 max_graphs in
     Log.info "Pass 2..." ;
     let fold2 f i m =
-        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
+        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst
             and value = if what = PacketCount then count else mac_pld in
             let r1, r2, y = Plot.clip_y_int start stop step t1 t2 value in
@@ -292,13 +295,13 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
     (* FIXME: pass2 should return the same as pass2 |> arrays_of_volume_chunks... *)
 
 (* Returns traffic per pair of IPs *)
-let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) what dbdir name =
+let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) what dbdir name =
     let start, stop = optmin start stop, optmax start stop in
     let label_of_key (mac_proto, src, dst) =
         label_of_ip_key mac_proto src,
         label_of_ip_key mac_proto dst in
     let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
+        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
             (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
                 let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
@@ -316,10 +319,10 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     Hashtbl.add h ("other","") rest ;
     Hashtbl.map (fun _k v -> float_of_int v) h
 
-let ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) by_src what dbdir name =
+let ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) by_src what dbdir name =
     let start, stop = optmin start stop, optmax start stop in
     let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
+        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
             (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
                 let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
@@ -337,13 +340,13 @@ let ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     Hashtbl.add h "other" rest ;
     Hashtbl.map (fun _k v -> float_of_int v) h
 
-let ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=20) what dbdir name =
+let ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) what dbdir name =
     let start, stop = optmin start stop, optmax start stop in
     let label_of_key (mac_proto, src, dst) =
         label_of_ip_key mac_proto src ^"\\u2192"^
         label_of_ip_key mac_proto dst in
     let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
+        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
             (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
                 let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
@@ -375,18 +378,18 @@ let label_of_app_key (proto, port) =
     else proto ^ "/" ^ serv
 
 (* Returns traffic against time, with a different plot per proto/port *)
-let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?max_graphs what step dbdir name =
+let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what step dbdir name =
     let start, stop = min start stop, max start stop in
     let fold f i m =
-        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name (fun (t1, t2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) p ->
+        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun (t1, t2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) p ->
             f (proto, min p1 p2) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
             i m in
     AppPld.per_time ?max_graphs start stop step fold label_of_app_key "others"
 
-let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?(max_graphs=10) what dbdir name =
+let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=10) what dbdir name =
     let start, stop = optmin start stop, optmax start stop in
     let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port dbdir name
+        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
             (fun (t1, t2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) p ->
                 let y = if what = PacketCount then count else mac_pld in
                 let y = Plot.clip_y_only ?start ?stop t1 t2 y in
@@ -405,13 +408,13 @@ let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     Hashtbl.map (fun _k v -> float_of_int v) h
 
 type netgraph_key = Mac of (int option * EthAddr.t) | Ip of InetAddr.t
-let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port show_mac show_ip dbdir name =
+let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter show_mac show_ip dbdir name =
     let start, stop = min start stop, max start stop in
     let label_of_key = function
         | Mac x -> label_of_eth_key x
         | Ip x  -> InetAddr.to_string x in
     let fold f i m =
-        Traffic.fold ~start ~stop ?vlan ?eth_proto ?ip_proto ?port dbdir name
+        Traffic.fold ~start ~stop ?vlan ?eth_proto ?ip_proto ?port ?usr_filter dbdir name
             (fun (t1, t2, _, vlan, mac_src, mac_dst, mac_proto, mac_pld, _, ip_src, ip_dst, _, _, _, _, _) p ->
                 let y = mac_pld in
                 let y = Plot.clip_y_only ~start ~stop t1 t2 y in

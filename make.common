@@ -6,6 +6,7 @@ OCAMLYACC  = ocamlyacc
 OCAMLDEP   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldep
 OCAMLDOC   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldoc -html -colorize-code -all-params
 OCAMLMKTOP = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlmktop -g -rectypes
+QTEST      = qtest
 override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -inline 9 -S
 override OCAMLFLAGS    += $(INCS) -w Ael -g -annot
 CAMLINCLUDE = $(shell ocamlfind printconf stdlib)
@@ -65,9 +66,30 @@ endif
 .mly.mli:
 	$(OCAMLYACC) $<
 
+# Tests with qtest
+
+all_tests.byte: all_tests.cmo $(ARCHIVE)
+	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES) $(PKG_NAME) QTest2Lib" $(EXTRALIBS) -linkpkg $(OCAMLFLAGS) $<
+
+all_tests.cmo: all_tests.ml $(OBJECTS)
+	$(OCAMLC) $(SYNTAX) -package "$(REQUIRES) QTest2Lib" $(OCAMLFLAGS) -c -impl $<
+
+all_tests.opt: all_tests.cmx $(XARCHIVE)
+	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES) $(PKG_NAME) QTest2Lib" $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $<
+
+all_tests.cmx: all_tests.ml $(XOBJECTS)
+	$(OCAMLOPT) $(SYNTAX) -package "$(REQUIRES) QTest2Lib" $(OCAMLOPTFLAGS) -c -impl $<
+
+all_tests.ml: $(SOURCES)
+	$(QTEST) --preamble 'open Batteries;;' -o $@ extract $^
+
+check: all_tests.opt check-spec
+	@echo "Running inline tests"
+	@./$< --shuffle
+
 # Clean up
 clean: clean-spec
-	rm -f *.cm[ioxa] *.cmxa *.cmxs *.a *.s *.o *.byte *.opt .depend *.annot
+	rm -f *.cm[ioxa] *.cmxa *.cmxs *.a *.s *.o *.byte *.opt .depend *.annot all_tests.*
 
 # Dependencies
 .depend:

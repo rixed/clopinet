@@ -7,6 +7,8 @@ SOURCES  = \
 	txtInput.ml \
 	output.ml \
 	datatype.ml \
+	peg.ml \
+	user_filter.ml \
 	dynlinker.ml \
 	tuple2.ml \
 	tuple3.ml \
@@ -59,8 +61,8 @@ $(EXAMPLES_OPT): $(XARCHIVE) libmlrrd.a
 
 check.byte: $(ARCHIVE)
 check.opt: $(XARCHIVE)
-check: check.byte
-	@./check.byte || echo "FAILED"
+check-spec: check.byte
+	@./check.byte || echo "custom checks FAILED"
 
 mlrrd.top: $(ARCHIVE) $(CLIB)
 	# for some reason we must give here -ccopt -L. in order for ocamlmktop to find libmlrrd.a

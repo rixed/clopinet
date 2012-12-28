@@ -18,18 +18,33 @@ let loadstring str =
 let check opt_v to_imm fmt =
     Option.map (fun v -> Printf.sprintf fmt (to_imm v)) opt_v
 
-let loadfilter module_name param_names checks =
+let load_filter module_name usr_fields ?usr_filter checks =
+    let param_names = List.map fst usr_fields |> String.join "," in
+    (* We have two filters combined: one from preset filter terms, and the free usr_filter, ANDed *)
+    let usr_filter = match usr_filter with
+        | None -> "true"
+        | Some str ->
+            let open User_filter in
+            let expr = expression usr_fields str in
+            check TBool expr ;
+            ocaml_of_expr expr in
     let checks =
         List.fold_left (fun p ->
             function None -> p | Some x -> x::p) [] checks |>
         List.rev in
-    if checks <> [] then (* otherwise default filter is ok *)
-        let os = IO.output_string () in
-        Printf.fprintf os "\
+    let preset_filter =
+        if checks = [] then "true" else
+        String.concat " && " checks in
+    let os = IO.output_string () in
+    Printf.fprintf os "\
 let () =\n\
     %s.set_filter (fun (%s) ->\n\
+        (* user free filters *)\n\
+        %s &&\n\
+        (* preset filters *)\n\
         %s)\n"
             module_name param_names
-            (String.concat " && " checks) ;
-        let str = IO.close_out os in
-        loadstring str
+            usr_filter preset_filter ;
+    let str = IO.close_out os in
+    loadstring str
+

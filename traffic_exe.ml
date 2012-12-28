@@ -5,7 +5,8 @@ let main =
     let dbdir = ref "./" and start = ref None and stop = ref None
     and mac_src = ref None and mac_dst = ref None and vlan = ref None
     and eth_proto = ref None and ip_src = ref None and ip_dst = ref None
-    and ip_proto = ref None and create = ref false and step = ref 60 in
+    and ip_proto = ref None and create = ref false and step = ref 60
+    and usr_filter = ref None in
     Arg.(parse [
         "-dir", Set_string dbdir, "database directory (or './')" ;
         "-create", Set create, "create db if it does not exist yet" ;
@@ -15,7 +16,8 @@ let main =
         "-step", Set_int step, "time step for plots (default: 60)" ;
         "-dump", String (function tbname -> Traffic.(iter ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
                                                           ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst
-                                                          ?ip_src:!ip_src ?ip_dst:!ip_dst !dbdir tbname
+                                                          ?ip_src:!ip_src ?ip_dst:!ip_dst ?usr_filter:!usr_filter
+                                                          !dbdir tbname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
         "-dumpf", String (function fname -> Traffic.(iter_fname fname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this file" ;
@@ -34,6 +36,7 @@ let main =
         "-mac-src", String (fun s -> mac_src := Some (EthAddr.of_string s)), "limit to these sources" ;
         "-mac-dst", String (fun s -> mac_dst := Some (EthAddr.of_string s)), "limit to these dests" ;
         "-ip-src", String (fun s -> ip_src := Some (Cidr.of_string s)), "limit to these sources" ;
-        "-ip-dst", String (fun s -> ip_dst := Some (Cidr.of_string s)), "limit to these dests" ]
+        "-ip-dst", String (fun s -> ip_dst := Some (Cidr.of_string s)), "limit to these dests" ;
+        "-filter", String (fun s -> usr_filter := Some s), "Additional filter, as free expression" ]
         (fun x -> raise (Bad x))
         "Operate the traffic DB")
