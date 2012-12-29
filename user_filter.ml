@@ -182,7 +182,7 @@ let rec type_of_expr = function
     | StartsWith (e1,e2) | Contains (e1,e2) ->
         check TStr e1 ;
         check TStr e2 ;
-        TStr
+        TBool
 and check t e =
     let t' = type_of_expr e in
     if t' <> t then raise (Type_error (e, t', t))
@@ -205,7 +205,7 @@ let type_of_string str =
 (*$T type_of_string
   type_of_string "(true==false) == false" = TBool
   type_of_string "(666 > 42) && true" = TBool
-  type_of_string "\"glop glop\" starts with \"glop\"" = TStr
+  type_of_string "\"glop glop\" starts with \"glop\"" = TBool
  *)
 
 (* {2 Convertion into an OCaml string} *)
@@ -220,7 +220,7 @@ let rec ocaml_of_expr = function
     | Ge (e1, e2) -> "("^ ocaml_of_expr e1 ^" >= "^ ocaml_of_expr e2 ^")"
     | Lt (e1, e2) -> "("^ ocaml_of_expr e1 ^" < "^ ocaml_of_expr e2 ^")"
     | Le (e1, e2) -> "("^ ocaml_of_expr e1 ^" <= "^ ocaml_of_expr e2 ^")"
-    | StartsWith (s1, s2) -> "(String.starts_with "^ ocaml_of_expr s2 ^" "^ ocaml_of_expr s1 ^")"
+    | StartsWith (s1, s2) -> "(String.starts_with "^ ocaml_of_expr s1 ^" "^ ocaml_of_expr s2 ^")"
     | Contains (s1, s2) -> "(String.exists "^ ocaml_of_expr s2 ^" "^ ocaml_of_expr s1 ^")"
     | Value v -> "("^ocaml_of_value v^")"
     | Field f -> "("^ocaml_of_field f^")"

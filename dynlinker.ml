@@ -34,6 +34,7 @@ let load_filter module_name usr_fields ?usr_filter checks =
         String.concat " && " checks in
     let os = IO.output_string () in
     Printf.fprintf os "\
+open Batteries
 let () =\n\
     %s.set_filter (fun (%s) ->\n\
         (* user free filters *)\n\
