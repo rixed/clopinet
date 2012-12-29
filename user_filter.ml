@@ -157,14 +157,6 @@ let expr = term_3 ++ eof >>: fst
     Peg.Res (Or (Eq (Value (Bool true), Value (Bool false)), Eq (Value (Bool false), Value (Bool true))), [])
  *)
 
-exception Parse_error
-
-let expression fields' str =
-    fields := fields' ;
-    match expr (String.to_list str) with
-    | Res (e, []) -> e
-    | _ -> raise Parse_error
-
 (** {2 Type checking} *)
 
 exception Type_error of (expr * expr_type (* actual type *) * expr_type (* expected type *))
@@ -247,12 +239,25 @@ let indent n str =
     tab ^ (String.nsplit str "\n" |>
            String.concat sep)
 
+let string_of_type_error (e, actual_t, expected_t) =
+    Printf.sprintf "Type error: expression\n%s\nshould have type %s but has type %s instead"
+        (indent 2 (string_of_expr e))
+        (string_of_type expected_t)
+        (string_of_type actual_t)
+
 let () =
     Printexc.register_printer (function
-        | Type_error (e, actual_t, expected_t) ->
-            Some (Printf.sprintf "Type error: expression\n%s\nshould have type %s but has type %s instead"
-                     (indent 2 (string_of_expr e))
-                     (string_of_type expected_t)
-                     (string_of_type actual_t))
+        | Type_error x -> Some (string_of_type_error x)
         | _ -> None)
+
+(* Simple utility to get an expression of given type from a string, given some
+ * possible fields *)
+
+exception Parse_error
+
+let expression expected_t fields' str =
+    fields := fields' ;
+    match expr (String.to_list str) with
+    | Res (e, []) -> check expected_t e ; e
+    | _ -> raise Parse_error
 

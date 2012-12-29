@@ -231,11 +231,12 @@ module Traffic = struct
         let persistant = true
     end
     module UsrFilter = struct
-        module Type = Optional (String (NoLimit))
+        module Type = Optional (Filter_expr.Make (Traffic.Traffic))
         let display_name = "free filter"
         let uniq_name = "usr_filter"
         let persistant = true
     end
+
     module Bandwidth = RecordOf (ConsOf (FieldOf (StartField))
                                 (ConsOf (FieldOf (StopField))
                                 (ConsOf (FieldOf (VlanField))

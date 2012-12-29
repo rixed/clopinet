@@ -23,11 +23,8 @@ let load_filter module_name usr_fields ?usr_filter checks =
     (* We have two filters combined: one from preset filter terms, and the free usr_filter, ANDed *)
     let usr_filter = match usr_filter with
         | None -> "true"
-        | Some str ->
-            let open User_filter in
-            let expr = expression usr_fields str in
-            check TBool expr ;
-            ocaml_of_expr expr in
+        | Some expr ->
+            User_filter.ocaml_of_expr expr in
     let checks =
         List.fold_left (fun p ->
             function None -> p | Some x -> x::p) [] checks |>
