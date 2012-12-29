@@ -958,7 +958,7 @@ module Timestamp = struct
         of_unixfloat (ts +. s_f)
 
     let of_tm y mo d h mi s =
-        if y > 2100 || y < 2000 || mo < 1 || mo > 12 ||
+        if y > 2100 || y < 1970 || mo < 1 || mo > 12 ||
            d < 1 || d > 31 || h > 24 || mi > 60 || s > 60. then
             raise (Invalid_date (y, mo, d, h, mi, s)) ;
         of_tm_nocheck y mo d h mi s

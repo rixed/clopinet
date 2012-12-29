@@ -531,3 +531,39 @@ let rec interval bs =
     Res ({ zero with years = 1. ; months = -2. }, [])
  *)
 
+let date =
+    let sep = either [ item '/' ; item '-' ] in
+    number_in_range 1970 2100 ++ sep ++ number_in_range 1 12 ++ sep ++ number_in_range 1 31 >>:
+    function ((((y,_),m),_),d) -> y,m,d
+
+let time =
+    let sep = either [ item ':' ; item '-' ] in
+    let sec = float >>= fun s -> if s < 0. || s > 60. then fail else return s in
+    number_in_range 0 23 ++ sep ++ number_in_range 0 59 ++ optional (sep ++ sec) >>:
+    function (((h,_),m),s) -> match s with
+        | None       -> h,m,0.
+        | Some (_,s) -> h,m,s
+
+let timestamp =
+    let open Datatype.Timestamp in
+    let abs =
+        either [
+            date ++ optional (several blank ++ time) >>:
+            (fun ((y,mo,d),h) -> match h with
+                | None              -> of_tm y mo d 0 0 0.
+                | Some (_,(h,mi,s)) -> of_tm y mo d h mi s) ;
+            istring "now" >>: (fun _ -> now ()) ] in
+    abs ++ optional (any blank ++ interval) >>:
+    fun (ts,i_opt) -> match i_opt with
+        | None -> ts
+        | Some (_, i) -> add_interval ts i
+
+(*$T timestamp
+  timestamp (String.to_list "now -56 days") <> Fail
+  timestamp (String.to_list "now") <> Fail
+  timestamp (String.to_list "1976-01-28 15:07") = Res (191686020000L, [])
+  timestamp (String.to_list "1976-01-28 15:07:30") = Res (191686050000L, [])
+  timestamp (String.to_list "1976-01-28 15:07 +30secs") = Res (191686050000L, [])
+ *)
+
+

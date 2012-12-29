@@ -4,8 +4,6 @@ TODO stack
 User_filter
 -----------
 
-- parsing of timestamps and intervals...
-
 - Datatypes.of_text and User_filter.value should share syntax and even code!  
   (ex: bool is "f" here and "false" there) -> quite easy once we have the peg 
 parser to use it from Datatype.of_string (reverse is not true since of_string 
