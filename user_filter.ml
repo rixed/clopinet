@@ -17,18 +17,16 @@ type value = Cidr of Datatype.Cidr.t
            | String of Datatype.Text.t
            | Num of Datatype.Integer.t
 
-and operator = Eq of expr * expr
-             | Not of expr
-             | Or of expr * expr
-             | And of expr * expr
-             | Gt of expr * expr
-             | Lt of expr * expr
-             | Ge of expr * expr
-             | Le of expr * expr
-             | StartsWith of expr * expr
-             | Contains of expr * expr
-
-and expr = Op of operator
+and expr = Eq of expr * expr
+         | Not of expr
+         | Or of expr * expr
+         | And of expr * expr
+         | Gt of expr * expr
+         | Lt of expr * expr
+         | Ge of expr * expr
+         | Le of expr * expr
+         | StartsWith of expr * expr
+         | Contains of expr * expr
          | Value of value
          | Field of string
 
@@ -86,54 +84,57 @@ let le_op = spaced (string "<=")
 let starts_with_op = spaced (istring "starts with")
 let contains_op = spaced (istring "contains")
 
-let rec operation bs =
-    either [ (not_op ++ term) >>: (fun (_op,e) -> Not e) ;
-             (term ++ or_op ++ term) >>: (fun ((e1,_op),e2) -> Or (e1,e2)) ;
-             (term ++ and_op ++ term) >>: (fun ((e1,_op),e2) -> And (e1,e2)) ;
-             (term ++ eq_op ++ term) >>: (fun ((e1,_op),e2) -> Eq (e1,e2)) ;
-             (* Le/Ge before Lt/Gt since operators share beginning of name *)
-             (term ++ ge_op ++ term) >>: (fun ((e1,_op),e2) -> Ge (e1,e2)) ;
-             (term ++ le_op ++ term) >>: (fun ((e1,_op),e2) -> Le (e1,e2)) ;
-             (term ++ gt_op ++ term) >>: (fun ((e1,_op),e2) -> Gt (e1,e2)) ;
-             (term ++ lt_op ++ term) >>: (fun ((e1,_op),e2) -> Lt (e1,e2)) ;
-             (term ++ starts_with_op ++ term) >>: (fun ((e1,_op),e2) -> StartsWith (e1,e2)) ;
-             (term ++ contains_op ++ term) >>: (fun ((e1,_op),e2) -> Contains (e1,e2)) ] bs
-
-(*$T operation
-  operation (String.to_list "true==false") = \
-    Peg.Res (Eq (Value (Bool true), Value (Bool false)), [])
-  operation (String.to_list "true == false") = \
-    Peg.Res (Eq (Value (Bool true), Value (Bool false)), [])
-  operation (String.to_list "false starts with true") = \
-    Peg.Res (StartsWith (Value (Bool false), Value (Bool true)), [])
-  operation (String.to_list "true>=false") = \
-    Peg.Res (Ge (Value (Bool true), Value (Bool false)), [])
- *)
-
-and term bs =
-    (* start with operation since an operation can starts with a value *)
-    either [ (item '(' ++ operation ++ item ')') >>: (fun ((_,e),_) -> Op e) ;
+let rec term_1 bs = (* highest priority *)
+    either [ (item '(' ++ term_3 ++ item ')') >>: (fun ((_,e),_) -> e) ;
              value >>: (fun v -> Value v) ;
              field_name >>: (fun n -> Field n) ] bs
 
-let expr =
-    either [ term ++ eof;
-             (operation (* without parenths *) >>: fun e -> Op e) ++ eof ] >>: fst
+and term_2 bs =
+    either [ (not_op ++ term_1) >>: (fun (_op,e) -> Not e) ;
+             (term_1 ++ eq_op ++ term_1) >>: (fun ((e1,_op),e2) -> Eq (e1,e2)) ;
+             (* Le/Ge before Lt/Gt since operators share beginning of name *)
+             (term_1 ++ ge_op ++ term_1) >>: (fun ((e1,_op),e2) -> Ge (e1,e2)) ;
+             (term_1 ++ le_op ++ term_1) >>: (fun ((e1,_op),e2) -> Le (e1,e2)) ;
+             (term_1 ++ gt_op ++ term_1) >>: (fun ((e1,_op),e2) -> Gt (e1,e2)) ;
+             (term_1 ++ lt_op ++ term_1) >>: (fun ((e1,_op),e2) -> Lt (e1,e2)) ;
+             (term_1 ++ starts_with_op ++ term_1) >>: (fun ((e1,_op),e2) -> StartsWith (e1,e2)) ;
+             (term_1 ++ contains_op ++ term_1) >>: (fun ((e1,_op),e2) -> Contains (e1,e2)) ;
+             term_1 ] bs
+
+and term_3 bs =
+    either [ (term_2 ++ or_op ++ term_2) >>: (fun ((e1,_op),e2) -> Or (e1,e2)) ;
+             (term_2 ++ and_op ++ term_2) >>: (fun ((e1,_op),e2) -> And (e1,e2)) ;
+             term_2 ] bs
+
+(*$T term_3
+  term_3 (String.to_list "true==false") = \
+    Peg.Res (Eq (Value (Bool true), Value (Bool false)), [])
+  term_3 (String.to_list "true == false") = \
+    Peg.Res (Eq (Value (Bool true), Value (Bool false)), [])
+  term_3 (String.to_list "false starts with true") = \
+    Peg.Res (StartsWith (Value (Bool false), Value (Bool true)), [])
+  term_3 (String.to_list "true>=false") = \
+    Peg.Res (Ge (Value (Bool true), Value (Bool false)), [])
+ *)
+
+let expr = term_3 ++ eof >>: fst
 
 (*$T expr
   expr (String.to_list "true") = Peg.Res (Value (Bool true), [])
   expr (String.to_list "true") = Peg.Res (Value (Bool true), [])
   expr (String.to_list "true==") = Peg.Fail
   expr (String.to_list "true==false") = \
-    Peg.Res (Op (Eq (Value (Bool true), Value (Bool false))), [])
+    Peg.Res (Eq (Value (Bool true), Value (Bool false)), [])
   expr (String.to_list "(true==false) == false") = \
-    Peg.Res (Op (Eq (Op (Eq (Value (Bool true), Value (Bool false))), Value (Bool false))), [])
+    Peg.Res (Eq (Eq (Value (Bool true), Value (Bool false)), Value (Bool false)), [])
+  expr (String.to_list "true == false || false == true") = \
+    Peg.Res (Or (Eq (Value (Bool true), Value (Bool false)), Eq (Value (Bool false), Value (Bool true))), [])
  *)
 
 exception Parse_error
 
-let expression usr_fields str =
-    fields := usr_fields ;
+let expression fields' str =
+    fields := fields' ;
     match expr (String.to_list str) with
     | Res (e, []) -> e
     | _ -> raise Parse_error
@@ -143,22 +144,8 @@ let expression usr_fields str =
 exception Type_error of (expr * expr_type (* actual type *) * expr_type (* expected type *))
 
 let rec type_of_expr = function
-    | Op op -> type_of_operation op
     | Value v -> type_of_value v
     | Field f -> type_of_field f
-and check t e =
-    let t' = type_of_expr e in
-    if t' <> t then raise (Type_error (e, t', t))
-and type_of_field s =
-    (* we know at this point that this field exists *)
-    List.assoc s !fields
-and type_of_value = function
-    | Cidr _ -> TCidr
-    | InetAddr _ -> TIp
-    | Bool _ -> TBool
-    | String _ -> TStr
-    | Num _ -> TNum
-and type_of_operation = function
     | Eq (e1,e2) ->
         let t1 = type_of_expr e1 and t2 = type_of_expr e2 in
         if t1 <> t2 then raise (Type_error (e2, t2, t1)) ;
@@ -178,6 +165,18 @@ and type_of_operation = function
         check TStr e1 ;
         check TStr e2 ;
         TStr
+and check t e =
+    let t' = type_of_expr e in
+    if t' <> t then raise (Type_error (e, t', t))
+and type_of_field s =
+    (* we know at this point that this field exists *)
+    List.assoc s !fields
+and type_of_value = function
+    | Cidr _ -> TCidr
+    | InetAddr _ -> TIp
+    | Bool _ -> TBool
+    | String _ -> TStr
+    | Num _ -> TNum
 
 (* helper for the above tests *)
 let type_of_string str =
@@ -194,17 +193,6 @@ let type_of_string str =
 (* {2 Convertion into an OCaml string} *)
 
 let rec ocaml_of_expr = function
-    | Op op -> "("^ocaml_of_operation op^")"
-    | Value v -> "("^ocaml_of_value v^")"
-    | Field f -> "("^ocaml_of_field f^")"
-and ocaml_of_field f = f
-and ocaml_of_value = function
-    | Cidr v -> Datatype.Cidr.to_imm v
-    | InetAddr v -> Datatype.InetAddr.to_imm v
-    | Num v -> Datatype.Integer.to_imm v
-    | Bool v -> Datatype.Bool.to_imm v
-    | String v -> Datatype.Text.to_imm v
-and ocaml_of_operation = function
     (* TODO: for some e1/e2 that are values of certain types, use this type's cmp instead *)
     | Eq (e1, e2) -> "("^ ocaml_of_expr e1 ^" = "^ ocaml_of_expr e2 ^")"
     | Not e -> "(!"^ ocaml_of_expr e ^")"
@@ -216,4 +204,13 @@ and ocaml_of_operation = function
     | Le (e1, e2) -> "("^ ocaml_of_expr e1 ^" <= "^ ocaml_of_expr e2 ^")"
     | StartsWith (s1, s2) -> "(String.starts_with "^ ocaml_of_expr s2 ^" "^ ocaml_of_expr s1 ^")"
     | Contains (s1, s2) -> "(String.exists "^ ocaml_of_expr s2 ^" "^ ocaml_of_expr s1 ^")"
+    | Value v -> "("^ocaml_of_value v^")"
+    | Field f -> "("^ocaml_of_field f^")"
+and ocaml_of_field f = f
+and ocaml_of_value = function
+    | Cidr v -> Datatype.Cidr.to_imm v
+    | InetAddr v -> Datatype.InetAddr.to_imm v
+    | Num v -> Datatype.Integer.to_imm v
+    | Bool v -> Datatype.Bool.to_imm v
+    | String v -> Datatype.Text.to_imm v
 
