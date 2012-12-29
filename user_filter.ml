@@ -15,7 +15,8 @@ type value = Cidr of Datatype.Cidr.t
            | InetAddr of Datatype.InetAddr.t
            | Bool of Datatype.Bool.t
            | String of Datatype.Text.t
-           | Num of Datatype.Integer.t
+           | Integer of Datatype.Integer.t
+           | Float of Datatype.Float.t
 
 and expr = Eq of expr * expr
          | Not of expr
@@ -27,15 +28,17 @@ and expr = Eq of expr * expr
          | Le of expr * expr
          | StartsWith of expr * expr
          | Contains of expr * expr
+         | ToFloat of expr (* added to promote the int into a float on operations that require it *)
          | Value of value
          | Field of string
 
 let string_of_value = function
-    | Cidr v -> Datatype.Cidr.to_string v
+    | Cidr v     -> Datatype.Cidr.to_string v
     | InetAddr v -> Datatype.InetAddr.to_string v
-    | Bool v -> Datatype.Bool.to_string v
-    | String v -> Datatype.Text.to_string v
-    | Num v -> Datatype.Integer.to_string v
+    | Bool v     -> Datatype.Bool.to_string v
+    | String v   -> Datatype.Text.to_string v
+    | Integer v  -> Datatype.Integer.to_string v
+    | Float v    -> Datatype.Float.to_string v
 
 let rec string_of_expr = function
     | Not e -> Printf.sprintf "! (%s)" (string_of_expr e)
@@ -46,6 +49,7 @@ let rec string_of_expr = function
     | Lt (e1, e2) -> Printf.sprintf "(%s) < (%s)" (string_of_expr e1) (string_of_expr e2)
     | Ge (e1, e2) -> Printf.sprintf "(%s) >= (%s)" (string_of_expr e1) (string_of_expr e2)
     | Le (e1, e2) -> Printf.sprintf "(%s) <= (%s)" (string_of_expr e1) (string_of_expr e2)
+    | ToFloat e -> string_of_expr e
     | StartsWith (e1, e2) -> Printf.sprintf "%s starts with %s" (string_of_expr e1) (string_of_expr e2)
     | Contains (e1, e2) -> Printf.sprintf "%s contains %s" (string_of_expr e1) (string_of_expr e2)
     | Value v -> string_of_value v
@@ -67,9 +71,10 @@ let but_last l =
 let value =
     (* from most complex to simpler *)
     either [ cidr    >>: (fun v -> Cidr v) ;
+             float   >>: (fun v -> Float v) ;   (* must be tried before hostname! *)
              ip_addr >>: (fun v -> InetAddr v) ;
              bool    >>: (fun v -> Bool v) ;
-             c_like_number >>: (fun v -> Num v) ;
+             c_like_number >>: (fun v -> Integer v) ;
              (item '"' ++ upto ['"']) >>: (fun (_,v) -> String (String.of_list (but_last v))) ]
 
 (*$T value
@@ -78,9 +83,9 @@ let value =
   value (String.to_list "\"glop\"") = Peg.Res (String "glop", [])
  *)
 
-type expr_type = TBool | TNum | TStr | TIp | TCidr
+type expr_type = TBool | TInteger | TFloat | TStr | TIp | TCidr
 let string_of_type = function
-    | TBool -> "boolean" | TNum -> "numeric"
+    | TBool -> "boolean" | TInteger -> "integer" | TFloat -> "float"
     | TStr  -> "string"  | TIp  -> "IP address"
     | TCidr -> "CIDR subnet"
 
@@ -176,13 +181,18 @@ let rec type_of_expr = function
         check TBool e2 ;
         TBool
     | Gt (e1,e2) | Lt (e1,e2) | Ge (e1,e2) | Le (e1,e2) ->
-        check TNum e1 ;
-        check TNum e2 ;
+        if type_of_expr e1 = TInteger then check TInteger e2
+        else (
+            check TFloat e1 ;
+            check TFloat e2) ;
         TBool
     | StartsWith (e1,e2) | Contains (e1,e2) ->
         check TStr e1 ;
         check TStr e2 ;
         TBool
+    | ToFloat e ->
+        check TInteger e ;
+        TFloat
 and check t e =
     let t' = type_of_expr e in
     if t' <> t then raise (Type_error (e, t', t))
@@ -194,18 +204,34 @@ and type_of_value = function
     | InetAddr _ -> TIp
     | Bool _ -> TBool
     | String _ -> TStr
-    | Num _ -> TNum
+    | Integer _ -> TInteger
+    | Float _ -> TFloat
+
+(* Promote ints to floats where required by adding ToFloat operations *)
+let rec promote_to_float = function
+    | Eq (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
+    | Gt (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
+    | Lt (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
+    | Ge (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
+    | Le (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
+    | x -> x
+and may_promote e1 e2 =
+    let t1 = type_of_expr e1 and t2 = type_of_expr e2 in
+    if t1 = TInteger && t2 = TFloat then (ToFloat e1, e2) else
+    if t1 = TFloat && t1 = TInteger then (e1, ToFloat e2) else
+    e1, e2
 
 (* helper for the above tests *)
 let type_of_string str =
     match expr (String.to_list str) with
-    | Res (r, []) -> type_of_expr r
+    | Res (r, []) -> type_of_expr (promote_to_float r)
     | _ -> assert false
 
 (*$T type_of_string
   type_of_string "(true==false) == false" = TBool
   type_of_string "(666 > 42) && true" = TBool
   type_of_string "\"glop glop\" starts with \"glop\"" = TBool
+  type_of_string "1 == 1.0 || 1.2 <= 2" = TBool
  *)
 
 (* {2 Convertion into an OCaml string} *)
@@ -220,17 +246,19 @@ let rec ocaml_of_expr = function
     | Ge (e1, e2) -> "("^ ocaml_of_expr e1 ^" >= "^ ocaml_of_expr e2 ^")"
     | Lt (e1, e2) -> "("^ ocaml_of_expr e1 ^" < "^ ocaml_of_expr e2 ^")"
     | Le (e1, e2) -> "("^ ocaml_of_expr e1 ^" <= "^ ocaml_of_expr e2 ^")"
+    | ToFloat v -> "(float_of_int "^ ocaml_of_expr v ^")"
     | StartsWith (s1, s2) -> "(String.starts_with "^ ocaml_of_expr s1 ^" "^ ocaml_of_expr s2 ^")"
     | Contains (s1, s2) -> "(String.exists "^ ocaml_of_expr s2 ^" "^ ocaml_of_expr s1 ^")"
-    | Value v -> "("^ocaml_of_value v^")"
-    | Field f -> "("^ocaml_of_field f^")"
+    | Value v -> "("^ ocaml_of_value v ^")"
+    | Field f -> "("^ ocaml_of_field f ^")"
 and ocaml_of_field f = f
 and ocaml_of_value = function
-    | Cidr v -> Datatype.Cidr.to_imm v
+    | Cidr v     -> Datatype.Cidr.to_imm v
     | InetAddr v -> Datatype.InetAddr.to_imm v
-    | Num v -> Datatype.Integer.to_imm v
-    | Bool v -> Datatype.Bool.to_imm v
-    | String v -> Datatype.Text.to_imm v
+    | Integer v  -> Datatype.Integer.to_imm v
+    | Float v    -> Datatype.Float.to_imm v
+    | Bool v     -> Datatype.Bool.to_imm v
+    | String v   -> Datatype.Text.to_imm v
 
 (* FIXME: belongs to battery *)
 let indent n str =
@@ -258,6 +286,8 @@ exception Parse_error
 let expression expected_t fields' str =
     fields := fields' ;
     match expr (String.to_list str) with
-    | Res (e, []) -> check expected_t e ; e
+    | Res (e, []) ->
+        let e = promote_to_float e in
+        check expected_t e ; e
     | _ -> raise Parse_error
 

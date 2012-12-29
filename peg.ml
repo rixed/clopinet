@@ -7,8 +7,14 @@ type ('a, 'b) parzer = 'b list (* tokens to add *) -> ('a, 'b) parzer_result
 
 (* Matchs the end of input *)
 let eof = function
-    | [] -> Res ([], [])
+    | [] -> Res ((), [])
     | _ -> Fail
+
+(* Fail if p fail, but consume nothing it p match *)
+let check p bs =
+    match p bs with
+    | Fail -> Fail
+    | Res (x, _) -> Res (x, bs)
 
 let upto delim_orig bs =
     let rec aux past_delim delim past_bs bs =
@@ -387,11 +393,9 @@ let dotted_ip_addr =
      | _ -> assert false)
 
 let hostname =
-    (* FIXME: more chars than that are not allowed within a hostname *)
-    let specchar = cond (fun c -> c = '-' || c = '_') in
-    let namechar = either [ alphanum ; specchar ] in
-    let name = several namechar >>: String.of_list in
-    several ~sep:(item '.') name >>: (String.concat ".")
+    let namechar = either [ alphanum ; item '-' ] in
+    let label = repeat ~min:1 ~max:63 namechar >>: String.of_list in
+    several ~sep:(item '.') label >>: (String.concat ".")
 
 (*$T hostname
   hostname (String.to_list "www.google.com") = Res ("www.google.com", [])
@@ -424,3 +428,49 @@ let bool =
   bool (String.to_list "fAlse") = Res (false, [])
   bool (String.to_list "pas glop") = Fail
  *)
+
+let sign =
+    optional (either [ item '-' ; item '+' ]) >>: function Some '-' -> -1. | _ -> 1.
+
+let float =
+    sign ++
+    decimal_number ++
+    optional (
+        item '.' ++
+        any (item '0') ++
+        optional decimal_number) ++
+    optional (
+        item 'e' ++
+        sign ++
+        decimal_number
+    ) ++
+    (* check we are not followed by a dot to disambiguate from all-numeric evil hostnames *)
+    check (either [ eof ; ign (cond (fun c -> c != '.'))])
+    >>: fun ((((s,n),dec),exp),_) ->
+            let n = float_of_int n in
+            let mantissa = match dec with
+                | None | Some ((_,_),None) -> s *. n
+                | Some ((_,zeros),Some d) ->
+                    let rec aux f d =
+                        if d = 0 then f else
+                        let lo = d mod 10 in
+                        aux ((float_of_int lo +. f) *. 0.1) (d/10) in
+                    let dec = aux 0. d in
+                    let nb_zeros = List.length zeros in
+                    s *. (n +. (Float.pow 0.1 (float_of_int nb_zeros) *. dec)) in
+            match exp with
+            | None -> mantissa
+            | Some ((_,s),e) ->
+                mantissa *. Float.pow 10. (s *. float_of_int e)
+
+(*$T float
+  float (String.to_list "123.45670") = Res (123.4567, [])
+  float (String.to_list "0.12") = Res (0.12, [])
+  float (String.to_list "+1.2") = Res (1.2, [])
+  float (String.to_list "-9.09") = Res (-9.09, [])
+  float (String.to_list "1") = Res (1., [])
+  float (String.to_list "1e3") = Res (1000., [])
+  float (String.to_list "1.01e2") = Res (101., [])
+  float (String.to_list "-10.1e-1") = Res (-1.01, [])
+ *)
+

@@ -1,14 +1,15 @@
 TODO stack
 ----------
 
-- User_filter: parsing of timestamps and intervals...
+User_filter
+-----------
 
-- make a new 'filter' cli param to apply on dbtables - each metric should
-  come with a filter function, and a filter_compile function, to apply during
-  folding. This filter function should be buildable from a parsed string.
+- parsing of timestamps and intervals...
 
-- later: make all graph functions of traffic.ml/dns.ml/etc.ml available from 
-  cmd line via an ascii chart output.
+- Datatypes.of_text and User_filter.value should share syntax and even code!  
+  (ex: bool is "f" here and "false" there) -> quite easy once we have the peg 
+parser to use it from Datatype.of_string (reverse is not true since of_string 
+need to know where the value ends)
 
 
 

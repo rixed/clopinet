@@ -94,11 +94,11 @@ struct
     (* globally accessible so that one can get the list of available fields *)
     let filter_fields =
         let open User_filter in
-        [ "start", TNum ; "stop", TNum ;
-          "packets", TNum ; "vlan", TNum ; "eth_src", TNum ; "eth_dst", TNum ;
-          "eth_proto", TNum ; "eth_payload", TNum ; "mtu", TNum ;
-          "ip_src", TIp ; "ip_dst", TIp ; "ip_proto", TNum ; "ip_payload", TNum ;
-          "port_src", TNum ; "port_dst", TNum ; "t4_payload", TNum ]
+        [ "start", TInteger ; "stop", TInteger ;
+          "packets", TInteger ; "vlan", TInteger ; "eth_src", TInteger ; "eth_dst", TInteger ;
+          "eth_proto", TInteger ; "eth_payload", TInteger ; "mtu", TInteger ;
+          "ip_src", TIp ; "ip_dst", TIp ; "ip_proto", TInteger ; "ip_payload", TInteger ;
+          "port_src", TInteger ; "port_dst", TInteger ; "t4_payload", TInteger ]
     let compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter () =
         Dynlinker.(load_filter "Traffic.Traffic" ?usr_filter filter_fields
             [ check start     Timestamp.to_imm  "Datatype.Timestamp.compare stop %s >= 0" ;
