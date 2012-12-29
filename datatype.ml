@@ -842,6 +842,7 @@ module Interval : sig
     val to_ms   : t -> Int64.t
     val to_secs : t -> float
     val of_secs : float -> t
+    val add     : t -> t -> t
     end =
 struct
     include Interval_base
@@ -864,6 +865,14 @@ struct
     let to_ms t   = to_ms_float t |> Int64.of_float
     let to_secs t = to_ms_float t /. 1_000.
     let of_secs secs = { zero with secs }
+    let add t1 t2 = { years  = t1.years  +. t2.years ;
+                      months = t1.months +. t2.months ;
+                      weeks  = t1.weeks  +. t2.weeks ;
+                      days   = t1.days   +. t2.days ;
+                      hours  = t1.hours  +. t2.hours ;
+                      mins   = t1.mins   +. t2.mins ;
+                      secs   = t1.secs   +. t2.secs ;
+                      msecs  = t1.msecs  +. t2.msecs }
 end
 
 (**

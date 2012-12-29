@@ -1,4 +1,5 @@
 open Batteries
+let (|?) = Option.(|?)
 
 (* All parsers are stateless *)
 
@@ -281,17 +282,9 @@ let pipe p1 p2 bs =
 
 (* Various useful parsers *)
 
-let blank =
-    either [ item ' ' ; item '\t' ; item '\r' ; item '\n' ]
-
-let alphabetic =
-    cond (fun c ->
-        (c >= 'a' && c <= 'z') ||
-        (c >= 'A' && c <= 'Z'))
-
-let numeric =
-    cond (fun c -> c >= '0' && c <= '9')
-
+let blank = cond Char.is_whitespace 
+let alphabetic = cond Char.is_letter
+let numeric = cond Char.is_digit
 let alphanum = either [ alphabetic ; numeric ]
 
 let iitem c = either [ item c ; item (Char.uppercase c) ]
@@ -301,6 +294,8 @@ let char_seq str =
         (String.to_list str))
 
 let crlf = seq [ item '\r' ; item '\n' ]
+
+let word = several alphabetic >>: String.of_list
 
 let c2i c =
     if c >= '0' && c <= '9' then
@@ -354,6 +349,23 @@ let octal_number = number 8
 let decimal_number = number 10
 let hexadecimal_number = number 16
 
+let numeric_suffix_int =
+    optional (either [
+        item 'G' >>: (fun _ -> 1_000_000_000) ;
+        item 'M' >>: (fun _ -> 1_000_000) ;
+        item 'K' >>: (fun _ -> 1_024) ;
+        item 'k' >>: (fun _ -> 1_000) ]) >>: Option.default 1
+
+let numeric_suffix_float =
+    optional (either [
+        item 'G' >>: (fun _ -> 1_000_000_000.) ;
+        item 'M' >>: (fun _ -> 1_000_000.) ;
+        item 'K' >>: (fun _ -> 1_024.) ;
+        item 'k' >>: (fun _ -> 1_000.) ;
+        item 'm' >>: (fun _ -> 0.001) ;
+        item 'u' >>: (fun _ -> 0.000001) ;
+        item 'n' >>: (fun _ -> 0.000000001) ]) >>: Option.default 1.
+
 let c_like_number_prefix c =
     seq [ item '0' ; either [ item (Char.lowercase c) ; item (Char.uppercase c) ] ]
 
@@ -378,6 +390,13 @@ let c_like_number =
   c_like_number ['0';'b';'1';'0'] = Res (2,[])
   c_like_number ['0';'x'] = Res (0, ['x'])
 *)
+
+let integer =
+    c_like_number ++ numeric_suffix_int >>: (fun (n,s) -> n * s)
+
+(*$T integer
+  integer ['1';'2';'k'] = Res (12_000, [])
+ *)
 
 let in_range min max n =
     if n >= min && n <= max then return n else fail
@@ -432,7 +451,7 @@ let bool =
 let sign =
     optional (either [ item '-' ; item '+' ]) >>: function Some '-' -> -1. | _ -> 1.
 
-let float =
+let float ?(allow_suffix=true) =
     sign ++
     decimal_number ++
     optional (
@@ -444,11 +463,12 @@ let float =
         sign ++
         decimal_number
     ) ++
+    (if allow_suffix then numeric_suffix_float else return 1.) ++
     (* check we are not followed by a dot to disambiguate from all-numeric evil hostnames *)
-    check (either [ eof ; ign (cond (fun c -> c != '.'))])
-    >>: fun ((((s,n),dec),exp),_) ->
+    check (either [ eof ; ign (cond (fun c -> c != '.' && (not allow_suffix || not (Char.is_letter c)))) ])
+    >>: fun (((((s,n),dec),exp),suf),_) ->
             let n = float_of_int n in
-            let mantissa = match dec with
+            let n = match dec with
                 | None | Some ((_,_),None) -> s *. n
                 | Some ((_,zeros),Some d) ->
                     let rec aux f d =
@@ -458,10 +478,11 @@ let float =
                     let dec = aux 0. d in
                     let nb_zeros = List.length zeros in
                     s *. (n +. (Float.pow 0.1 (float_of_int nb_zeros) *. dec)) in
-            match exp with
-            | None -> mantissa
-            | Some ((_,s),e) ->
-                mantissa *. Float.pow 10. (s *. float_of_int e)
+            let n = match exp with
+                | None -> n
+                | Some ((_,s),e) ->
+                    n *. Float.pow 10. (s *. float_of_int e) in
+            n *. suf
 
 (*$T float
   float (String.to_list "123.45670") = Res (123.4567, [])
@@ -472,5 +493,41 @@ let float =
   float (String.to_list "1e3") = Res (1000., [])
   float (String.to_list "1.01e2") = Res (101., [])
   float (String.to_list "-10.1e-1") = Res (-1.01, [])
+  float (String.to_list "1.5k") = Res (1500., [])
+ *)
+
+let eth_addr =
+    times 6 ~sep:(item ':') (digit 16 ++ digit 16 >>: fun (hi,lo) -> char_of_int (hi lsl 4 + lo)) >>:
+    function [a;b;c;d;e;f] -> (a,b,c,d,e,f)
+           | _ -> assert false
+
+(*$T eth_addr
+  let c = char_of_int in eth_addr (String.to_list "12:34:56:78:9a:bc") = \
+    Res ((c 0x12,c 0x34,c 0x56,c 0x78,c 0x9a,c 0xbc), [])
+  let c = char_of_int in eth_addr (String.to_list "12:34:56:78:9A:BC") = \
+    Res ((c 0x12,c 0x34,c 0x56,c 0x78,c 0x9a,c 0xbc), [])
+ *)
+
+let rec interval bs =
+    let open Datatype.Interval in
+    let part =
+        float ~allow_suffix:false ++ any blank ++ word >>=
+        fun ((n,_),u) -> match String.lowercase u with
+            | "y" | "year" | "years" ->  return { zero with years = n }
+            | "month" | "months" ->      return { zero with months = n }
+            | "w" | "week" | "weeks" ->  return { zero with weeks = n }
+            | "d" | "day" | "days" ->    return { zero with days = n }
+            | "h" | "hour" | "hours" ->  return { zero with hours = n }
+            | "m" | "min" | "mins" ->    return { zero with mins = n }
+            | "s" | "sec" | "secs" ->    return { zero with secs = n }
+            | "ms" | "msec" | "msecs" -> return { zero with msecs = n }
+            | _ -> fail in
+    (part ++ any blank ++ optional interval >>: function
+        | (i, _), None -> i
+        | (i, _), Some i' -> add i i') bs
+
+(*$T interval
+  let open Datatype.Interval in interval (String.to_list "1year -2 months") = \
+    Res ({ zero with years = 1. ; months = -2. }, [])
  *)
 

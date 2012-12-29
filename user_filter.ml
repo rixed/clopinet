@@ -17,6 +17,8 @@ type value = Cidr of Datatype.Cidr.t
            | String of Datatype.Text.t
            | Integer of Datatype.Integer.t
            | Float of Datatype.Float.t
+           | EthAddr of Datatype.EthAddr.t
+           | Interval of Datatype.Interval.t
 
 and expr = Eq of expr * expr
          | Not of expr
@@ -39,6 +41,8 @@ let string_of_value = function
     | String v   -> Datatype.Text.to_string v
     | Integer v  -> Datatype.Integer.to_string v
     | Float v    -> Datatype.Float.to_string v
+    | EthAddr v  -> Datatype.EthAddr.to_string v
+    | Interval v -> Datatype.Interval.to_string v
 
 let rec string_of_expr = function
     | Not e -> Printf.sprintf "! (%s)" (string_of_expr e)
@@ -70,11 +74,13 @@ let but_last l =
 
 let value =
     (* from most complex to simpler *)
-    either [ cidr    >>: (fun v -> Cidr v) ;
-             float   >>: (fun v -> Float v) ;   (* must be tried before hostname! *)
-             ip_addr >>: (fun v -> InetAddr v) ;
-             bool    >>: (fun v -> Bool v) ;
-             c_like_number >>: (fun v -> Integer v) ;
+    either [ cidr     >>: (fun v -> Cidr v) ;
+             interval >>: (fun v -> Interval v) ;
+             eth_addr >>: (fun v -> EthAddr v) ;
+             float    >>: (fun v -> Float v) ;   (* must be tried before hostname! *)
+             ip_addr  >>: (fun v -> InetAddr v) ;
+             bool     >>: (fun v -> Bool v) ;
+             integer  >>: (fun v -> Integer v) ;
              (item '"' ++ upto ['"']) >>: (fun (_,v) -> String (String.of_list (but_last v))) ]
 
 (*$T value
@@ -83,11 +89,11 @@ let value =
   value (String.to_list "\"glop\"") = Peg.Res (String "glop", [])
  *)
 
-type expr_type = TBool | TInteger | TFloat | TStr | TIp | TCidr
+type expr_type = TBool | TInteger | TFloat | TStr | TIp | TCidr | TEthAddr | TInterval
 let string_of_type = function
     | TBool -> "boolean" | TInteger -> "integer" | TFloat -> "float"
-    | TStr  -> "string"  | TIp  -> "IP address"
-    | TCidr -> "CIDR subnet"
+    | TStr  -> "string"  | TIp  -> "IP address"  | TCidr -> "CIDR subnet"
+    | TEthAddr -> "mac"  | TInterval -> "time interval"
 
 let fields = ref [ "prout", TIp ]
 
@@ -169,9 +175,8 @@ exception Type_error of (expr * expr_type (* actual type *) * expr_type (* expec
 let rec type_of_expr = function
     | Value v -> type_of_value v
     | Field f -> type_of_field f
-    | Eq (e1,e2) ->
-        let t1 = type_of_expr e1 and t2 = type_of_expr e2 in
-        if t1 <> t2 then raise (Type_error (e2, t2, t1)) ;
+    | Eq (e1,e2) | Gt (e1,e2) | Lt (e1,e2) | Ge (e1,e2) | Le (e1,e2) ->
+        check_same_type e1 e2 ;
         TBool
     | Not e ->
         check TBool e ;
@@ -179,12 +184,6 @@ let rec type_of_expr = function
     | Or (e1,e2) | And (e1,e2) ->
         check TBool e1 ;
         check TBool e2 ;
-        TBool
-    | Gt (e1,e2) | Lt (e1,e2) | Ge (e1,e2) | Le (e1,e2) ->
-        if type_of_expr e1 = TInteger then check TInteger e2
-        else (
-            check TFloat e1 ;
-            check TFloat e2) ;
         TBool
     | StartsWith (e1,e2) | Contains (e1,e2) ->
         check TStr e1 ;
@@ -196,16 +195,21 @@ let rec type_of_expr = function
 and check t e =
     let t' = type_of_expr e in
     if t' <> t then raise (Type_error (e, t', t))
+and check_same_type e1 e2 =
+    let t1 = type_of_expr e1 and t2 = type_of_expr e2 in
+    if t1 <> t2 then raise (Type_error (e2, t2, t1))
 and type_of_field s =
     (* we know at this point that this field exists *)
     List.assoc s !fields
 and type_of_value = function
-    | Cidr _ -> TCidr
+    | Cidr _     -> TCidr
     | InetAddr _ -> TIp
-    | Bool _ -> TBool
-    | String _ -> TStr
-    | Integer _ -> TInteger
-    | Float _ -> TFloat
+    | Bool _     -> TBool
+    | String _   -> TStr
+    | Integer _  -> TInteger
+    | Float _    -> TFloat
+    | EthAddr _  -> TEthAddr
+    | Interval _ -> TInterval
 
 (* Promote ints to floats where required by adding ToFloat operations *)
 let rec promote_to_float = function
@@ -237,7 +241,7 @@ let type_of_string str =
 (* {2 Convertion into an OCaml string} *)
 
 let rec ocaml_of_expr = function
-    (* TODO: for some e1/e2 that are values of certain types, use this type's cmp instead *)
+    (* TODO: for some e1/e2 that are values of certain types, use this type's cmp instead for Eq and Gt etc *)
     | Eq (e1, e2) -> "("^ ocaml_of_expr e1 ^" = "^ ocaml_of_expr e2 ^")"
     | Not e -> "(!"^ ocaml_of_expr e ^")"
     | And (e1, e2) -> "("^ ocaml_of_expr e1 ^" && "^ ocaml_of_expr e2 ^")"
@@ -259,6 +263,8 @@ and ocaml_of_value = function
     | Float v    -> Datatype.Float.to_imm v
     | Bool v     -> Datatype.Bool.to_imm v
     | String v   -> Datatype.Text.to_imm v
+    | EthAddr v  -> Datatype.EthAddr.to_imm v
+    | Interval v -> Datatype.Interval.to_imm v
 
 (* FIXME: belongs to battery *)
 let indent n str =
