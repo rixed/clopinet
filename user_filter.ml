@@ -30,6 +30,27 @@ and expr = Eq of expr * expr
          | Value of value
          | Field of string
 
+let string_of_value = function
+    | Cidr v -> Datatype.Cidr.to_string v
+    | InetAddr v -> Datatype.InetAddr.to_string v
+    | Bool v -> Datatype.Bool.to_string v
+    | String v -> Datatype.Text.to_string v
+    | Num v -> Datatype.Integer.to_string v
+
+let rec string_of_expr = function
+    | Not e -> Printf.sprintf "! (%s)" (string_of_expr e)
+    | Eq (e1, e2) -> Printf.sprintf "(%s) == (%s)" (string_of_expr e1) (string_of_expr e2)
+    | Or (e1, e2) -> Printf.sprintf "(%s) || (%s)" (string_of_expr e1) (string_of_expr e2)
+    | And (e1, e2) -> Printf.sprintf "(%s) && (%s)" (string_of_expr e1) (string_of_expr e2)
+    | Gt (e1, e2) -> Printf.sprintf "(%s) > (%s)" (string_of_expr e1) (string_of_expr e2)
+    | Lt (e1, e2) -> Printf.sprintf "(%s) < (%s)" (string_of_expr e1) (string_of_expr e2)
+    | Ge (e1, e2) -> Printf.sprintf "(%s) >= (%s)" (string_of_expr e1) (string_of_expr e2)
+    | Le (e1, e2) -> Printf.sprintf "(%s) <= (%s)" (string_of_expr e1) (string_of_expr e2)
+    | StartsWith (e1, e2) -> Printf.sprintf "%s starts with %s" (string_of_expr e1) (string_of_expr e2)
+    | Contains (e1, e2) -> Printf.sprintf "%s contains %s" (string_of_expr e1) (string_of_expr e2)
+    | Value v -> string_of_value v
+    | Field f -> f
+
 let but_last l =
     let rec aux prev = function
         | [] -> invalid_arg "l"
@@ -58,6 +79,11 @@ let value =
  *)
 
 type expr_type = TBool | TNum | TStr | TIp | TCidr
+let string_of_type = function
+    | TBool -> "boolean" | TNum -> "numeric"
+    | TStr  -> "string"  | TIp  -> "IP address"
+    | TCidr -> "CIDR subnet"
+
 let fields = ref [ "prout", TIp ]
 
 let field_name =
@@ -74,7 +100,7 @@ let spaced p =
     none (any blank) ++ some p ++ none (any blank) >>: (fun ((_, v), _) -> v)
 
 let eq_op = spaced (string "==")
-let not_op = spaced (istring "not")
+let not_op = spaced (either [ign (istring "not"); ign (item '!')])
 let or_op = spaced (either [istring "or" ; string "||"])
 let and_op = spaced (either [istring "and" ; string "&&"])
 let gt_op = spaced (string ">")
@@ -213,4 +239,20 @@ and ocaml_of_value = function
     | Num v -> Datatype.Integer.to_imm v
     | Bool v -> Datatype.Bool.to_imm v
     | String v -> Datatype.Text.to_imm v
+
+(* FIXME: belongs to battery *)
+let indent n str =
+    let tab = String.make n ' ' in
+    let sep = "\n" ^ tab in
+    tab ^ (String.nsplit str "\n" |>
+           String.concat sep)
+
+let () =
+    Printexc.register_printer (function
+        | Type_error (e, actual_t, expected_t) ->
+            Some (Printf.sprintf "Type error: expression\n%s\nshould have type %s but has type %s instead"
+                     (indent 2 (string_of_expr e))
+                     (string_of_type expected_t)
+                     (string_of_type actual_t))
+        | _ -> None)
 

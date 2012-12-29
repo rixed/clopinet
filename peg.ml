@@ -93,6 +93,7 @@ let map_filter p f bs =
 
 let some p = p >>: (fun res -> Some res)
 let none p = p >>: (fun _ -> None)
+let ign p = p >>: ignore
 
 (* combinators *)
 

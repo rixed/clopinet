@@ -1,6 +1,10 @@
 TODO stack
 ----------
 
+- User_filter errors should be handled in form validation, ie type of input 
+  must be "user filter expression" not text (and following Traffic.functions
+  should take an expression rather than a string)
+
 - User_filter: parsing of timestamps and intervals...
 
 - make a new 'filter' cli param to apply on dbtables - each metric should
