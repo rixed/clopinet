@@ -41,7 +41,7 @@ let check_ints () =
     assert (of_string "42K" = 43_008) ;
     assert (of_string "42M" = 42_000_000) ;
     assert (of_string "42G" = 42_000_000_000) ;
-    assert_exc (Failure "Cannot consume all input") of_string "42m"
+    assert_exc Peg.Parse_error of_string "42m"
     (* TODO: more int checks *)
 
 let check_inet_addr () =
@@ -66,29 +66,27 @@ let check_mac () =
 
 let check_timestamp () =
     let open Timestamp in
-    assert_exc End_of_file of_string "" ;
+    assert_exc Peg.Parse_error of_string "" ;
     assert (of_string "2012-10-25 11:23:02" = 1351156982000L) ;
     assert (of_string "2012-10-25 11:23" = 1351156980000L) ;
-    assert (of_string "2012-10-25 11" = 1351155600000L) ;
     assert (of_string "2012-10-25" = 1351116000000L) ;
     assert (to_string 1351156980000L = "2012-10-25 11:23") ;
-    assert_exc (Failure "Cannot consume all input") of_string "2012-10-25 11:23:02 glop" ;
+    assert_exc Peg.Parse_error of_string "2012-10-25 11:23:02 glop" ;
     (* check time+interval format *)
     assert (of_string "2012-10-25 +2months" = of_string "2012-12-25") ;
     assert (of_string "2012-10-25 -3 w -4 d" = of_string "2012-09-30") ;
     assert (of_string "2012-10-25 -3w-4d " = of_string "2012-09-30") ;
-    assert (compare (of_string "-1d") (of_string "+2 w") = -1) ;
     assert (compare (of_string "now-1d") (of_string "now +2 w") = -1) ;
     assert (compare (of_string "now-1min") (of_string "now -1 min") = 0) ;
     (* when no units nor sign are given, it's a timestamp *)
-    assert (compare (of_string "1323765999.42") (of_string "2011-12-13 09:45:39.42") = 0) ;
+    assert (compare (of_string "1323765999.42") (of_string "2011-12-13 09:46:39.42") = 0) ;
     (* parser must handle junkie's format *)
     assert (parzer (s2l "1323766045s 962156us") = Peg.Res (1323766045962L, []))
 
 let check_interval () =
     let open Interval in
     assert (of_string "42years" = { zero with years = 42. }) ;
-    (* nothing specified -> seconds *)
+    (* nothing specified -> seconds (we need this to parse junkie's output) *)
     assert (of_string "42" = { zero with secs = 42. }) ;
     (* should accept any float notation (from ocaml _and_ javascript) *)
     let i = of_string "8.179775280898875e-7" in

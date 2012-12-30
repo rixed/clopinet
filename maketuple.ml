@@ -34,15 +34,11 @@ let maketuple n =
     printf "    let read ic =\n" ;
     foreach (fun i -> printf "        let t%d = T%d.read ic in\n" i i) ;
     printf "        %s\n" (parms 't') ;
-    printf "    let read_txt ic =\n" ;
-    foreach (fun i ->
-        if i > 0 then printf "        let sep = TxtInput.read ic in assert (sep = '\\t') ;\n" ;
-        printf "        let t%d = T%d.read_txt ic in\n" i i) ;
-    printf "        %s\n" (parms 't') ;
     printf "    let to_imm (%s) = \"(\"^" (parms 't') ;
     foreach (fun i -> if i > 0 then printf " ^" ; printf " T%d.to_imm t%d" i i) ;
     printf " ^\")\"\n" ;
-    printf "    let parzer bs =\n" ;
+    printf "    let parzer ?(picky=false) bs =\n" ;
+    printf "        ignore picky ;\n" ;
     printf "        let open Peg in\n" ;
     foreach (fun i ->
         printf "        (match T%d.parzer bs with Fail -> Fail | Res (res%d, bs) ->\n" i i ;

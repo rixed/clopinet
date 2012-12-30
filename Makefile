@@ -4,7 +4,6 @@ SOURCES  = \
 	log.ml \
 	prefs.ml \
 	serial.ml \
-	txtInput.ml \
 	output.ml \
 	peg.ml \
 	datatype.ml \

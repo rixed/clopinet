@@ -1,15 +1,6 @@
 open Batteries
 open Serial
 
-let peek_eof2nl ic =
-    try TxtInput.peek ic with End_of_file -> '\n'
-let swallow_all c ic =
-    while peek_eof2nl ic = c do
-        TxtInput.swallow ic
-    done
-let try_swallow_one c ic =
-    if peek_eof2nl ic = c then TxtInput.swallow ic
-
 (*
    DATATYPES
    What's a DATATYPE? A name, a compact (binary) and friendly (textual) writer and
@@ -27,9 +18,9 @@ sig
     val write     : obuf -> t -> unit
     val write_txt : Output.t -> t -> unit
     val read      : ibuf -> t
-    val read_txt  : TxtInput.t -> t
     val to_imm    : t -> string
-    val parzer    : (t, char) Peg.parzer
+    (* picky is when you are not sure the value may be of the correct type (false by default) *)
+    val parzer    : ?picky:bool -> (t, char) Peg.parzer
 end
 
 module type DATATYPE =
@@ -44,11 +35,10 @@ end
 module Datatype_of (B : DATATYPE_BASE) =
 struct
     let of_string str : B.t =
-        let inp = TxtInput.of_string str in
-        let v = B.read_txt inp in
-        (* Check that we've consumed the whole string *)
-        if not (TxtInput.is_eof inp) then failwith "Cannot consume all input" ;
-        v
+        let open Peg in
+        match (B.parzer ++ eof) (String.to_list str) with
+        | Res ((v,_), _) -> v
+        | Fail -> raise Parse_error
     let to_string (t : B.t) =
         let buf = Buffer.create 32 in
         B.write_txt (Output.of_buffer buf) t ;
@@ -99,46 +89,6 @@ struct
     let read = deser64
 end
 
-let read_chars ic set =
-    if TxtInput.is_eof ic then raise End_of_file else
-    let rec aux p =
-        try (
-            let b = TxtInput.peek ic in
-            if String.contains set b then (
-                TxtInput.swallow ic ;
-                aux (b :: p)
-            ) else (
-                string_of_list (List.rev p)
-            )
-        ) with End_of_file ->
-            string_of_list (List.rev p) in
-    aux []
-
-let read_txt_until ic delim =
-    if TxtInput.is_eof ic then raise End_of_file else
-    let rec aux p =
-        try (
-            let b = TxtInput.peek ic in
-            if String.contains delim b then (
-                string_of_list (List.rev p)
-            ) else (
-                TxtInput.swallow ic ;
-                aux (b :: p)
-            )
-        ) with End_of_file ->
-            string_of_list (List.rev p) in
-    aux []
-
-let peek_sign ic =
-    let c = TxtInput.peek ic in
-    if c = '-' then (
-        TxtInput.swallow ic ;
-        true
-    ) else if c = '+' then (
-        TxtInput.swallow ic ;
-        false
-    ) else false
-
 (* Some predefined types *)
 
 module Bool_base = struct
@@ -151,10 +101,10 @@ module Bool_base = struct
     let write = ser1
     let write_txt oc t = Output.char oc (if t then 't' else 'f')
     let read = deser1
-    let read_txt ic = TxtInput.read ic = 't'
     let to_imm = function true -> "true" | false -> "false"
 
-    let parzer =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
         either [ istring "true" >>: (fun _ -> true) ;
                  istring "false" >>: (fun _ -> false) ]
@@ -181,9 +131,10 @@ module Void_base = struct
     let write _ _ = ()
     let write_txt _ _ = ()
     let read _ = ()
-    let read_txt _ = ()
     let to_imm _ = "()"
-    let parzer = Peg.return ()
+    let parzer ?(picky=false) =
+        ignore picky ;
+        Peg.return ()
 end
 module Void : DATATYPE with type t = unit =
 struct
@@ -202,17 +153,15 @@ module Text_base = struct
     let write_txt = Output.string
     let read ic =
         deser_string ic
-    let read_txt ic =
-        read_txt_until ic "\t\n"
     let to_imm t = "\""^ String.escaped t ^"\""
-    let parzer_quoted =
+    let parzer ?(picky=false) =
         let open Peg in
-        item '"' ++ several (cond (fun c -> c != '"')) ++ item '"' >>:
-        function ((_,cs),_) -> String.of_list cs
-    let parzer_unquoted =
-        let open Peg in
-        any (cond (fun c -> c <> '\t' && c <> '\n')) >>: String.of_list
-    let parzer = parzer_unquoted
+        if picky then (
+            item '"' ++ several (cond (fun c -> c != '"')) ++ item '"' >>:
+            function ((_,cs),_) -> String.of_list cs
+        ) else (
+            any (cond (fun c -> c <> '\t' && c <> '\n')) >>: String.of_list
+        )
 end
 module Text : DATATYPE with type t = string =
 struct
@@ -234,24 +183,25 @@ module Float_base = struct
         Output.string oc s
     let read ic =
         deser64 ic |> Int64.float_of_bits
-    let read_txt ic =
-        (* hello, I'm slow! *)
-        read_chars ic "+-0123456789.e" |> float_of_string
     let to_imm t = "("^ Float.to_string t ^")"    (* need parenths for negative values *)
 
-    let float_parzer ?(allow_suffix=true) =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
         let sign =
             optional (either [ item '-' ; item '+' ]) >>: function Some '-' -> -1. | _ -> 1.
         and numeric_suffix_float =
-            optional (either [
-                item 'G' >>: (fun _ -> 1_000_000_000.) ;
-                item 'M' >>: (fun _ -> 1_000_000.) ;
-                item 'K' >>: (fun _ -> 1_024.) ;
-                item 'k' >>: (fun _ -> 1_000.) ;
-                item 'm' >>: (fun _ -> 0.001) ;
-                item 'u' >>: (fun _ -> 0.000001) ;
-                item 'n' >>: (fun _ -> 0.000000001) ]) >>: Option.default 1. in
+            optional (
+                either [
+                    item 'G' >>: (fun _ -> 1_000_000_000.) ;
+                    item 'M' >>: (fun _ -> 1_000_000.) ;
+                    item 'K' >>: (fun _ -> 1_024.) ;
+                    item 'k' >>: (fun _ -> 1_000.) ;
+                    item 'm' >>: (fun _ -> 0.001) ;
+                    item 'u' >>: (fun _ -> 0.000001) ;
+                    item 'n' >>: (fun _ -> 0.000000001) ] ++
+                check (either [ eof ; ign (cond (fun c -> not (Char.is_letter c))) ]) >>: fst
+            ) >>: Option.default 1. in
         sign ++
         decimal_number ++
         optional (
@@ -263,28 +213,26 @@ module Float_base = struct
             sign ++
             decimal_number
         ) ++
-        (if allow_suffix then numeric_suffix_float else return 1.) ++
-        (* check we are not followed by a dot to disambiguate from all-numeric evil hostnames *)
-        check (either [ eof ; ign (cond (fun c -> c != '.' && (not allow_suffix || not (Char.is_letter c)))) ])
-        >>: fun (((((s,n),dec),exp),suf),_) ->
-                let n = float_of_int n in
-                let n = match dec with
-                    | None | Some ((_,_),None) -> s *. n
-                    | Some ((_,zeros),Some d) ->
-                        let rec aux f d =
-                            if d = 0 then f else
-                            let lo = d mod 10 in
-                            aux ((float_of_int lo +. f) *. 0.1) (d/10) in
-                        let dec = aux 0. d in
-                        let nb_zeros = List.length zeros in
-                        s *. (n +. (Float.pow 0.1 (float_of_int nb_zeros) *. dec)) in
-                let n = match exp with
-                    | None -> n
-                    | Some ((_,s),e) ->
-                        n *. Float.pow 10. (s *. float_of_int e) in
-                n *. suf
-
-    let parzer = float_parzer ~allow_suffix:true
+        numeric_suffix_float ++
+        (* check we are not followed by a dot to disambiguate from all-numeric evil hostnamesb*)
+        check (either [ eof ; ign (cond (fun c -> c != '.')) ]) >>:
+        fun (((((s,n),dec),exp),suf),_) ->
+            let n = float_of_int n in
+            let n = match dec with
+                | None | Some ((_,_),None) -> s *. n
+                | Some ((_,zeros),Some d) ->
+                    let rec aux f d =
+                        if d = 0 then f else
+                        let lo = d mod 10 in
+                        aux ((float_of_int lo +. f) *. 0.1) (d/10) in
+                    let dec = aux 0. d in
+                    let nb_zeros = List.length zeros in
+                    s *. (n +. (Float.pow 0.1 (float_of_int nb_zeros) *. dec)) in
+            let n = match exp with
+                | None -> n
+                | Some ((_,s),e) ->
+                    n *. Float.pow 10. (s *. float_of_int e) in
+            n *. suf
 
     (*$T parzer
       parzer (String.to_list "123.45670") = Peg.Res (123.4567, [])
@@ -311,17 +259,6 @@ struct
     let imul t i = t *. (float_of_int i)
     let mul t1 t2 = t1 *. t2
 end
-
-let handle_num_suffix ic =
-    swallow_all ' ' ic ;
-    let suffix = match peek_eof2nl ic with
-        | 'k' -> 1_000
-        | 'K' -> 1_024
-        | 'M' -> 1_000_000
-        | 'G' -> 1_000_000_000
-        | _ -> 1 in
-    if suffix > 1 then TxtInput.swallow ic ;
-    suffix
 
 let string_of_vlan = function
     | None -> ""
@@ -388,22 +325,10 @@ module Integer_base = struct
             aux 0 [] (-i)
         )
     let read = deser_varint
-    let read_txt ic =
-        if TxtInput.is_eof ic then raise End_of_file else
-        let neg = peek_sign ic in
-        let rec aux v =
-            let d = peek_eof2nl ic in
-            if d < '0' || d > '9' then v else (
-                TxtInput.swallow ic ;
-                let new_v = v*10 + (int_of_char d - Char.code '0') in
-                if new_v < v then raise Overflow else aux new_v
-            ) in
-        let n = aux 0 in
-        let n = n * handle_num_suffix ic in
-        (if neg then (~-) else identity) n
     let to_imm t = "("^ Int.to_string t ^")"    (* need parenths for negative numbers *)
 
-    let parzer =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
         let sign =
             optional (either [ item '-' ; item '+' ]) >>: function Some '-' -> -1 | _ -> 1 in
@@ -431,17 +356,6 @@ end
 module UInteger : NUMBER with type t = int =
 struct
     include Integer
-    let read_txt ic =
-        if TxtInput.is_eof ic then raise End_of_file else
-        let rec aux v =
-            let d = peek_eof2nl ic in
-            if Char.is_digit d then (
-                TxtInput.swallow ic ;
-                let new_v = v*10 + (int_of_char d - Char.code '0') in
-                if new_v < v then raise Overflow else aux new_v
-            ) else v in
-        let n = aux 0 in
-        n * handle_num_suffix ic
 end
 
 (* FIXME: use phantom types to prevent this uint8 to be compatible with an uint16? *)
@@ -452,8 +366,6 @@ struct
     let write = ser8
     let read = deser8
     let checked n = if n < 0 || n >= 256 then raise Overflow else n
-    let read_txt ic =
-        read_txt ic |> checked
     let of_string s =
         of_string s |> checked
 end
@@ -467,8 +379,6 @@ struct
         let n = deser8 ic in
         if n < 128 then n else n-256
     let checked n = if n < -128 || n >= 128 then raise Overflow else n
-    let read_txt ic =
-        read_txt ic |> checked
     let of_string s =
         of_string s |> checked
 end
@@ -480,8 +390,6 @@ struct
     let write = ser16
     let read = deser16
     let checked n = if n < 0 || n >= 65536 then raise Overflow else n
-    let read_txt ic =
-        read_txt ic |> checked
     let of_string s =
         of_string s |> checked
 end
@@ -494,8 +402,6 @@ struct
         let n = deser16 ic in
         if n < 32768 then n else n-65536
     let checked n = if n < -32768 || n >= 32768 then raise Overflow else n
-    let read_txt ic =
-        read_txt ic |> checked
     let of_string s =
         of_string s |> checked
 end
@@ -510,20 +416,10 @@ module UInteger32_base = struct
     let write = ser32
     let write_txt oc i = Printf.sprintf "%lu" i |> Output.string oc
     let read = deser32
-    let read_txt ic =
-        if TxtInput.is_eof ic then raise End_of_file else
-        let rec aux v =
-            let d = peek_eof2nl ic in
-            if d < '0' || d > '9' then v else (
-                TxtInput.swallow ic ;
-                let new_v = Int32.add (Int32.mul v 10l) (Int32.of_int (int_of_char d - Char.code '0')) in
-                if new_v < v then raise Overflow else aux new_v
-            ) in
-        let n = aux 0l in
-        Int32.mul n (handle_num_suffix ic |> Int32.of_int)
     let to_imm t = "("^ Int32.to_string t ^"l)"
 
-    let parzer =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
         Number32.c_like_number ++ numeric_suffix_int >>:
         fun (n,s) -> Int32.mul n (Int32.of_int s)
@@ -551,10 +447,6 @@ struct
     include UInteger32
     let name = "uint32"
     let write_txt oc i = Printf.sprintf "%ld" i |> Output.string oc
-    let read_txt ic =
-        let neg = peek_sign ic in
-        let n = read_txt ic in
-        if neg then Int32.neg n else n
     (* TODO: check overflow *)
 end
 
@@ -568,20 +460,10 @@ module UInteger64_base = struct
     let write = ser64
     let write_txt oc i = Printf.sprintf "%Lu" i |> Output.string oc
     let read = deser64
-    let read_txt ic =
-        if TxtInput.is_eof ic then raise End_of_file else
-        let rec aux v =
-            let d = peek_eof2nl ic in
-            if d < '0' || d > '9' then v else (
-                TxtInput.swallow ic ;
-                let new_v = Int64.add (Int64.mul v 10L) (Int64.of_int (int_of_char d - Char.code '0')) in
-                if new_v < v then raise Overflow else aux new_v
-            ) in
-        let n = aux 0L in
-        Int64.mul n (handle_num_suffix ic |> Int64.of_int)
     let to_imm t = "("^ Int64.to_string t ^"L)"
 
-    let parzer =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
         Number64.c_like_number ++ numeric_suffix_int >>:
         fun (n,s) -> Int64.mul n (Int64.of_int s)
@@ -611,10 +493,6 @@ struct
     include UInteger64
     let name = "uint64"
     let write_txt oc i = Printf.sprintf "%Ld" i |> Output.string oc
-    let read_txt ic =
-        let neg = peek_sign ic in
-        let n = read_txt ic in
-        if neg then Int64.neg n else n
     (* TODO: check overflow *)
 end
 
@@ -651,12 +529,6 @@ module InetAddr_base = struct
     let read ic =
         let str = Text.read ic in
         Obj.magic str
-    let read_txt ic =
-        let open Unix in
-        let str = Text.read_txt ic in
-        try inet_addr_of_string str
-        with Failure _ ->
-            (gethostbyname str).h_addr_list.(0)
     let to_imm t =
         let (str : string) = Obj.magic t in
         "(Obj.magic \""^ String.escaped str ^"\" : Unix.inet_addr)"
@@ -684,14 +556,16 @@ module InetAddr_base = struct
       hostname (String.to_list "{/}") = Peg.Fail
      *)
 
-    let parzer =
+    let parzer ?(picky=false) =
         let open Peg in
-        either [ dotted_ip_addr ;
-                 hostname >>= fun s ->
-                                 try return Unix.((gethostbyname s).h_addr_list.(0))
-                                 with _ -> fail ] ++
-        check (either [ eof ; ign blank ]) >>: fst
-
+        let p =
+            either [ dotted_ip_addr ;
+                     hostname >>= fun s ->
+                                    try return Unix.((gethostbyname s).h_addr_list.(0))
+                                    with _ -> fail ] in
+        if picky then p ++ check (either [ eof ; ign blank ]) >>: fst
+        else p
+    
     (*$T parzer
       parzer (String.to_list "123.123.123.123") = \
         Peg.Res (Unix.inet_addr_of_string "123.123.123.123", [])
@@ -725,23 +599,30 @@ module Cidr_base = struct
     let read ic =
         let n = InetAddr.read ic in
         n, UInteger8.read ic
-    let read_txt ic =
-        let n = read_txt_until ic "/\t\n" |>
-                InetAddr.of_string in
-        let delim = peek_eof2nl ic in
-        if delim = '/' then (
-            TxtInput.swallow ic ;
-            n, UInteger8.read_txt ic
-        ) else n, 32
     let to_imm (n,m) =
         "("^ InetAddr.to_imm n ^", "^ UInteger8.to_imm m ^")"
 
-    let parzer =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
-        (InetAddr.parzer ++ optional (item '/' ++ number_in_range 0 32)) >>:
-        fun (ip,width) -> match width with
-            | None -> ip ,32
-            | Some (_,w) -> ip, w
+        either [ InetAddr_base.parzer ++ item '/' ++ number_in_range 0 32 >>:
+                    (fun ((ip,_),w) -> ip, w) ;
+                 InetAddr_base.parzer ~picky:true >>: fun ip -> ip, 32 ]
+
+    (*$T parzer
+      match parzer (String.to_list "192.168.1.10") with \
+        | Peg.Res (_, []) -> true \
+        | _ -> false
+      match parzer (String.to_list "192.168.1.10/24") with \
+        | Peg.Res (_, []) -> true \
+        | _ -> false
+      match parzer (String.to_list "192.168.1.10/32") with \
+        | Peg.Res (_, []) -> true \
+        | _ -> false
+      match parzer (String.to_list "192.168.1.10/-2") with \
+        | Peg.Fail -> true \
+        | _ -> false
+     *)
 
     (*$>*)
 end
@@ -842,23 +723,10 @@ module EthAddr_base = struct
     let read ic =
         let a = deser_chars ic 6 in
         Obj.magic a
-    let read_txt ic =
-        let byte () =
-            let hi = TxtInput.hexdigit ic in
-            let lo = TxtInput.hexdigit ic in
-            let n = (hi lsl 4) lor lo in
-            Char.unsafe_chr n in
-        let byte_sep () =
-            let b = byte () in
-            let s = TxtInput.read ic in assert (s = ':') ;
-            b in
-        let a = byte_sep () in let b = byte_sep () in
-        let c = byte_sep () in let d = byte_sep () in
-        let e = byte_sep () in let f = byte () in
-        a,b,c,d,e,f
     let to_imm (a,b,c,d,e,f) = Printf.sprintf "(%C,%C,%C,%C,%C,%C)" a b c d e f
 
-    let parzer =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
         times 6 ~sep:(item ':') (digit 16 ++ digit 16 >>: fun (hi,lo) -> char_of_int (hi lsl 4 + lo)) >>:
         function [a;b;c;d;e;f] -> (a,b,c,d,e,f)
@@ -976,54 +844,6 @@ module Interval_base = struct
         let msecs  = deser ic in
         normalize { years ; months ; weeks ; days ; hours ; mins ; secs ; msecs }
 
-    exception Parse_error
-
-    let read_txt ic =
-        let years = ref 0. and months = ref 0. and weeks = ref 0.
-        and days = ref 0. and hours = ref 0. and mins = ref 0.
-        and secs = ref 0. and msecs = ref 0. and some_set = ref false in
-        let set_v r v =
-            if !r <> 0. then raise Parse_error ;
-            some_set := true ;
-            r := v in
-
-        let rec loop () =
-            swallow_all ' ' ic ;
-            let n = Float.read_txt ic in
-            swallow_all ' ' ic ;
-            if TxtInput.is_eof ic then (
-                (* no unit means seconds *)
-                set_v secs n
-            ) else (
-                let u = read_txt_until ic "+-.0123456789 \n\t" |> String.lowercase in
-                swallow_all ' ' ic ;
-                if String.length u = 1 then match u.[0] with
-                    | 'y' -> set_v years n
-                    | 'w' -> set_v weeks n
-                    | 'd' -> set_v days n
-                    | 'h' -> set_v hours n
-                    | 'm' -> set_v mins n
-                    | 's' -> set_v secs n
-                    | _ -> raise Parse_error else
-                if String.starts_with u "year"  then set_v years  n else
-                if String.starts_with u "month" then set_v months n else
-                if String.starts_with u "week"  then set_v weeks  n else
-                if String.starts_with u "day"   then set_v days   n else
-                if String.starts_with u "hour"  then set_v hours  n else
-                if String.starts_with u "min"   then set_v mins   n else
-                if String.starts_with u "sec"   then set_v secs   n else
-                if String.starts_with u "msec" || u = "ms" then set_v msecs  n else
-                raise Parse_error
-            ) ;
-            loop () in
-        try loop () with End_of_file ->
-            if !some_set then
-                normalize
-                    { years = !years ; months = !months ; weeks = !weeks ; days = !days ;
-                      hours = !hours ; mins = !mins ; secs = !secs ; msecs = !msecs }
-            else
-                raise End_of_file
-
     let to_imm t =
         Printf.sprintf "Unix.({ year=(%F); months=(%F); weeks =(%F); days =(%F); hours =(%F); mins =(%F); secs = %F; msecs =(%F)})"
             t.years t.months t.weeks t.days t.hours t.mins t.secs t.msecs
@@ -1041,10 +861,10 @@ module Interval_base = struct
                       secs   = t1.secs   +. t2.secs ;
                       msecs  = t1.msecs  +. t2.msecs }
 
-    let rec parzer bs =
+    let parzer ?(picky=false) =
         let open Peg in
         let part =
-            Float_base.float_parzer ~allow_suffix:false ++ any blank ++ word >>=
+            Float.parzer ~picky:true ++ any blank ++ word >>=
             fun ((n,_),u) -> match String.lowercase u with
                 | "y" | "year" | "years" ->  return { zero with years = n }
                 | "month" | "months" ->      return { zero with months = n }
@@ -1055,9 +875,13 @@ module Interval_base = struct
                 | "s" | "sec" | "secs" ->    return { zero with secs = n }
                 | "ms" | "msec" | "msecs" -> return { zero with msecs = n }
                 | _ -> fail in
-        (part ++ any blank ++ optional parzer >>: function
-            | (i, _), None -> i
-            | (i, _), Some i' -> add i i') bs
+        let rec p bs =
+            (part ++ any blank ++ optional p >>: function
+                | (i, _), None -> normalize i
+                | (i, _), Some i' -> add i i' |> normalize) bs in
+        if picky then p else
+        either [ p ;
+                 Float.parzer ~picky:true >>: fun secs -> normalize { zero with secs } ]
 
     (*$T parzer
       let open Datatype.Interval in parzer (String.to_list "1year -2 months") = \
@@ -1111,45 +935,6 @@ module Timestamp = struct
     (*$< Timestamp *)
     include UInteger64 (* for number of milliseconds *)
     let name = "timestamp"
-    let read_txt ic =
-        let s = UInteger64.read_txt ic in
-        let ms =
-            if peek_eof2nl ic = '.' then (
-                (* floating point notation *)
-                TxtInput.swallow ic ;
-                let rec read_next_digit value nb_digits =
-                    let to_digit c = Char.code c - Char.code '0' in (* FIXME: move me in Batteries *)
-                    let c = peek_eof2nl ic in
-                    if Char.is_digit c then (
-                        TxtInput.swallow ic ;
-                        let c = to_digit c in
-                        let value' = value + match nb_digits with
-                            | 0 -> c*100
-                            | 1 -> c*10
-                            | 2 -> c*1
-                            | 3 -> if c > 5 then 1 else 0
-                            | _ -> 0 in
-                        read_next_digit value' (succ nb_digits)
-                    ) else value in
-                read_next_digit 0 0
-            ) else (
-                swallow_all ' ' ic ;
-                try_swallow_one 's' ic ;
-                swallow_all ' ' ic ;
-                let ms = ref (try UInteger.read_txt ic with End_of_file -> 0) in
-                swallow_all ' ' ic ;
-                let c = peek_eof2nl ic in
-                if c = 'u' then (
-                    (* microseconds!*)
-                    TxtInput.swallow ic ;
-                    ms := (!ms+499) / 1000
-                ) else if c = 'm' then
-                    TxtInput.swallow ic ;
-                try_swallow_one 's' ic ;
-                !ms
-            ) in
-        Int64.add (Int64.mul s 1000L)
-                  (Int64.of_int ms)
 
     let seconds t = Int64.div t 1000L
     let milliseconds t = Int64.rem t 1000L
@@ -1236,25 +1021,6 @@ module Timestamp = struct
         with _ -> try Scanf.sscanf str "%2u:%2u%s@\n" today_to_min
         with _ -> Scanf.sscanf str "%f@\n" of_unixfloat, "" (* only valid if there is nothing left *)
 
-    let of_string str : t =
-        try let t, rest = of_datestring str in
-            if rest = "" then (
-                t
-            ) else (
-                let i = Interval.of_string rest in
-                add_interval t i
-            )
-        with _ ->
-            try let i = Interval.of_string str in
-                let is_sign c = c = '+' || c = '-' in
-                (* FIXME: use trim|>starts_with instead *)
-                if String.length str > 0 && is_sign str.[0] then
-                    add_interval (now ()) i
-                else
-                    add_interval zero i (* unix timestamp *)
-            with _ ->
-                of_string str
-
     let to_string (t : t) =
         let open Unix in
         let string_of_secs v =
@@ -1274,7 +1040,8 @@ module Timestamp = struct
         let str = to_string t in
         Output.string oc str
 
-    let parzer =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
         let date =
             let sep = either [ item '/' ; item '-' ] in
@@ -1300,12 +1067,14 @@ module Timestamp = struct
             UInteger64.parzer ++ string "s " ++ Integer.parzer ++ string "us" >>:
             (fun (((s,_),us),_) ->
                 Int64.add (Int64.mul s 1000L)
-                          (Int64.of_int ((499 + us) / 1000))) in
-        either [ abs ++ optional (any blank ++ Interval.parzer) >>:
+                          (Int64.of_int ((499 + us) / 1000)))
+        and unix_ts = Float.parzer >>: fun ts -> Int64.of_float (1000.*.ts) in
+        either [ abs ++ optional (any blank ++ Interval.parzer ~picky:true) >>:
                     (fun (ts,i_opt) -> match i_opt with
                         | None -> ts
                         | Some (_, i) -> add_interval ts i) ;
-                 junkie ]
+                 junkie ;
+                 unix_ts ]
 
     (*$T parzer
       parzer (String.to_list "now -56 days") <> Peg.Fail
@@ -1315,6 +1084,13 @@ module Timestamp = struct
       parzer (String.to_list "1976-01-28 15:07 +30secs") = Peg.Res (191686050000L, [])
       parzer (String.to_list "1323766040s 992799us") = Peg.Res (1323766040993L, [])
      *)
+
+    (* copied from Datatype_of *)
+    let of_string str : t =
+        let open Peg in
+        match (parzer ++ eof) (String.to_list str) with
+        | Res ((v,_), _) -> v
+        | Fail -> raise Parse_error
 
     (*$>*)
 end
@@ -1378,22 +1154,11 @@ module ListOf_base (T : DATATYPE) = struct
         done ;
         !res
 
-    let read_txt ic =
-        let fst = TxtInput.read ic in
-        assert (fst = '[') ;
-        let res =
-            let rec aux p =
-                if TxtInput.peek ic = ']' then p else
-                aux (T.read_txt ic :: p) in
-            aux [] in
-        let lst = TxtInput.read ic in
-        assert (lst = ']') ;
-        res
-
     let to_imm t =
         "["^ (List.map T.to_imm t |> String.concat ";") ^"]"
 
-    let parzer =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
         item '[' ++ several T.parzer ++ item ']' >>:
         fun ((_,l),_) -> l
@@ -1420,7 +1185,6 @@ module Altern1_base (T: DATATYPE) = struct
         if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
         assert (v = 0) ;
         T.read ic
-    let read_txt = T.read_txt
     let to_imm = T.to_imm
     let parzer = T.parzer
 end
@@ -1457,17 +1221,11 @@ module Altern2_base (T1 : DATATYPE) (T2 : DATATYPE) = struct
         | 0 -> V1of2 (T1.read ic)
         | 1 -> V2of2 (T2.read ic)
         | v -> failwith ("Bad version "^string_of_int v)
-    let read_txt ic =
-        let v = TxtInput.nread ic 3 in
-        assert (v.[0] = 'v' && v.[2] = ':') ;
-        match v.[1] with
-        | '1' -> V1of2 (T1.read_txt ic)
-        | '2' -> V2of2 (T2.read_txt ic)
-        | c -> failwith ("Bad version "^Char.escaped c)
     let to_imm = function
         | V1of2 a -> "(Datatype.Altern1.V1of2 "^ T1.to_imm a ^")"
         | V2of2 a -> "(Datatype.Altern1.V2of2 "^ T2.to_imm a ^")"
-    let parzer =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
         either [ string "v1:" ++ T1.parzer >>: (fun (_,v) -> V1of2 v) ;
                  string "v2:" ++ T2.parzer >>: (fun (_,v) -> V2of2 v) ]
@@ -1508,16 +1266,9 @@ module Option_base (T : DATATYPE) = struct
             assert (o = 1) ;
             Some (T.read ic)
         ) else None
-    let read_txt ic =
-        let o = TxtInput.nread ic 4 in
-        if o = "None" || o = "none" then None
-        else (
-            assert (o = "Some" || o = "some") ;
-            let sep = TxtInput.read ic in assert (sep = ' ') ;
-            Some (T.read_txt ic)
-        )
     let to_imm = function None -> "None" | Some x -> "(Some "^ T.to_imm x ^")"
-    let parzer =
+    let parzer ?(picky=false) =
+        ignore picky ;
         let open Peg in
         either [ none (istring "none") ;
                  some (istring "some " ++ T.parzer >>: snd) ]

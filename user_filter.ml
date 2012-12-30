@@ -77,15 +77,16 @@ let but_last l =
 
 let value =
     (* from most complex to simpler *)
-    either [ Timestamp.parzer >>: (fun v -> Timestamp v) ;
-             Interval.parzer  >>: (fun v -> Interval v) ;
-             EthAddr.parzer   >>: (fun v -> EthAddr v) ;
-             Float.parzer     >>: (fun v -> Float v) ;   (* must be tried before hostname! *)
-             InetAddr.parzer  >>: (fun v -> InetAddr v) ;
-             Cidr.parzer      >>: (fun v -> Cidr v) ;
-             Bool.parzer      >>: (fun v -> Bool v) ;
-             Integer.parzer   >>: (fun v -> Integer v) ;
-             Text_base.parzer_quoted >>: (fun v -> Text v) ]
+    either [ Timestamp.parzer ~picky:true >>: (fun v -> Timestamp v) ;
+             Interval.parzer ~picky:true  >>: (fun v -> Interval v) ;
+             EthAddr.parzer ~picky:true   >>: (fun v -> EthAddr v) ;
+             (* must be tried before hostname! *)
+             Float.parzer ~picky:true     >>: (fun v -> Float v) ;
+             InetAddr.parzer ~picky:true  >>: (fun v -> InetAddr v) ;
+             Cidr.parzer ~picky:true      >>: (fun v -> Cidr v) ;
+             Bool.parzer ~picky:true      >>: (fun v -> Bool v) ;
+             Integer.parzer ~picky:true   >>: (fun v -> Integer v) ;
+             Text.parzer ~picky:true      >>: (fun v -> Text v) ]
 
 (*$T value
   value (String.to_list "true") = Peg.Res (Bool true, [])
