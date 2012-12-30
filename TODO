@@ -9,6 +9,10 @@ User_filter
 parser to use it from Datatype.of_string (reverse is not true since of_string 
 need to know where the value ends)
 
+- Negation in filters (for instance, ip not 1.2.3.4), aka free query
+  or convert guided filters into free query, then admit an operator in
+from of guided filter values ?
+
 
 
 - code metrics to measure time spent in fold, group by...
@@ -23,8 +27,6 @@ http://eneide.happyleptic.org/~rixed/mlrrd/?action=Traffic%2Fbandwidth&filter.st
 - Bandwidth chart : when using only ip (src or dst) filter, one would like
 to group by 'other-ip'.
 
-
-- Negation in filters (for instance, ip not 1.2.3.4), aka free query
 
 
 - Use logarithmic Y scale for primary Y in resp times vs time charts
@@ -176,5 +178,6 @@ distributed querying
   response code, method...)
 
 
-- use cmdliner for more powerfull cmd line?
+- a tuple from 1hour table (traffic) which is 2 hours long:
+  "2012-12-29 21:00        2012-12-29 23:00        ..."
 

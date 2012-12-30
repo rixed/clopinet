@@ -73,10 +73,12 @@ mlrrd.top: $(ARCHIVE) $(CLIB)
 maketuple.opt: maketuple.cmx
 	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" -linkpkg $(OCAMLOPTFLAGS) $^
 
+# Dependancies on tuples can't be guessed by ocamldep
 TUPLES=tuple1.ml tuple2.ml tuple3.ml tuple4.ml tuple5.ml tuple6.ml tuple7.ml tuple8.ml tuple9.ml tuple10.ml tuple11.ml tuple12.ml tuple13.ml tuple14.ml tuple15.ml tuple16.ml
 $(TUPLES): maketuple.opt
-$(TUPLES:.ml=.cmo): peg.cmo
-$(TUPLES:.ml=.cmx): peg.cmx
+$(TUPLES:.ml=.cmo): peg.cmo datatype.cmo
+$(TUPLES:.ml=.cmx): peg.cmx datatype.cmx
+
 tuple%.ml: maketuple.opt
 	@n=$$(echo $@ | sed -e 's/^tuple\([0-9]*\).ml$$/\1/') ;\
 	 echo "Building Tuple functor for N=$$n" ;\

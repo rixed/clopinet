@@ -205,10 +205,14 @@ module Text_base = struct
     let read_txt ic =
         read_txt_until ic "\t\n"
     let to_imm t = "\""^ String.escaped t ^"\""
-    let parzer =
+    let parzer_quoted =
         let open Peg in
         item '"' ++ several (cond (fun c -> c != '"')) ++ item '"' >>:
         function ((_,cs),_) -> String.of_list cs
+    let parzer_unquoted =
+        let open Peg in
+        any (cond (fun c -> c <> '\t' && c <> '\n')) >>: String.of_list
+    let parzer = parzer_unquoted
 end
 module Text : DATATYPE with type t = string =
 struct
@@ -685,7 +689,8 @@ module InetAddr_base = struct
         either [ dotted_ip_addr ;
                  hostname >>= fun s ->
                                  try return Unix.((gethostbyname s).h_addr_list.(0))
-                                 with _ -> fail ]
+                                 with _ -> fail ] ++
+        check (either [ eof ; ign blank ]) >>: fst
 
     (*$T parzer
       parzer (String.to_list "123.123.123.123") = \
@@ -733,7 +738,10 @@ module Cidr_base = struct
 
     let parzer =
         let open Peg in
-        (InetAddr.parzer ++ item '/' ++ number_in_range 0 32) >>: (fun ((ip,_),width) -> ip,width)
+        (InetAddr.parzer ++ optional (item '/' ++ number_in_range 0 32)) >>:
+        fun (ip,width) -> match width with
+            | None -> ip ,32
+            | Some (_,w) -> ip, w
 
     (*$>*)
 end
@@ -1281,15 +1289,23 @@ module Timestamp = struct
                 | Some (_,s) -> h,m,s in
         let abs =
             either [
+                (* classical date format *)
                 date ++ optional (several blank ++ time) >>:
-                (fun ((y,mo,d),h) -> match h with
-                    | None              -> of_tm y mo d 0 0 0.
-                    | Some (_,(h,mi,s)) -> of_tm y mo d h mi s) ;
-                istring "now" >>: (fun _ -> now ()) ] in
-        abs ++ optional (any blank ++ Interval.parzer) >>:
-        fun (ts,i_opt) -> match i_opt with
-            | None -> ts
-            | Some (_, i) -> add_interval ts i
+                    (fun ((y,mo,d),h) -> match h with
+                        | None              -> of_tm y mo d 0 0 0.
+                        | Some (_,(h,mi,s)) -> of_tm y mo d h mi s) ;
+                (* special *)
+                istring "now" >>: (fun _ -> now ()) ]
+        and junkie = (* junkie's format *)
+            UInteger64.parzer ++ string "s " ++ Integer.parzer ++ string "us" >>:
+            (fun (((s,_),us),_) ->
+                Int64.add (Int64.mul s 1000L)
+                          (Int64.of_int ((499 + us) / 1000))) in
+        either [ abs ++ optional (any blank ++ Interval.parzer) >>:
+                    (fun (ts,i_opt) -> match i_opt with
+                        | None -> ts
+                        | Some (_, i) -> add_interval ts i) ;
+                 junkie ]
 
     (*$T parzer
       parzer (String.to_list "now -56 days") <> Peg.Fail
@@ -1297,6 +1313,7 @@ module Timestamp = struct
       parzer (String.to_list "1976-01-28 15:07") = Peg.Res (191686020000L, [])
       parzer (String.to_list "1976-01-28 15:07:30") = Peg.Res (191686050000L, [])
       parzer (String.to_list "1976-01-28 15:07 +30secs") = Peg.Res (191686050000L, [])
+      parzer (String.to_list "1323766040s 992799us") = Peg.Res (1323766040993L, [])
      *)
 
     (*$>*)

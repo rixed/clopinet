@@ -77,15 +77,15 @@ let but_last l =
 
 let value =
     (* from most complex to simpler *)
-    either [ Cidr.parzer      >>: (fun v -> Cidr v) ;
-             Timestamp.parzer >>: (fun v -> Timestamp v) ;
+    either [ Timestamp.parzer >>: (fun v -> Timestamp v) ;
              Interval.parzer  >>: (fun v -> Interval v) ;
              EthAddr.parzer   >>: (fun v -> EthAddr v) ;
              Float.parzer     >>: (fun v -> Float v) ;   (* must be tried before hostname! *)
              InetAddr.parzer  >>: (fun v -> InetAddr v) ;
+             Cidr.parzer      >>: (fun v -> Cidr v) ;
              Bool.parzer      >>: (fun v -> Bool v) ;
              Integer.parzer   >>: (fun v -> Integer v) ;
-             Text.parzer      >>: (fun v -> Text v) ]
+             Text_base.parzer_quoted >>: (fun v -> Text v) ]
 
 (*$T value
   value (String.to_list "true") = Peg.Res (Bool true, [])
@@ -292,8 +292,6 @@ let () =
 
 (* Simple utility to get an expression of given type from a string, given some
  * possible fields *)
-
-exception Parse_error
 
 let expression expected_t fields' str =
     fields := fields' ;

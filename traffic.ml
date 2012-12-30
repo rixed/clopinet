@@ -501,5 +501,11 @@ let load dbdir create fname =
         Table.close table1 ;
         Table.close table2 in
 
-    load fname Traffic.read_txt append0 flush_all
+    load fname Traffic.parzer append0 flush_all
 
+(*$T
+  match Traffic.parzer (String.to_list \
+    "1323766040s 992799us\t1323766042s 539807us\t274\tSome 250\tb4:a4:e3:4d:5c:01\t88:43:e1:1d:6d:01\t2048\t309884\t1409\t193.48.95.81\t134.206.1.47\t17\t304404\t54694\t49164\t302212") with \
+    | Peg.Res (_, []) -> true \
+    | _ -> false
+ *)

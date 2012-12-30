@@ -17,6 +17,6 @@ struct
             | None | Some "" -> missing_field ()
             | Some s ->
                 try expression TBool Conf.filter_fields s
-                with Parse_error -> input_error "Parse Error!"
+                with Peg.Parse_error -> input_error "Parse Error!"
                    | Type_error x -> input_error (string_of_type_error x)
 end

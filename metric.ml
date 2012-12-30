@@ -40,29 +40,27 @@ let fold_using_indexed ip tdir fold_hnum make_fst merge = match ip with
 
 (* function related to loading datas *)
 
-let load fname read append flush =
+let load fname parzer append flush =
     Sys.(List.iter
         (fun s -> set_signal s (Signal_handle (fun _ -> flush ())))
         [ sigabrt; sigfpe; sigill; sigint;
           sigpipe; sigquit; sigsegv; sigterm ]) ;
 
     let lineno = ref 0 in
-    finally flush (fun () ->
-        let ic = Legacy.open_in fname in
-        with_dispose ~dispose:Legacy.close_in (fun ic ->
-            Printf.fprintf stderr "loading from %s\n%!" fname ;
-            let ic = TxtInput.from_file ic in
-            try forever (fun () ->
-                read ic |> append ;
-                let eol = TxtInput.read ic in
-                assert (eol = '\n' || eol = '\r') ;
-                incr lineno) ()
-            with End_of_file ->
-                if !verbose then Printf.fprintf stderr "Inserted %d lines\n" !lineno
-               | e ->
-                Printf.fprintf stderr "Error at line %d\n" !lineno ;
-                raise e) ic) ()
-
+    (try File.lines_of fname /@
+        String.to_list /@
+        Peg.(parzer ++ eof) |>
+        Enum.iter (function
+            | Peg.Res ((v,_), []) ->
+                append v ;
+                incr lineno
+            | _ -> raise Peg.Parse_error)
+    with e ->
+        Printf.fprintf stderr "Error at line %d\n" !lineno ;
+        flush () ;
+        raise e) ;
+    if !verbose then Printf.fprintf stderr "Inserted %d lines\n" !lineno ;
+    flush ()
 
 (* misc *)
 

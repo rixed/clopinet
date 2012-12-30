@@ -6,10 +6,14 @@ let (|?) = Option.(|?)
 type ('a, 'b) parzer_result = Res of 'a * 'b list | Fail
 type ('a, 'b) parzer = 'b list (* tokens to add *) -> ('a, 'b) parzer_result
 
+exception Parse_error   (* used here and there *)
+
 (* Matchs the end of input *)
 let eof = function
     | [] -> Res ((), [])
     | _ -> Fail
+
+let all bs = Res (bs, [])
 
 (* Fail if p fail, but consume nothing it p match *)
 let check p bs =

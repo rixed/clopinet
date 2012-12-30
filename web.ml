@@ -233,5 +233,5 @@ let load dbdir create fname =
         Table.close table2 ;
         Table.close table3 in
 
-    load fname Web.read_txt append0 flush_all
+    load fname Web.parzer append0 flush_all
 

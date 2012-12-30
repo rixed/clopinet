@@ -267,5 +267,5 @@ let load dbdir create fname =
         if !verbose then Printf.printf "Flushing...\n" ;
         Table.close table0 in
 
-    load fname Flow.read_txt append0 flush_all
+    load fname Flow.parzer append0 flush_all
 

@@ -15,10 +15,11 @@ let assert_exc exn f x =
             true in
     assert ok
 
+let s2l = String.to_list
+
 let check_datatools () =
     assert (string_of_list ['a'; 'b'; 'c'] = "abc") ;
     assert (string_of_list [] = "")
-    (* TODO: read_txt_until *)
 
 let check_ints () =
     let open UInteger8 in
@@ -43,6 +44,9 @@ let check_ints () =
     assert_exc (Failure "Cannot consume all input") of_string "42m"
     (* TODO: more int checks *)
 
+let check_inet_addr () =
+    assert (InetAddr.parzer (s2l "193.48.57.46") = Peg.Res (InetAddr.of_string "193.48.57.46", []))
+
 let check_cidr () =
     assert (in_cidr (InetAddr.of_string "192.168.1.2") (Cidr.of_string "192.168.0.0/16")) ;
     (* CIDR must not be well formed, ie masked bits can have any value *)
@@ -50,12 +54,15 @@ let check_cidr () =
     assert (in_cidr (InetAddr.of_string "192.168.1.2") (Cidr.of_string "192.168.1.2/32")) ;
     assert (in_cidr (InetAddr.of_string "192.168.0.0") (Cidr.of_string "192.168.0.0/16")) ;
     assert (in_cidr (InetAddr.of_string "192.168.255.255") (Cidr.of_string "192.168.0.0/16")) ;
-    assert (Cidr.of_string "1.2.3.4" = (InetAddr.of_string "1.2.3.4", 32))
+    assert (Cidr.of_string "1.2.3.4" = (InetAddr.of_string "1.2.3.4", 32)) ;
+    (* we must be able to parse an IP as a Cidr *)
+    assert (Cidr.parzer (s2l "1.2.3.4") = Peg.Res ((InetAddr.of_string "1.2.3.4", 32), []))
 
 let check_mac () =
     let open EthAddr in
     assert (of_string "01:23:45:67:89:ab" =
-        Char.(chr 1, chr 0x23, chr 0x45, chr 0x67, chr 0x89, chr 0xab))
+        Char.(chr 1, chr 0x23, chr 0x45, chr 0x67, chr 0x89, chr 0xab)) ;
+    assert (parzer (s2l "88:43:e1:1d:6d:01") = Peg.Res (Char.(chr 0x88, chr 0x43, chr 0xe1, chr 0x1d, chr 0x6d, chr 0x01), []))
 
 let check_timestamp () =
     let open Timestamp in
@@ -74,7 +81,9 @@ let check_timestamp () =
     assert (compare (of_string "now-1d") (of_string "now +2 w") = -1) ;
     assert (compare (of_string "now-1min") (of_string "now -1 min") = 0) ;
     (* when no units nor sign are given, it's a timestamp *)
-    assert (compare (of_string "1323765999.42") (of_string "2011-12-13 09:45:39.42") = 0)
+    assert (compare (of_string "1323765999.42") (of_string "2011-12-13 09:45:39.42") = 0) ;
+    (* parser must handle junkie's format *)
+    assert (parzer (s2l "1323766045s 962156us") = Peg.Res (1323766045962L, []))
 
 let check_interval () =
     let open Interval in
@@ -107,7 +116,12 @@ let check_option () =
     let open TestOption in
     assert (of_string "None" = None) ;
     assert (of_string "Some 1" = Some 1) ;
-    assert (of_string "Some -42" = Some ~-42)
+    assert (of_string "Some -42" = Some ~-42) ;
+    assert (parzer (s2l "Some 250") = Peg.Res (Some 250, []))
+
+let check_distribution () =
+    let open Distribution in
+    assert (parzer (s2l "26246\t26246\t0\t567\t7560") = Peg.Res ((26246, 26246., 0., 567., 7560.), []))
 
 let check_serial () =
     let open Serial in
@@ -187,11 +201,13 @@ let check name f =
 let () =
     check "datatools" check_datatools ;
     check "ints" check_ints ;
+    check "inet_addr" check_inet_addr ;
     check "cidr" check_cidr ;
     check "mac" check_mac ;
     check "timestamp" check_timestamp ;
     check "interval" check_interval ;
     check "option" check_option ;
+    check "distribution" check_distribution ;
     check "serial" check_serial ;
     check "disp_numbers" check_disp_numbers ;
     check "prefs" check_prefs

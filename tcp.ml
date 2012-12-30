@@ -155,5 +155,11 @@ let load dbdir create fname =
         Table.close table2 ;
         Table.close table3 in
 
-    load fname Tcp.read_txt append0 flush_all
+    load fname Tcp.parzer append0 flush_all
 
+(*$T
+  match Tcp.parzer (String.to_list \
+    "Some 250\t88:43:e1:1d:6d:01\t193.48.57.46\tb4:a4:e3:4d:5c:01\t194.98.114.133\t48242\t80\t1323766045s 962156us\t2\t1\t0.005900\t0.005900\t0.005900\t0") with \
+        | Peg.Res (_, []) -> true \
+        | _ -> false
+ *)

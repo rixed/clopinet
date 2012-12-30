@@ -42,14 +42,15 @@ let maketuple n =
     printf "    let to_imm (%s) = \"(\"^" (parms 't') ;
     foreach (fun i -> if i > 0 then printf " ^" ; printf " T%d.to_imm t%d" i i) ;
     printf " ^\")\"\n" ;
-    printf "    let parzer bs0 =\n" ;
+    printf "    let parzer bs =\n" ;
     printf "        let open Peg in\n" ;
     foreach (fun i ->
-        printf "        (match T%d.parzer bs%d with Fail -> Fail | Res (res%d, bs%d) ->\n"
-            i i i (i+1)) ;
+        printf "        (match T%d.parzer bs with Fail -> Fail | Res (res%d, bs) ->\n" i i ;
+        if i <> n-1 then printf "        (match item '\\t' bs with Fail -> Fail | Res (_, bs) ->\n") ;
     printf "          Res ((" ;
     foreach (fun i -> printf "%sres%d" (if i > 0 then "," else "") i) ;
-    printf "), bs%d)" n; foreach (fun _ -> printf ")") ; printf "\n" ;
+    printf "), bs)" ;
+    foreach (fun i -> printf ")%s" (if i <> n-1 then ")" else "")) ; printf "\n" ;
     printf "    end\n" ;
     printf "    include Tuple%d_base\n" n ;
     printf "    include Datatype_of(Tuple%d_base)\n" n ;
