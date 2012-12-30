@@ -5,6 +5,7 @@ let main =
     let dbdir = ref "./" and start = ref None and stop = ref None
     and mac_src = ref None and mac_dst = ref None and vlan = ref None
     and eth_proto = ref None and ip_src = ref None and ip_dst = ref None
+    and ip = ref None and port = ref None
     and ip_proto = ref None and create = ref false and step = ref 60
     and usr_filter = ref None in
     Arg.(parse [
@@ -17,6 +18,7 @@ let main =
         "-dump", String (function tbname -> Traffic.(iter ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
                                                           ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst
                                                           ?ip_src:!ip_src ?ip_dst:!ip_dst ?usr_filter:!usr_filter
+                                                          ?ip:!ip ?port:!port
                                                           !dbdir tbname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
         "-dumpf", String (function fname -> Traffic.(iter_fname fname
@@ -37,6 +39,8 @@ let main =
         "-mac-dst", String (fun s -> mac_dst := Some (EthAddr.of_string s)), "limit to these dests" ;
         "-ip-src", String (fun s -> ip_src := Some (Cidr.of_string s)), "limit to these sources" ;
         "-ip-dst", String (fun s -> ip_dst := Some (Cidr.of_string s)), "limit to these dests" ;
+        "-ip", String (fun s -> ip := Some (Cidr.of_string s)), "limit to these IPs" ;
+        "-port", String (fun s -> port := Some (UInteger16.of_string s)), "limit to these ports" ;
         "-filter", String (fun s -> usr_filter := Some User_filter.(expression TBool Traffic.filter_fields s)), "Additional filter, as free expression" ]
         (fun x -> raise (Bad x))
         "Operate the traffic DB")

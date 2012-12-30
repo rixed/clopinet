@@ -132,9 +132,9 @@ struct
                 fst merge in
         fold_using_indexed ip_src tdir fold_hnum make_fst merge
 
-    let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?usr_filter dbdir name f =
+    let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name f =
         let dummy_merge _ _ = () in
-        fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?usr_filter dbdir name (fun x _ -> f x) ignore dummy_merge
+        fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun x _ -> f x) ignore dummy_merge
 
 end
 
