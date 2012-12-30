@@ -1376,7 +1376,10 @@ module ListOf_base (T : DATATYPE) = struct
     let to_imm t =
         "["^ (List.map T.to_imm t |> String.concat ";") ^"]"
 
-    let parzer = Peg.fail
+    let parzer =
+        let open Peg in
+        item '[' ++ several T.parzer ++ item ']' >>:
+        fun ((_,l),_) -> l
 end
 module ListOf (T : DATATYPE) :
     DATATYPE with type t = T.t list =
@@ -1402,7 +1405,7 @@ module Altern1_base (T: DATATYPE) = struct
         T.read ic
     let read_txt = T.read_txt
     let to_imm = T.to_imm
-    let parzer = Peg.fail
+    let parzer = T.parzer
 end
 module Altern1 (T:DATATYPE) :
     DATATYPE with type t = T.t =
@@ -1447,7 +1450,10 @@ module Altern2_base (T1 : DATATYPE) (T2 : DATATYPE) = struct
     let to_imm = function
         | V1of2 a -> "(Datatype.Altern1.V1of2 "^ T1.to_imm a ^")"
         | V2of2 a -> "(Datatype.Altern1.V2of2 "^ T2.to_imm a ^")"
-    let parzer = Peg.fail
+    let parzer =
+        let open Peg in
+        either [ string "v1:" ++ T1.parzer >>: (fun (_,v) -> V1of2 v) ;
+                 string "v2:" ++ T2.parzer >>: (fun (_,v) -> V2of2 v) ]
 end
 module Altern2 (T1:DATATYPE) (T2:DATATYPE) :
     DATATYPE with type t = (T1.t, T2.t) versions_2 =
@@ -1494,7 +1500,10 @@ module Option_base (T : DATATYPE) = struct
             Some (T.read_txt ic)
         )
     let to_imm = function None -> "None" | Some x -> "(Some "^ T.to_imm x ^")"
-    let parzer = Peg.fail
+    let parzer =
+        let open Peg in
+        either [ none (istring "none") ;
+                 some (istring "some " ++ T.parzer >>: snd) ]
 end
 module Option (T:DATATYPE) :
     DATATYPE with type t = T.t option =

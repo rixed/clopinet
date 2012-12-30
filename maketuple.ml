@@ -30,19 +30,26 @@ let maketuple n =
     printf "    let write oc (%s) =\n" (parms 't') ;
     foreach (fun i -> printf "        " ; if i > 0 then printf "; " ; printf "T%d.write oc t%d\n" i i) ;
     printf "    let write_txt oc (%s) =\n" (parms 't') ;
-    foreach (fun i -> printf "        " ; if i > 0 then printf "; Output.char oc '\t' ; " ; printf "T%d.write_txt oc t%d\n" i i) ;
+    foreach (fun i -> printf "        " ; if i > 0 then printf "; Output.char oc '\\t' ; " ; printf "T%d.write_txt oc t%d\n" i i) ;
     printf "    let read ic =\n" ;
     foreach (fun i -> printf "        let t%d = T%d.read ic in\n" i i) ;
     printf "        %s\n" (parms 't') ;
     printf "    let read_txt ic =\n" ;
     foreach (fun i ->
-        if i > 0 then printf "        let sep = TxtInput.read ic in assert (sep = '\t') ;\n" ;
+        if i > 0 then printf "        let sep = TxtInput.read ic in assert (sep = '\\t') ;\n" ;
         printf "        let t%d = T%d.read_txt ic in\n" i i) ;
     printf "        %s\n" (parms 't') ;
     printf "    let to_imm (%s) = \"(\"^" (parms 't') ;
     foreach (fun i -> if i > 0 then printf " ^" ; printf " T%d.to_imm t%d" i i) ;
     printf " ^\")\"\n" ;
-    printf "    let parzer = Peg.fail\n" ;
+    printf "    let parzer bs0 =\n" ;
+    printf "        let open Peg in\n" ;
+    foreach (fun i ->
+        printf "        (match T%d.parzer bs%d with Fail -> Fail | Res (res%d, bs%d) ->\n"
+            i i i (i+1)) ;
+    printf "          Res ((" ;
+    foreach (fun i -> printf "%sres%d" (if i > 0 then "," else "") i) ;
+    printf "), bs%d)" n; foreach (fun _ -> printf ")") ; printf "\n" ;
     printf "    end\n" ;
     printf "    include Tuple%d_base\n" n ;
     printf "    include Datatype_of(Tuple%d_base)\n" n ;
