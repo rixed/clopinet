@@ -4,6 +4,7 @@
 open Batteries
 open ParserCo
 open CharParser
+open Datatype
 open Peg
 
 (** {2 Parsing of user filters} *)
@@ -11,15 +12,15 @@ open Peg
 (** User filters: expressions that we must parse into an AST, type, and then
     convert into an ML string boolean expression. *)
 
-type value = Cidr of Datatype.Cidr.t
-           | InetAddr of Datatype.InetAddr.t
-           | Bool of Datatype.Bool.t
-           | String of Datatype.Text.t
-           | Integer of Datatype.Integer.t
-           | Float of Datatype.Float.t
-           | EthAddr of Datatype.EthAddr.t
-           | Interval of Datatype.Interval.t
-           | Timestamp of Datatype.Timestamp.t
+type value = Cidr of Cidr.t
+           | InetAddr of InetAddr.t
+           | Bool of Bool.t
+           | Text of Text.t
+           | Integer of Integer.t
+           | Float of Float.t
+           | EthAddr of EthAddr.t
+           | Interval of Interval.t
+           | Timestamp of Timestamp.t
 
 and expr = Eq of expr * expr
          | Not of expr
@@ -36,15 +37,15 @@ and expr = Eq of expr * expr
          | Field of string
 
 let string_of_value = function
-    | Cidr v      -> Datatype.Cidr.to_string v
-    | InetAddr v  -> Datatype.InetAddr.to_string v
-    | Bool v      -> Datatype.Bool.to_string v
-    | String v    -> Datatype.Text.to_string v
-    | Integer v   -> Datatype.Integer.to_string v
-    | Float v     -> Datatype.Float.to_string v
-    | EthAddr v   -> Datatype.EthAddr.to_string v
-    | Interval v  -> Datatype.Interval.to_string v
-    | Timestamp v -> Datatype.Timestamp.to_string v
+    | Cidr v      -> Cidr.to_string v
+    | InetAddr v  -> InetAddr.to_string v
+    | Bool v      -> Bool.to_string v
+    | Text v      -> Text.to_string v
+    | Integer v   -> Integer.to_string v
+    | Float v     -> Float.to_string v
+    | EthAddr v   -> EthAddr.to_string v
+    | Interval v  -> Interval.to_string v
+    | Timestamp v -> Timestamp.to_string v
 
 let rec string_of_expr = function
     | Not e -> Printf.sprintf "! (%s)" (string_of_expr e)
@@ -76,26 +77,26 @@ let but_last l =
 
 let value =
     (* from most complex to simpler *)
-    either [ cidr      >>: (fun v -> Cidr v) ;
-             timestamp >>: (fun v -> Timestamp v) ;
-             interval  >>: (fun v -> Interval v) ;
-             eth_addr  >>: (fun v -> EthAddr v) ;
-             float     >>: (fun v -> Float v) ;   (* must be tried before hostname! *)
-             ip_addr   >>: (fun v -> InetAddr v) ;
-             bool      >>: (fun v -> Bool v) ;
-             integer   >>: (fun v -> Integer v) ;
-             (item '"' ++ upto ['"']) >>: (fun (_,v) -> String (String.of_list (but_last v))) ]
+    either [ Cidr.parzer      >>: (fun v -> Cidr v) ;
+             Timestamp.parzer >>: (fun v -> Timestamp v) ;
+             Interval.parzer  >>: (fun v -> Interval v) ;
+             EthAddr.parzer   >>: (fun v -> EthAddr v) ;
+             Float.parzer     >>: (fun v -> Float v) ;   (* must be tried before hostname! *)
+             InetAddr.parzer  >>: (fun v -> InetAddr v) ;
+             Bool.parzer      >>: (fun v -> Bool v) ;
+             Integer.parzer   >>: (fun v -> Integer v) ;
+             Text.parzer      >>: (fun v -> Text v) ]
 
 (*$T value
   value (String.to_list "true") = Peg.Res (Bool true, [])
   value (String.to_list "false") = Peg.Res (Bool false, [])
-  value (String.to_list "\"glop\"") = Peg.Res (String "glop", [])
+  value (String.to_list "\"glop\"") = Peg.Res (Text "glop", [])
  *)
 
-type expr_type = TBool | TInteger | TFloat | TStr | TIp | TCidr | TEthAddr | TInterval | TTimestamp
+type expr_type = TBool | TInteger | TFloat | TText | TIp | TCidr | TEthAddr | TInterval | TTimestamp
 let string_of_type = function
     | TBool -> "boolean" | TInteger -> "integer" | TFloat -> "float"
-    | TStr  -> "string"  | TIp  -> "IP address"  | TCidr -> "CIDR subnet"
+    | TText -> "string"  | TIp  -> "IP address"  | TCidr -> "CIDR subnet"
     | TEthAddr -> "mac"  | TInterval -> "time interval" | TTimestamp -> "datetime"
 
 let fields = ref [ "prout", TIp ]
@@ -189,8 +190,8 @@ let rec type_of_expr = function
         check TBool e2 ;
         TBool
     | StartsWith (e1,e2) | Contains (e1,e2) ->
-        check TStr e1 ;
-        check TStr e2 ;
+        check TText e1 ;
+        check TText e2 ;
         TBool
     | ToFloat e ->
         check TInteger e ;
@@ -208,7 +209,7 @@ and type_of_value = function
     | Cidr _      -> TCidr
     | InetAddr _  -> TIp
     | Bool _      -> TBool
-    | String _    -> TStr
+    | Text _      -> TText
     | Integer _   -> TInteger
     | Float _     -> TFloat
     | EthAddr _   -> TEthAddr
@@ -261,15 +262,15 @@ let rec ocaml_of_expr = function
     | Field f -> "("^ ocaml_of_field f ^")"
 and ocaml_of_field f = f
 and ocaml_of_value = function
-    | Cidr v      -> Datatype.Cidr.to_imm v
-    | InetAddr v  -> Datatype.InetAddr.to_imm v
-    | Integer v   -> Datatype.Integer.to_imm v
-    | Float v     -> Datatype.Float.to_imm v
-    | Bool v      -> Datatype.Bool.to_imm v
-    | String v    -> Datatype.Text.to_imm v
-    | EthAddr v   -> Datatype.EthAddr.to_imm v
-    | Interval v  -> Datatype.Interval.to_imm v
-    | Timestamp v -> Datatype.Timestamp.to_imm v
+    | Cidr v      -> Cidr.to_imm v
+    | InetAddr v  -> InetAddr.to_imm v
+    | Integer v   -> Integer.to_imm v
+    | Float v     -> Float.to_imm v
+    | Bool v      -> Bool.to_imm v
+    | Text v      -> Text.to_imm v
+    | EthAddr v   -> EthAddr.to_imm v
+    | Interval v  -> Interval.to_imm v
+    | Timestamp v -> Timestamp.to_imm v
 
 (* FIXME: belongs to battery *)
 let indent n str =

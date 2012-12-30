@@ -42,6 +42,7 @@ let maketuple n =
     printf "    let to_imm (%s) = \"(\"^" (parms 't') ;
     foreach (fun i -> if i > 0 then printf " ^" ; printf " T%d.to_imm t%d" i i) ;
     printf " ^\")\"\n" ;
+    printf "    let parzer = Peg.fail\n" ;
     printf "    end\n" ;
     printf "    include Tuple%d_base\n" n ;
     printf "    include Datatype_of(Tuple%d_base)\n" n ;

@@ -336,53 +336,51 @@ let digit base =
                 (c >= 'A' && c < (char_of_int (int_of_char 'A' + (base - 10))))
             )))) c2i
 
-let number base =
-    map (several (digit base)) (fun ds ->
-        let rec aux n = function
-            | [] -> n
-            | d :: d' ->
-                aux (d + n*base) d' in
-        aux 0 ds)
+module Number (N : BatNumber.NUMERIC_BASE) =
+struct
+    let number base =
+        let base' = N.of_int base in
+        map (several (digit base)) (fun ds ->
+            let rec aux n = function
+                | [] -> n
+                | d :: d' ->
+                    aux (N.add (N.of_int d) (N.mul n base')) d' in
+            aux N.zero ds)
 
-let binary_number = number 2
-let octal_number = number 8
-let decimal_number = number 10
-let hexadecimal_number = number 16
+    let binary_number = number 2
+    let octal_number = number 8
+    let decimal_number = number 10
+    let hexadecimal_number = number 16
 
-let numeric_suffix_int =
-    optional (either [
-        item 'G' >>: (fun _ -> 1_000_000_000) ;
-        item 'M' >>: (fun _ -> 1_000_000) ;
-        item 'K' >>: (fun _ -> 1_024) ;
-        item 'k' >>: (fun _ -> 1_000) ]) >>: Option.default 1
+    let c_like_number_prefix c =
+        seq [ item '0' ; either [ item (Char.lowercase c) ; item (Char.uppercase c) ] ]
 
-let numeric_suffix_float =
-    optional (either [
-        item 'G' >>: (fun _ -> 1_000_000_000.) ;
-        item 'M' >>: (fun _ -> 1_000_000.) ;
-        item 'K' >>: (fun _ -> 1_024.) ;
-        item 'k' >>: (fun _ -> 1_000.) ;
-        item 'm' >>: (fun _ -> 0.001) ;
-        item 'u' >>: (fun _ -> 0.000001) ;
-        item 'n' >>: (fun _ -> 0.000000001) ]) >>: Option.default 1.
+    let c_like_hex_number =
+        seqf [ none (c_like_number_prefix 'x') ; some hexadecimal_number ] >>: List.hd
 
-let c_like_number_prefix c =
-    seq [ item '0' ; either [ item (Char.lowercase c) ; item (Char.uppercase c) ] ]
+    let c_like_octal_number =
+        seqf [ none (c_like_number_prefix 'o') ; some octal_number ] >>: List.hd
 
-let c_like_hex_number =
-    seqf [ none (c_like_number_prefix 'x') ; some hexadecimal_number ] >>: List.hd
+    let c_like_binary_number =
+        seqf [ none (c_like_number_prefix 'b') ; some binary_number ] >>: List.hd
 
-let c_like_octal_number =
-    seqf [ none (c_like_number_prefix 'o') ; some octal_number ] >>: List.hd
+    let c_like_number =
+        either [ c_like_hex_number ;
+                 c_like_octal_number ;
+                 c_like_binary_number ;
+                 decimal_number ]
 
-let c_like_binary_number =
-    seqf [ none (c_like_number_prefix 'b') ; some binary_number ] >>: List.hd
+    let in_range min max n =
+        if N.compare n min >= 0 && N.compare n max <= 0 then return n else fail
 
-let c_like_number =
-    either [ c_like_hex_number ;
-             c_like_octal_number ;
-             c_like_binary_number ;
-             decimal_number ]
+    let number_in_range min max = decimal_number >>= in_range min max
+
+end
+
+include Number (Int)
+
+module Number32 = Number (Int32)
+module Number64 = Number (Int64)
 
 (*$T c_like_number
   c_like_number ['1';'2';'3'] = Res (123,[])
@@ -390,180 +388,4 @@ let c_like_number =
   c_like_number ['0';'b';'1';'0'] = Res (2,[])
   c_like_number ['0';'x'] = Res (0, ['x'])
 *)
-
-let integer =
-    c_like_number ++ numeric_suffix_int >>: (fun (n,s) -> n * s)
-
-(*$T integer
-  integer ['1';'2';'k'] = Res (12_000, [])
- *)
-
-let in_range min max n =
-    if n >= min && n <= max then return n else fail
-let number_in_range min max = decimal_number >>= in_range min max
-
-let dotted_ip_addr =
-    times 4 ~sep:(item '.')
-          (number_in_range 0 255) >>:
-    (function [a;b;c;d] ->
-        (* poor man's ip_addr_of_quad: *)
-        let s = Printf.sprintf "%d.%d.%d.%d" a b c d in
-        Unix.inet_addr_of_string s
-     | _ -> assert false)
-
-let hostname =
-    let namechar = either [ alphanum ; item '-' ] in
-    let label = repeat ~min:1 ~max:63 namechar >>: String.of_list in
-    several ~sep:(item '.') label >>: (String.concat ".")
-
-(*$T hostname
-  hostname (String.to_list "www.google.com") = Res ("www.google.com", [])
-  hostname (String.to_list "www.google.com glop") = Res ("www.google.com", [' ';'g';'l';'o';'p'])
-  hostname (String.to_list "{/}") = Fail
- *)
-
-let ip_addr =
-    either [ dotted_ip_addr ;
-             hostname >>= fun s ->
-                             try return Unix.((gethostbyname s).h_addr_list.(0))
-                             with _ -> fail ]
-
-(*$T ip_addr
-  ip_addr (String.to_list "123.123.123.123") = \
-    Res (Unix.inet_addr_of_string "123.123.123.123", [])
-  ip_addr (String.to_list "eneide.happyleptic.org") = \
-    Res (Unix.inet_addr_of_string "213.251.171.101", [])
- *)
-
-let cidr =
-    (ip_addr ++ item '/' ++ number_in_range 0 32) >>: (fun ((ip,_),width) -> ip,width)
-
-let bool =
-    either [ istring "true" >>: (fun _ -> true) ;
-             istring "false" >>: (fun _ -> false) ]
-
-(*$T bool
-  bool (String.to_list "TrUe") = Res (true, [])
-  bool (String.to_list "fAlse") = Res (false, [])
-  bool (String.to_list "pas glop") = Fail
- *)
-
-let sign =
-    optional (either [ item '-' ; item '+' ]) >>: function Some '-' -> -1. | _ -> 1.
-
-let float ?(allow_suffix=true) =
-    sign ++
-    decimal_number ++
-    optional (
-        item '.' ++
-        any (item '0') ++
-        optional decimal_number) ++
-    optional (
-        item 'e' ++
-        sign ++
-        decimal_number
-    ) ++
-    (if allow_suffix then numeric_suffix_float else return 1.) ++
-    (* check we are not followed by a dot to disambiguate from all-numeric evil hostnames *)
-    check (either [ eof ; ign (cond (fun c -> c != '.' && (not allow_suffix || not (Char.is_letter c)))) ])
-    >>: fun (((((s,n),dec),exp),suf),_) ->
-            let n = float_of_int n in
-            let n = match dec with
-                | None | Some ((_,_),None) -> s *. n
-                | Some ((_,zeros),Some d) ->
-                    let rec aux f d =
-                        if d = 0 then f else
-                        let lo = d mod 10 in
-                        aux ((float_of_int lo +. f) *. 0.1) (d/10) in
-                    let dec = aux 0. d in
-                    let nb_zeros = List.length zeros in
-                    s *. (n +. (Float.pow 0.1 (float_of_int nb_zeros) *. dec)) in
-            let n = match exp with
-                | None -> n
-                | Some ((_,s),e) ->
-                    n *. Float.pow 10. (s *. float_of_int e) in
-            n *. suf
-
-(*$T float
-  float (String.to_list "123.45670") = Res (123.4567, [])
-  float (String.to_list "0.12") = Res (0.12, [])
-  float (String.to_list "+1.2") = Res (1.2, [])
-  float (String.to_list "-9.09") = Res (-9.09, [])
-  float (String.to_list "1") = Res (1., [])
-  float (String.to_list "1e3") = Res (1000., [])
-  float (String.to_list "1.01e2") = Res (101., [])
-  float (String.to_list "-10.1e-1") = Res (-1.01, [])
-  float (String.to_list "1.5k") = Res (1500., [])
- *)
-
-let eth_addr =
-    times 6 ~sep:(item ':') (digit 16 ++ digit 16 >>: fun (hi,lo) -> char_of_int (hi lsl 4 + lo)) >>:
-    function [a;b;c;d;e;f] -> (a,b,c,d,e,f)
-           | _ -> assert false
-
-(*$T eth_addr
-  let c = char_of_int in eth_addr (String.to_list "12:34:56:78:9a:bc") = \
-    Res ((c 0x12,c 0x34,c 0x56,c 0x78,c 0x9a,c 0xbc), [])
-  let c = char_of_int in eth_addr (String.to_list "12:34:56:78:9A:BC") = \
-    Res ((c 0x12,c 0x34,c 0x56,c 0x78,c 0x9a,c 0xbc), [])
- *)
-
-let rec interval bs =
-    let open Datatype.Interval in
-    let part =
-        float ~allow_suffix:false ++ any blank ++ word >>=
-        fun ((n,_),u) -> match String.lowercase u with
-            | "y" | "year" | "years" ->  return { zero with years = n }
-            | "month" | "months" ->      return { zero with months = n }
-            | "w" | "week" | "weeks" ->  return { zero with weeks = n }
-            | "d" | "day" | "days" ->    return { zero with days = n }
-            | "h" | "hour" | "hours" ->  return { zero with hours = n }
-            | "m" | "min" | "mins" ->    return { zero with mins = n }
-            | "s" | "sec" | "secs" ->    return { zero with secs = n }
-            | "ms" | "msec" | "msecs" -> return { zero with msecs = n }
-            | _ -> fail in
-    (part ++ any blank ++ optional interval >>: function
-        | (i, _), None -> i
-        | (i, _), Some i' -> add i i') bs
-
-(*$T interval
-  let open Datatype.Interval in interval (String.to_list "1year -2 months") = \
-    Res ({ zero with years = 1. ; months = -2. }, [])
- *)
-
-let date =
-    let sep = either [ item '/' ; item '-' ] in
-    number_in_range 1970 2100 ++ sep ++ number_in_range 1 12 ++ sep ++ number_in_range 1 31 >>:
-    function ((((y,_),m),_),d) -> y,m,d
-
-let time =
-    let sep = either [ item ':' ; item '-' ] in
-    let sec = float >>= fun s -> if s < 0. || s > 60. then fail else return s in
-    number_in_range 0 23 ++ sep ++ number_in_range 0 59 ++ optional (sep ++ sec) >>:
-    function (((h,_),m),s) -> match s with
-        | None       -> h,m,0.
-        | Some (_,s) -> h,m,s
-
-let timestamp =
-    let open Datatype.Timestamp in
-    let abs =
-        either [
-            date ++ optional (several blank ++ time) >>:
-            (fun ((y,mo,d),h) -> match h with
-                | None              -> of_tm y mo d 0 0 0.
-                | Some (_,(h,mi,s)) -> of_tm y mo d h mi s) ;
-            istring "now" >>: (fun _ -> now ()) ] in
-    abs ++ optional (any blank ++ interval) >>:
-    fun (ts,i_opt) -> match i_opt with
-        | None -> ts
-        | Some (_, i) -> add_interval ts i
-
-(*$T timestamp
-  timestamp (String.to_list "now -56 days") <> Fail
-  timestamp (String.to_list "now") <> Fail
-  timestamp (String.to_list "1976-01-28 15:07") = Res (191686020000L, [])
-  timestamp (String.to_list "1976-01-28 15:07:30") = Res (191686050000L, [])
-  timestamp (String.to_list "1976-01-28 15:07 +30secs") = Res (191686050000L, [])
- *)
-
 

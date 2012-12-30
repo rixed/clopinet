@@ -6,8 +6,8 @@ SOURCES  = \
 	serial.ml \
 	txtInput.ml \
 	output.ml \
-	datatype.ml \
 	peg.ml \
+	datatype.ml \
 	user_filter.ml \
 	dynlinker.ml \
 	tuple2.ml \

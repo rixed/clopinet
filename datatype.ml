@@ -29,6 +29,7 @@ sig
     val read      : ibuf -> t
     val read_txt  : TxtInput.t -> t
     val to_imm    : t -> string
+    val parzer    : (t, char) Peg.parzer
 end
 
 module type DATATYPE =
@@ -141,6 +142,7 @@ let peek_sign ic =
 (* Some predefined types *)
 
 module Bool_base = struct
+    (*$< Bool_base *)
     type t = bool
     let equal (a:t) (b:t) = a = b
     let compare a b = if a = b then 0 else if a then -1 else 1
@@ -151,6 +153,18 @@ module Bool_base = struct
     let read = deser1
     let read_txt ic = TxtInput.read ic = 't'
     let to_imm = function true -> "true" | false -> "false"
+
+    let parzer =
+        let open Peg in
+        either [ istring "true" >>: (fun _ -> true) ;
+                 istring "false" >>: (fun _ -> false) ]
+    (*$T parzer
+      parzer (String.to_list "TrUe") = Peg.Res (true, [])
+      parzer (String.to_list "fAlse") = Peg.Res (false, [])
+      parzer (String.to_list "pas glop") = Peg.Fail
+     *)
+
+    (*$>*)
 end
 module Bool : DATATYPE with type t = bool =
 struct
@@ -169,6 +183,7 @@ module Void_base = struct
     let read _ = ()
     let read_txt _ = ()
     let to_imm _ = "()"
+    let parzer = Peg.return ()
 end
 module Void : DATATYPE with type t = unit =
 struct
@@ -190,6 +205,10 @@ module Text_base = struct
     let read_txt ic =
         read_txt_until ic "\t\n"
     let to_imm t = "\""^ String.escaped t ^"\""
+    let parzer =
+        let open Peg in
+        item '"' ++ several (cond (fun c -> c != '"')) ++ item '"' >>:
+        function ((_,cs),_) -> String.of_list cs
 end
 module Text : DATATYPE with type t = string =
 struct
@@ -198,6 +217,7 @@ struct
 end
 
 module Float_base = struct
+    (*$< Float_base *)
     type t = float
     let equal (a:t) (b:t) = a = b
     let compare (a:t) (b:t) = if a = b then 0 else if a < b then -1 else 1
@@ -214,6 +234,67 @@ module Float_base = struct
         (* hello, I'm slow! *)
         read_chars ic "+-0123456789.e" |> float_of_string
     let to_imm t = "("^ Float.to_string t ^")"    (* need parenths for negative values *)
+
+    let float_parzer ?(allow_suffix=true) =
+        let open Peg in
+        let sign =
+            optional (either [ item '-' ; item '+' ]) >>: function Some '-' -> -1. | _ -> 1.
+        and numeric_suffix_float =
+            optional (either [
+                item 'G' >>: (fun _ -> 1_000_000_000.) ;
+                item 'M' >>: (fun _ -> 1_000_000.) ;
+                item 'K' >>: (fun _ -> 1_024.) ;
+                item 'k' >>: (fun _ -> 1_000.) ;
+                item 'm' >>: (fun _ -> 0.001) ;
+                item 'u' >>: (fun _ -> 0.000001) ;
+                item 'n' >>: (fun _ -> 0.000000001) ]) >>: Option.default 1. in
+        sign ++
+        decimal_number ++
+        optional (
+            item '.' ++
+            any (item '0') ++
+            optional decimal_number) ++
+        optional (
+            item 'e' ++
+            sign ++
+            decimal_number
+        ) ++
+        (if allow_suffix then numeric_suffix_float else return 1.) ++
+        (* check we are not followed by a dot to disambiguate from all-numeric evil hostnames *)
+        check (either [ eof ; ign (cond (fun c -> c != '.' && (not allow_suffix || not (Char.is_letter c)))) ])
+        >>: fun (((((s,n),dec),exp),suf),_) ->
+                let n = float_of_int n in
+                let n = match dec with
+                    | None | Some ((_,_),None) -> s *. n
+                    | Some ((_,zeros),Some d) ->
+                        let rec aux f d =
+                            if d = 0 then f else
+                            let lo = d mod 10 in
+                            aux ((float_of_int lo +. f) *. 0.1) (d/10) in
+                        let dec = aux 0. d in
+                        let nb_zeros = List.length zeros in
+                        s *. (n +. (Float.pow 0.1 (float_of_int nb_zeros) *. dec)) in
+                let n = match exp with
+                    | None -> n
+                    | Some ((_,s),e) ->
+                        n *. Float.pow 10. (s *. float_of_int e) in
+                n *. suf
+
+    let parzer = float_parzer ~allow_suffix:true
+
+    (*$T parzer
+      parzer (String.to_list "123.45670") = Peg.Res (123.4567, [])
+      parzer (String.to_list "0.12") = Peg.Res (0.12, [])
+      parzer (String.to_list "+1.2") = Peg.Res (1.2, [])
+      parzer (String.to_list "-9.09") = Peg.Res (-9.09, [])
+      parzer (String.to_list "1") = Peg.Res (1., [])
+      parzer (String.to_list "1e3") = Peg.Res (1000., [])
+      parzer (String.to_list "1.01e2") = Peg.Res (101., [])
+      parzer (String.to_list "-10.1e-1") = Peg.Res (-1.01, [])
+      parzer (String.to_list "1.5k") = Peg.Res (1500., [])
+     *)
+
+    (*$>*)
 end
 module Float : NUMBER with type t = float =
 struct
@@ -275,8 +356,17 @@ let string_of_number v =
         if s = "0" then s else s ^ submultiples.(e)
     )
 
+let numeric_suffix_int =
+    let open Peg in
+    optional (either [
+        item 'G' >>: (fun _ -> 1_000_000_000) ;
+        item 'M' >>: (fun _ -> 1_000_000) ;
+        item 'K' >>: (fun _ -> 1_024) ;
+        item 'k' >>: (fun _ -> 1_000) ]) >>: Option.default 1
+
 exception Overflow
 module Integer_base = struct
+    (*$< Integer_base *)
     type t = int
     let name = "int"
     let equal (a:t) (b:t) = a = b
@@ -308,6 +398,19 @@ module Integer_base = struct
         let n = n * handle_num_suffix ic in
         (if neg then (~-) else identity) n
     let to_imm t = "("^ Int.to_string t ^")"    (* need parenths for negative numbers *)
+
+    let parzer =
+        let open Peg in
+        let sign =
+            optional (either [ item '-' ; item '+' ]) >>: function Some '-' -> -1 | _ -> 1 in
+        sign ++ c_like_number ++ numeric_suffix_int >>:
+        fun ((s,n),suf) -> s * n * suf
+
+    (*$T parzer
+      parzer ['1';'2';'k'] = Peg.Res (12_000, [])
+     *)
+
+    (*$>*)
 end
 module Integer : NUMBER with type t = int =
 struct
@@ -394,6 +497,7 @@ struct
 end
 
 module UInteger32_base = struct
+    (*$< UInteger32_base *)
     type t = Int32.t
     let name = "int32"
     let equal (a:t) (b:t) = a = b
@@ -415,6 +519,16 @@ module UInteger32_base = struct
         Int32.mul n (handle_num_suffix ic |> Int32.of_int)
     let to_imm t = "("^ Int32.to_string t ^"l)"
 
+    let parzer =
+        let open Peg in
+        Number32.c_like_number ++ numeric_suffix_int >>:
+        fun (n,s) -> Int32.mul n (Int32.of_int s)
+
+    (*$T parzer
+      parzer ['1';'2';'k'] = Peg.Res (12_000l, [])
+     *)
+
+    (*$>*)
 end
 module UInteger32 : NUMBER with type t = Int32.t =
 struct
@@ -441,6 +555,7 @@ struct
 end
 
 module UInteger64_base = struct
+    (*$< UInteger64_base *)
     type t = Int64.t
     let name = "int64"
     let equal (a:t) (b:t) = a = b
@@ -461,6 +576,19 @@ module UInteger64_base = struct
         let n = aux 0L in
         Int64.mul n (handle_num_suffix ic |> Int64.of_int)
     let to_imm t = "("^ Int64.to_string t ^"L)"
+
+    let parzer =
+        let open Peg in
+        Number64.c_like_number ++ numeric_suffix_int >>:
+        fun (n,s) -> Int64.mul n (Int64.of_int s)
+
+    (*$T parzer
+      parzer ['1';'2';'k'] = Peg.Res (12_000L, [])
+     *)
+
+    (*$>*)
+
+
 end
 module UInteger64 : NUMBER with type t = Int64.t =
 struct
@@ -499,6 +627,7 @@ let cached_gethostbyaddr addr =
         name
 
 module InetAddr_base = struct
+    (*$< InetAddr_base *)
     type t = Unix.inet_addr
     let name = "inetAddr"
     let equal = (=)
@@ -527,6 +656,45 @@ module InetAddr_base = struct
     let to_imm t =
         let (str : string) = Obj.magic t in
         "(Obj.magic \""^ String.escaped str ^"\" : Unix.inet_addr)"
+
+
+    let dotted_ip_addr =
+        let open Peg in
+        times 4 ~sep:(item '.')
+              (number_in_range 0 255) >>:
+        (function [a;b;c;d] ->
+            (* poor man's ip_addr_of_quad: *)
+            let s = Printf.sprintf "%d.%d.%d.%d" a b c d in
+            Unix.inet_addr_of_string s
+         | _ -> assert false)
+
+    let hostname =
+        let open Peg in
+        let namechar = either [ alphanum ; item '-' ] in
+        let label = repeat ~min:1 ~max:63 namechar >>: String.of_list in
+        several ~sep:(item '.') label >>: (String.concat ".")
+
+    (*$T hostname
+      hostname (String.to_list "www.google.com") = Peg.Res ("www.google.com", [])
+      hostname (String.to_list "www.google.com glop") = Peg.Res ("www.google.com", [' ';'g';'l';'o';'p'])
+      hostname (String.to_list "{/}") = Peg.Fail
+     *)
+
+    let parzer =
+        let open Peg in
+        either [ dotted_ip_addr ;
+                 hostname >>= fun s ->
+                                 try return Unix.((gethostbyname s).h_addr_list.(0))
+                                 with _ -> fail ]
+
+    (*$T parzer
+      parzer (String.to_list "123.123.123.123") = \
+        Peg.Res (Unix.inet_addr_of_string "123.123.123.123", [])
+      parzer (String.to_list "eneide.happyleptic.org") = \
+        Peg.Res (Unix.inet_addr_of_string "213.251.171.101", [])
+     *)
+
+    (*$>*)
 end
 module InetAddr : DATATYPE with type t = Unix.inet_addr =
 struct
@@ -535,6 +703,7 @@ struct
 end
 
 module Cidr_base = struct
+    (*$< Cidr_base *)
     type t = InetAddr.t * UInteger8.t
     let name = "cidr"
     let equal (n1,m1) (n2,m2) =
@@ -561,6 +730,12 @@ module Cidr_base = struct
         ) else n, 32
     let to_imm (n,m) =
         "("^ InetAddr.to_imm n ^", "^ UInteger8.to_imm m ^")"
+
+    let parzer =
+        let open Peg in
+        (InetAddr.parzer ++ item '/' ++ number_in_range 0 32) >>: (fun ((ip,_),width) -> ip,width)
+
+    (*$>*)
 end
 module Cidr : DATATYPE with type t = InetAddr.t * UInteger8.t =
 struct
@@ -632,6 +807,7 @@ let subnet_size ((net : Unix.inet_addr), mask) =
     1 lsl width_bits
 
 module EthAddr_base = struct
+    (*$< EthAddr_base *)
     type t = char * char * char * char * char * char
     let name = "ethAddr"
     let equal (a:t) (b:t) = a = b
@@ -673,6 +849,21 @@ module EthAddr_base = struct
         let e = byte_sep () in let f = byte () in
         a,b,c,d,e,f
     let to_imm (a,b,c,d,e,f) = Printf.sprintf "(%C,%C,%C,%C,%C,%C)" a b c d e f
+
+    let parzer =
+        let open Peg in
+        times 6 ~sep:(item ':') (digit 16 ++ digit 16 >>: fun (hi,lo) -> char_of_int (hi lsl 4 + lo)) >>:
+        function [a;b;c;d;e;f] -> (a,b,c,d,e,f)
+               | _ -> assert false
+
+    (*$T parzer
+      let c = char_of_int in parzer (String.to_list "12:34:56:78:9a:bc") = \
+        Peg.Res ((c 0x12,c 0x34,c 0x56,c 0x78,c 0x9a,c 0xbc), [])
+      let c = char_of_int in parzer (String.to_list "12:34:56:78:9A:BC") = \
+        Peg.Res ((c 0x12,c 0x34,c 0x56,c 0x78,c 0x9a,c 0xbc), [])
+     *)
+
+    (*$>*)
 end
 module EthAddr : DATATYPE with type t = char * char * char * char * char * char =
 struct
@@ -686,6 +877,7 @@ end
  *)
 
 module Interval_base = struct
+    (*$< Interval_base *)
     type t = { years : float ; months : float ;
                weeks : float ; days   : float ;
                hours : float ; mins   : float ;
@@ -828,6 +1020,43 @@ module Interval_base = struct
         Printf.sprintf "Unix.({ year=(%F); months=(%F); weeks =(%F); days =(%F); hours =(%F); mins =(%F); secs = %F; msecs =(%F)})"
             t.years t.months t.weeks t.days t.hours t.mins t.secs t.msecs
 
+    let zero =
+        { years = 0. ; months = 0. ; weeks = 0. ; days  = 0. ;
+          hours = 0. ; mins   = 0. ; secs  = 0. ; msecs = 0. }
+
+    let add t1 t2 = { years  = t1.years  +. t2.years ;
+                      months = t1.months +. t2.months ;
+                      weeks  = t1.weeks  +. t2.weeks ;
+                      days   = t1.days   +. t2.days ;
+                      hours  = t1.hours  +. t2.hours ;
+                      mins   = t1.mins   +. t2.mins ;
+                      secs   = t1.secs   +. t2.secs ;
+                      msecs  = t1.msecs  +. t2.msecs }
+
+    let rec parzer bs =
+        let open Peg in
+        let part =
+            Float_base.float_parzer ~allow_suffix:false ++ any blank ++ word >>=
+            fun ((n,_),u) -> match String.lowercase u with
+                | "y" | "year" | "years" ->  return { zero with years = n }
+                | "month" | "months" ->      return { zero with months = n }
+                | "w" | "week" | "weeks" ->  return { zero with weeks = n }
+                | "d" | "day" | "days" ->    return { zero with days = n }
+                | "h" | "hour" | "hours" ->  return { zero with hours = n }
+                | "m" | "min" | "mins" ->    return { zero with mins = n }
+                | "s" | "sec" | "secs" ->    return { zero with secs = n }
+                | "ms" | "msec" | "msecs" -> return { zero with msecs = n }
+                | _ -> fail in
+        (part ++ any blank ++ optional parzer >>: function
+            | (i, _), None -> i
+            | (i, _), Some i' -> add i i') bs
+
+    (*$T parzer
+      let open Datatype.Interval in parzer (String.to_list "1year -2 months") = \
+        Peg.Res ({ zero with years = 1. ; months = -2. }, [])
+     *)
+
+    (*$>*)
 end
 module Interval : sig
     (* Trick to have the record fields known when opening Interval in addition
@@ -848,9 +1077,7 @@ struct
     include Interval_base
     include Datatype_of(Interval_base)
 
-    let zero =
-        { years = 0. ; months = 0. ; weeks = 0. ; days  = 0. ;
-          hours = 0. ; mins   = 0. ; secs  = 0. ; msecs = 0. }
+    let zero = Interval_base.zero
 
     (* for this we consider 'default' length to variable time units *)
     let to_ms_float t =   t.msecs
@@ -865,14 +1092,7 @@ struct
     let to_ms t   = to_ms_float t |> Int64.of_float
     let to_secs t = to_ms_float t /. 1_000.
     let of_secs secs = { zero with secs }
-    let add t1 t2 = { years  = t1.years  +. t2.years ;
-                      months = t1.months +. t2.months ;
-                      weeks  = t1.weeks  +. t2.weeks ;
-                      days   = t1.days   +. t2.days ;
-                      hours  = t1.hours  +. t2.hours ;
-                      mins   = t1.mins   +. t2.mins ;
-                      secs   = t1.secs   +. t2.secs ;
-                      msecs  = t1.msecs  +. t2.msecs }
+    let add = Interval_base.add
 end
 
 (**
@@ -880,6 +1100,7 @@ end
  *)
 
 module Timestamp = struct
+    (*$< Timestamp *)
     include UInteger64 (* for number of milliseconds *)
     let name = "timestamp"
     let read_txt ic =
@@ -1044,6 +1265,41 @@ module Timestamp = struct
     let write_txt oc t =
         let str = to_string t in
         Output.string oc str
+
+    let parzer =
+        let open Peg in
+        let date =
+            let sep = either [ item '/' ; item '-' ] in
+            number_in_range 1970 2100 ++ sep ++ number_in_range 1 12 ++ sep ++ number_in_range 1 31 >>:
+            function ((((y,_),m),_),d) -> y,m,d
+        and time =
+            let sep = either [ item ':' ; item '-' ] in
+            let sec = Float.parzer >>= fun s -> if s < 0. || s > 60. then fail else return s in
+            number_in_range 0 23 ++ sep ++ number_in_range 0 59 ++ optional (sep ++ sec) >>:
+            function (((h,_),m),s) -> match s with
+                | None       -> h,m,0.
+                | Some (_,s) -> h,m,s in
+        let abs =
+            either [
+                date ++ optional (several blank ++ time) >>:
+                (fun ((y,mo,d),h) -> match h with
+                    | None              -> of_tm y mo d 0 0 0.
+                    | Some (_,(h,mi,s)) -> of_tm y mo d h mi s) ;
+                istring "now" >>: (fun _ -> now ()) ] in
+        abs ++ optional (any blank ++ Interval.parzer) >>:
+        fun (ts,i_opt) -> match i_opt with
+            | None -> ts
+            | Some (_, i) -> add_interval ts i
+
+    (*$T parzer
+      parzer (String.to_list "now -56 days") <> Peg.Fail
+      parzer (String.to_list "now") <> Peg.Fail
+      parzer (String.to_list "1976-01-28 15:07") = Peg.Res (191686020000L, [])
+      parzer (String.to_list "1976-01-28 15:07:30") = Peg.Res (191686050000L, [])
+      parzer (String.to_list "1976-01-28 15:07 +30secs") = Peg.Res (191686050000L, [])
+     *)
+
+    (*$>*)
 end
 
 let round_timestamp ?(ceil=false) n t =
@@ -1119,6 +1375,8 @@ module ListOf_base (T : DATATYPE) = struct
 
     let to_imm t =
         "["^ (List.map T.to_imm t |> String.concat ";") ^"]"
+
+    let parzer = Peg.fail
 end
 module ListOf (T : DATATYPE) :
     DATATYPE with type t = T.t list =
@@ -1144,6 +1402,7 @@ module Altern1_base (T: DATATYPE) = struct
         T.read ic
     let read_txt = T.read_txt
     let to_imm = T.to_imm
+    let parzer = Peg.fail
 end
 module Altern1 (T:DATATYPE) :
     DATATYPE with type t = T.t =
@@ -1188,6 +1447,7 @@ module Altern2_base (T1 : DATATYPE) (T2 : DATATYPE) = struct
     let to_imm = function
         | V1of2 a -> "(Datatype.Altern1.V1of2 "^ T1.to_imm a ^")"
         | V2of2 a -> "(Datatype.Altern1.V2of2 "^ T2.to_imm a ^")"
+    let parzer = Peg.fail
 end
 module Altern2 (T1:DATATYPE) (T2:DATATYPE) :
     DATATYPE with type t = (T1.t, T2.t) versions_2 =
@@ -1234,6 +1494,7 @@ module Option_base (T : DATATYPE) = struct
             Some (T.read_txt ic)
         )
     let to_imm = function None -> "None" | Some x -> "(Some "^ T.to_imm x ^")"
+    let parzer = Peg.fail
 end
 module Option (T:DATATYPE) :
     DATATYPE with type t = T.t option =
