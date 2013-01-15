@@ -167,24 +167,24 @@ let top () =
                         else max_stop, Int64.(to_int (div (mul (of_int y) (sub max_stop start)) (sub stop start))) in
                     ") |> BatOption.default "") ^"
                     let k = "^ String.concat ", " key_fields ^" in
-                    let tv = "^ String.concat ", " (List.map fst aggr_fields) ^" in
+                    let tv = "^ (if aggr_fields = [] then "()" else String.concat ", " (List.map fst aggr_fields)) ^" in
                     f (k, y, tv) p
                 ) else p)
             i m
         in
 
     (* We now build a distribution function for the whole tuple, out of the individual field aggr functions *)
-    let tv_zero = "^ (aggr_fields |> List.map (fun (fn,an) ->
+    let tv_zero = "^ (if aggr_fields = [] then "()" else (aggr_fields |> List.map (fun (fn,an) ->
         let f = List.assoc fn fields in
         let a = List.assoc an f.aggrs in
-        a.zero) |> String.concat ", ") ^"
+        a.zero) |> String.concat ", ")) ^"
     and tv_aggr
         ("^ (aggr_fields |> List.map (fun (fn,_) -> fn ^ "_1") |> String.concat ", ") ^")
         ("^ (aggr_fields |> List.map (fun (fn,_) -> fn ^ "_2") |> String.concat ", ") ^") =
-        "^ (aggr_fields |> List.map (fun (fn,an) ->
+        "^ (if aggr_fields = [] then "()" else (aggr_fields |> List.map (fun (fn,an) ->
             let f = List.assoc fn fields in
             let a = List.assoc an f.aggrs in
-            a.func^" "^fn^"_1 "^fn^"_2") |> String.concat ", ") ^" in
+            a.func^" "^fn^"_1 "^fn^"_2") |> String.concat ", ")) ^" in
     let result, rest, rest_tv = Plot.FindSignificant.pass2 interm fold2 tv_aggr tv_zero "^ Integer.to_imm (max_graphs-1) ^" in
     (* We want to return a Hash of (Some array of string) -> array of string *)
     let h = Hashtbl.create "^ Integer.to_imm max_graphs ^" in
@@ -197,9 +197,10 @@ let top () =
             let a = List.assoc an f.aggrs in
             f.datatype ^ ".to_string ("^a.fin ^" "^fn^")") |> String.concat "; ") ^" |] in
         Hashtbl.add h (Some k_a) v_a) result ;
+    "^ (if aggr_fields = [] then "" else "
     let "^ (aggr_fields |> List.map (fun (fn,_) -> "rest_"^fn) |> String.concat ", ") ^" = rest_tv in
     Hashtbl.add h None [| "^ (aggr_fields |> List.map (fun (fn,_) -> (List.assoc fn fields).datatype^".to_string rest_"^fn) |> String.concat "; ") ^" |] ;
-    h
+    ") ^" h
 
 let () =
     dyn_top := top" |>
