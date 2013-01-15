@@ -167,11 +167,6 @@ end
 
 (* Querries *)
 
-module EthKey = Tuple2.Make (VLan) (EthAddr) (* Eth vlan, source/dest *)
-module EthPld = Plot.DataSet (EthKey)
-module EthKey2 = Tuple3.Make (VLan) (EthAddr) (EthAddr) (* Eth vlan, source, dest *)
-module EthPld2 = Plot.DataSet (EthKey2)
-
 let optmin a b = match a, b with
     | Some a, Some b -> Some (min a b)
     | _ -> a
@@ -222,19 +217,15 @@ let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
             i m
         in
     assert (max_graphs > 1) ;
-    let interm = EthPld2.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = EthPld2.FindSignificant.pass2' interm fold (max_graphs-1) in
+    let interm = Plot.FindSignificant.pass1 fold (max_graphs-1) in
+    let result, rest = Plot.FindSignificant.pass2' interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in
-    EthPld2.Maplot.iter result (fun k v ->
-        Hashtbl.add h (label_of_key k) v) ;
+    Hashtbl.iter (fun k v ->
+        Hashtbl.add h (label_of_key k) v)
+        result ;
     Hashtbl.add h ("other","") rest ;
     Hashtbl.map (fun _k v -> float_of_int v) h
-
-module IPKey = Tuple2.Make (UInteger16) (InetAddr) (* eth proto, source/dest *)
-module IPPld = Plot.DataSet (IPKey)
-module IPKey2 = Tuple3.Make (UInteger16) (InetAddr) (InetAddr) (* eth proto, source, dest *)
-module IPPld2 = Plot.DataSet (IPKey2)
 
 let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=100) by_src what step dbdir name =
     let start, stop = min start stop, max start stop in
@@ -247,8 +238,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
             and value = if what = PacketCount then count else mac_pld in
             f (key, value) p)
             i m in
-    let interm = IPPld.FindSignificant.pass1 fold1 max_graphs in
-    Log.info "Pass 2..." ;
+    let interm = Plot.FindSignificant.pass1 fold1 max_graphs in
     let fold2 f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst
@@ -260,11 +250,10 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
             i m in
     let tv_aggr a1 a2 = Plot.merge_y_array nb_steps a1 a2 in
     let vols, _rest_t, rest_vols =
-        IPPld.FindSignificant.pass2 interm fold2 tv_aggr Plot.Empty max_graphs in
-    Log.info "Final convertion..." ;
+        Plot.FindSignificant.pass2 interm fold2 tv_aggr Plot.Empty max_graphs in
     let label_of_key (mac_proto, ip) = label_of_ip_key mac_proto ip in
     (* returns a (string * float array) list *)
-    IPPld.arrays_of_volume_chunks step nb_steps vols rest_vols label_of_key
+    Plot.arrays_of_volume_chunks step nb_steps vols rest_vols label_of_key
     (* FIXME: pass2 should return the same as pass2 |> arrays_of_volume_chunks... *)
 
 (* Returns traffic per pair of IPs *)
@@ -283,12 +272,13 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
             i m
         in
     assert (max_graphs > 1) ;
-    let interm = IPPld2.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = IPPld2.FindSignificant.pass2' interm fold (max_graphs-1) in
+    let interm = Plot.FindSignificant.pass1 fold (max_graphs-1) in
+    let result, rest = Plot.FindSignificant.pass2' interm fold (max_graphs-1) in
     (* We want to return a hash of src*dst -> value *)
     let h = Hashtbl.create max_graphs in
-    IPPld2.Maplot.iter result (fun k v ->
-        Hashtbl.add h (label_of_key k) v) ;
+    Hashtbl.iter (fun k v ->
+        Hashtbl.add h (label_of_key k) v)
+        result ;
     Hashtbl.add h ("other","") rest ;
     Hashtbl.map (fun _k v -> float_of_int v) h
 
@@ -303,8 +293,6 @@ let top ?start ?stop ?ip_src ?usr_filter ?(max_graphs=20) sort_by key_fields agg
     !dyn_top ()
 
 (* FIXME: app should be a string, and we should also report various eth apps *)
-module AppKey = Tuple2.Make (UInteger8) (UInteger16)
-module AppPld = Plot.DataSet (AppKey)
 
 let label_of_app_key (proto, port) =
     let proto = try Unix.((getprotobynumber proto).p_name)

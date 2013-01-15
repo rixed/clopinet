@@ -422,165 +422,48 @@ struct
         Hashtbl.map (fun _k (v, ()) -> v) new_result, new_rest
 end
 
-module DataSet (Key : DATATYPE) =
-struct
-    module Maplot = Finite_map_impl.Finite_map (struct
-        type t = Key.t
-        let compare = Key.compare
-    end)
+(* Distributions of response times: *)
+let distributions_of_response_times prec m rest_rts label_of_key =
+    let distrib_of_rts rts =
+        let mi, ma =
+            List.fold_left (fun (mi, ma) rt ->
+                min mi rt, max ma rt)
+                (max_float, min_float)
+                rts in
+        (* return the prec interval in which to store a RT *)
+        let floor_rt rt = rt /. prec |> int_of_float in
+        let mi = floor_rt mi and ma = floor_rt ma in
+        let nb_buckets = ma - mi |> succ in
+        let d = Array.create nb_buckets 0 in
+        List.iter
+            (fun rt ->
+                let i = floor_rt rt - mi in
+                d.(i) <- succ d.(i))
+            rts ;
+        mi, ma, d in
+    let other_mi, other_ma, other_d = distrib_of_rts rest_rts in
+    let mi, ma, d =
+        Hashtbl.fold (fun k (_, rts) (prev_mi, prev_ma, prev_d) ->
+            let mi, ma, d = distrib_of_rts rts in
+            let label = label_of_key k in
+            min prev_mi mi,
+            max prev_ma ma,
+            (label, mi, d) :: prev_d)
+            m
+            (other_mi, other_ma, [ "others", other_mi, other_d ])
+    in
+    prec, mi, ma, d
 
-    (* We need a fold function useable polymorphically. See:
-     * http://caml.inria.fr/resources/doc/faq/core.en.html#polymorphic-arguments *)
-    type fold_t = { fold : 'a. (Maplot.key * int -> 'a -> 'a) -> (unit -> 'a) -> ('a -> 'a -> 'a) -> 'a }
-
-    (* FIXME: a single pass using the array trick for fold *)
-    module FindSignificant =
-    struct
-        (* amongst a collection of (key, value),
-         * return N with the property that, if a key worth more than 1/Nth of the
-         * total value then it will be returned.
-         * A second pass is required to get the list
-         * of the at most N (key, tot value) that are significant enough (according to
-         * the definition above), and the tot value of all other keys. *)
-        let pass1 fold n =
-            assert (n > 0) ;
-            (* Helper: given a map m of size s, another key k and value v, add this
-             * value to the map (which size must not exceed n), either by updating the
-             * previously bound value (if k is already bound in m) or by reducing all
-             * values of m until eventualy one reach 0 and we can remove it and insert
-             * what's left from k. Return the new map, it's new size and new min. *)
-            let update1 (k, v) (m, sz, mi) =
-                try Maplot.update_exn m k (fun v' -> v + v'), sz, mi
-                with Not_found ->
-                    if sz < n then (
-                        Maplot.bind m k v, sz+1, min mi v
-                    ) else (
-                        (* the map cannot grow: reduce all entries by either v (if it fits) or the min *)
-                        if mi > v then (
-                            (* m swallow v entirely *)
-                            Maplot.map (fun _k v' -> v' - v) m, sz, mi - v
-                        ) else (
-                            (* reduce by min and remove all entries reaching 0 *)
-                            let sz' = ref sz and mi' = ref max_int in
-                            let m' = Maplot.filter_map (fun _k v' ->
-                                if v' > mi then (
-                                    let new_v' = v' - mi in
-                                    if new_v' < !mi' then mi' := new_v' ;
-                                    Some new_v'
-                                ) else (
-                                    decr sz' ;
-                                    None
-                                )) m in
-                            (* add k with what's left from v *)
-                            let new_v = v - mi in
-                            Maplot.bind m' k new_v, !sz'+1, min !mi' new_v
-                        )
-                    ) in
-            (* First pass: find all keys that have more than n/Nth of the value (and others) *)
-            let result, _sz, _mi =
-                fold update1
-                    (fun () -> Maplot.empty, 0, max_int)
-                    (fun m_sz_mi1 (m2, _sz2, _mi2) ->
-                        (* Merge the small m2 into the big m1 *)
-                        Maplot.fold_left (fun prev1 k2 v2 ->
-                            (* FIXME: we should add k2 to v2 even if m1 grows larger than s1 *)
-                            update1 (k2, v2) prev1)
-                            m_sz_mi1 m2) in
-            result
-
-        (* Second pass: Rescan all values, computing final value of selected keys.
-         * This time the fold function returns a third parameter: the total value
-         * for this entry. total values are agregated using [tv_aggr] function.
-         * See below if you do not need a total value different from v (so that
-         * you can reuse the same fold function than the one for pass1) *)
-        let pass2 result fold tv_aggr tv_zero n =
-            let zeroed = Maplot.map (fun _k _v -> 0, tv_zero) result, 0, tv_zero in
-            let result, rest, tv_rest = fold
-                (fun (k, v, tv) (m, rest, tv_rest) ->
-                    try Maplot.update_exn m k (fun (v', tv') ->
-                        v + v', tv_aggr tv tv'), rest, tv_rest
-                    with Not_found -> m, v + rest, tv_aggr tv tv_rest)
-                (fun () -> zeroed)
-                (fun (m1, rest1, tv_rest1) (m2, rest2, tv_rest2) ->
-                    (* Merge the small m2 into the big m1 *)
-                    Maplot.fold_left (fun m1 k2 (v2, tv2) ->
-                        Maplot.update_exn m1 k2 (fun (v', tv') ->
-                            v' + v2, tv_aggr tv' tv2) (* we *must* have k already in m1 ! *))
-                        m1 m2,
-                    rest1 + rest2,
-                    tv_aggr tv_rest1 tv_rest2) in
-            (* Final touch: move insignificant keys from result to rest *)
-            let tot_v = Maplot.fold_left (fun p _k (v, _tv) -> v + p) rest result in
-            let new_rest = ref rest
-            and new_tv_rest = ref tv_rest
-            and min_v = tot_v / n in (* min value to stay out of "others" *)
-            let new_result = Maplot.filter (fun _k (v, tv) ->
-                if v >= min_v then true
-                else (
-                    new_rest := !new_rest + v ;
-                    new_tv_rest := tv_aggr !new_tv_rest tv ;
-                    false
-                )) result in
-            new_result, !new_rest, !new_tv_rest
-
-        (* Same as pass2, but with no additional value *)
-        let pass2' result fold n =
-            let fold' f i m = fold (fun (k, v) p ->
-                f (k, v, ()) p) i m
-            and fake_aggr () () = () in
-            let new_result, new_rest, () = pass2 result fold' fake_aggr () n in
-            Maplot.map (fun _k (v, ()) -> v) new_result, new_rest
-
-        (* Try the array trick to replace pass1 + pass2'*)
-        let combined fold n =
-            let result = pass1 fold.fold n in
-            pass2' result fold.fold n
-
-    end
-
-    (* Return a mere list of label -> float array from a Maplot of key -> (_ * y_array) *)
-    let arrays_of_volume_chunks step nb_steps vols rest_vols label_of_key =
-        let step_s = Int64.to_float step /. 1000. in
-        let to_scaled_array ya =
-            let a = array_of_y_array nb_steps ya in
-            (* while we are at it, convert from bytes to bytes/secs *)
-            Array.map (fun y -> float_of_int y /. step_s) a in
-        Maplot.fold_left (fun prev k (_, ya) ->
-            (label_of_key k, to_scaled_array ya) :: prev)
-            ["others", to_scaled_array rest_vols] vols
-
-    (* Distributions of response times: *)
-    let distributions_of_response_times prec m rest_rts label_of_key =
-        let distrib_of_rts rts =
-            let mi, ma =
-                List.fold_left (fun (mi, ma) rt ->
-                    min mi rt, max ma rt)
-                    (max_float, min_float)
-                    rts in
-            (* return the prec interval in which to store a RT *)
-            let floor_rt rt = rt /. prec |> int_of_float in
-            let mi = floor_rt mi and ma = floor_rt ma in
-            let nb_buckets = ma - mi |> succ in
-            let d = Array.create nb_buckets 0 in
-            List.iter
-                (fun rt ->
-                    let i = floor_rt rt - mi in
-                    d.(i) <- succ d.(i))
-                rts ;
-            mi, ma, d in
-        let other_mi, other_ma, other_d = distrib_of_rts rest_rts in
-        let mi, ma, d =
-            Maplot.fold_left (fun (prev_mi, prev_ma, prev_d) k (_, rts) ->
-                let mi, ma, d = distrib_of_rts rts in
-                let label = label_of_key k in
-                min prev_mi mi,
-                max prev_ma ma,
-                (label, mi, d) :: prev_d)
-                (other_mi, other_ma, [ "others", other_mi, other_d ])
-                m in
-        prec, mi, ma, d
-
-end
+(* Return a mere list of label -> float array from a Maplot of key -> (_ * y_array) *)
+let arrays_of_volume_chunks step nb_steps vols rest_vols label_of_key =
+    let step_s = Int64.to_float step /. 1000. in
+    let to_scaled_array ya =
+        let a = array_of_y_array nb_steps ya in
+        (* while we are at it, convert from bytes to bytes/secs *)
+        Array.map (fun y -> float_of_int y /. step_s) a in
+    Hashtbl.fold (fun k (_, ya) prev ->
+        (label_of_key k, to_scaled_array ya) :: prev)
+        vols ["others", to_scaled_array rest_vols]
 
 let grid_interv n start stop =
     let dv = stop -. start in

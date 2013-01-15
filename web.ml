@@ -151,7 +151,6 @@ let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?stat
 
 (* Display in it's own color the servers that represent more than 1/top_nth share of the tot
  * number of queries *)
-module WebDataSet = Plot.DataSet (InetAddr)
 let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max ?(prec=0.05) ?(top_nth=100) dbdir tblname =
      let fold f i m =
         Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir tblname
@@ -159,7 +158,7 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?stat
                 let nb_queries, _, _, _, _ = rt in
                 f (srv, nb_queries) p)
             i m in
-    let interm = WebDataSet.FindSignificant.pass1 fold top_nth in
+    let interm = Plot.FindSignificant.pass1 fold top_nth in
     let fold2 f i m =
         Web.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir tblname
             (fun (_vl, _mac_clt, _clt, _mac_srv, srv, _srvp, _met, _err, _ts, rt, _h, _u) p ->
@@ -168,8 +167,8 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?stat
                 f (srv, nb_queries, [avg]) p)
             i m
     and aggr_rts prev_rts rts = List.rev_append rts prev_rts in
-    let result, _rest_count, rest_rts = WebDataSet.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in
-    WebDataSet.distributions_of_response_times prec result rest_rts InetAddr.to_string
+    let result, _rest_count, rest_rts = Plot.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in
+    Plot.distributions_of_response_times prec result rest_rts InetAddr.to_string
 
 (* Lod1: degraded client, rounded query_date (to 1min), stripped url, distribution of resptimes *)
 (* Lod2: round timestamp to 10 mins *)
