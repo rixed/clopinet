@@ -19,6 +19,7 @@ type value = Cidr of Cidr.t
            | EthAddr of EthAddr.t
            | Interval of Interval.t
            | Timestamp of Timestamp.t
+           | VLan of VLan.t
 
 and expr = Eq of expr * expr
          | Not of expr
@@ -44,6 +45,7 @@ let string_of_value = function
     | EthAddr v   -> EthAddr.to_string v
     | Interval v  -> Interval.to_string v
     | Timestamp v -> Timestamp.to_string v
+    | VLan v      -> VLan.to_string v
 
 let rec string_of_expr = function
     | Not e -> Printf.sprintf "! (%s)" (string_of_expr e)
@@ -85,7 +87,8 @@ let value =
              InetAddr.parzer ~picky:true  >>: (fun v -> InetAddr v) ;
              Cidr.parzer ~picky:true      >>: (fun v -> Cidr v) ;
              Bool.parzer ~picky:true      >>: (fun v -> Bool v) ;
-             Text.parzer ~picky:true      >>: (fun v -> Text v) ]
+             Text.parzer ~picky:true      >>: (fun v -> Text v) ;
+             VLan.parzer ~picky:true      >>: (fun v -> VLan v) ]
 
 (*$T value
   value (String.to_list "true") = Peg.Res (Bool true, [])
@@ -93,11 +96,14 @@ let value =
   value (String.to_list "\"glop\"") = Peg.Res (Text "glop", [])
  *)
 
-type expr_type = TBool | TInteger | TFloat | TText | TIp | TCidr | TEthAddr | TInterval | TTimestamp
+type expr_type = TBool | TInteger | TFloat | TText
+               | TIp | TCidr | TEthAddr | TInterval
+               | TTimestamp | TVLan
 let string_of_type = function
     | TBool -> "boolean" | TInteger -> "integer" | TFloat -> "float"
     | TText -> "string"  | TIp  -> "IP address"  | TCidr -> "CIDR subnet"
     | TEthAddr -> "mac"  | TInterval -> "time interval" | TTimestamp -> "datetime"
+    | TVLan -> "vlan"
 
 let fields = ref [ "prout", TIp ]
 
@@ -230,6 +236,7 @@ and type_of_value = function
     | EthAddr _   -> TEthAddr
     | Interval _  -> TInterval
     | Timestamp _ -> TTimestamp
+    | VLan _      -> TVLan
 
 (* Promote ints to floats where required by adding ToFloat operations *)
 let rec promote_to_float x = match x with
@@ -291,6 +298,7 @@ and ocaml_of_value = function
     | EthAddr v   -> EthAddr.to_imm v
     | Interval v  -> Interval.to_imm v
     | Timestamp v -> Timestamp.to_imm v
+    | VLan v      -> VLan.to_imm v
 
 let () =
     Printexc.register_printer (function

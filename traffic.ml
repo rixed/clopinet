@@ -98,7 +98,7 @@ struct
     let fields = [ "start",     { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp" } ;
                    "stop",      { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp" } ;
                    "count",     { aggrs = aggrs_int ;      sortable = "identity" ; keyable = false ; datatype = "Datatype.UInteger" } ;
-                   "vlan",      { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Metric.VLan" } ;
+                   "vlan",      { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.VLan" } ;
                    "mac_src",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr" } ;
                    "mac_dst",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr" } ;
                    "mac_proto", { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" } ;
@@ -119,7 +119,7 @@ struct
     let filter_fields =
         let open User_filter in
         [ "start", TInteger ; "stop", TInteger ;
-          "packets", TInteger ; "vlan", TInteger (* FIXME! *); "eth_src", TInteger ; "eth_dst", TInteger ;
+          "packets", TInteger ; "vlan", TVLan; "eth_src", TInteger ; "eth_dst", TInteger ;
           "eth_proto", TInteger ; "eth_payload", TInteger ; "mtu", TInteger ;
           "ip_src", TIp ; "ip_dst", TIp ; "ip_proto", TInteger ; "ip_payload", TInteger ;
           "port_src", TInteger ; "port_dst", TInteger ; "t4_payload", TInteger ]

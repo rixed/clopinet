@@ -1284,3 +1284,7 @@ struct
     include Datatype_of(Option_base (T))
 end
 
+(* Used pervasively *)
+
+module VLan = Option (UInteger16)
+

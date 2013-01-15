@@ -31,7 +31,7 @@ let main =
         "-dbck",  Unit (fun () -> Metric.dbck !dbdir lods Flow.read Flow.meta_read), "scan the DB and try to repair it" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
-        "-vlan", String (fun s -> vlan := Some (Metric.VLan.of_string s)), "limit queries to this VLAN" ;
+        "-vlan", String (fun s -> vlan := Some (VLan.of_string s)), "limit queries to this VLAN" ;
         "-ip-proto", String (fun s -> ip_proto := Some (Integer16.of_string s)), "select only queries with this IP protocol" ;
         "-mac-src", String (fun s -> mac_src := Some (EthAddr.of_string s)), "limit to these sources" ;
         "-mac-dst", String (fun s -> mac_dst := Some (EthAddr.of_string s)), "limit to these dests" ;

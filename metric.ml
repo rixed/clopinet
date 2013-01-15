@@ -115,8 +115,6 @@ let dbck dbdir lods read meta_read =
         Table.iter_hnums tdir (ck_hnum tdir) in
     Array.iter ck_lod lods
 
-module VLan = Datatype.Option (Datatype.UInteger16)
-
 (* Fields models for templates *)
 
 type aggr_function = { zero : string ; func : string ; fin : string }
