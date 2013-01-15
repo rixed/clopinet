@@ -102,10 +102,10 @@ end
 let load dbdir create fname =
 
     let aggreg_all ((syns, ct) as x) = function
-        | None -> x
-        | Some (syns', ct') ->
+        | 0, (0, _, _, _, _) -> x
+        | syns', ct' ->
             syns + syns',
-            Distribution.combine ct  (Some ct') in
+            Distribution.combine ct ct' in
 
     if not create && not (try Sys.is_directory dbdir with Sys_error _ -> false) then (
         failwith (Printf.sprintf "Directory %s does not exist" dbdir)

@@ -78,10 +78,10 @@ let row_of_time start step t =
 let clip_y start stop step t1 t2 y =
     let t1, y =
         if t1 >= start then t1, y
-        else start, y -. (Int64.to_float (Int64.div (Int64.sub start t1) (Int64.sub t2 t1))) in
+        else start, Int64.(to_int (div (mul (of_int y) (sub start t1)) (sub t2 t1))) in
     let t2, y =
         if t2 <= stop then t2, y
-        else stop, y -. (Int64.to_float (Int64.div (Int64.sub t2 stop) (Int64.sub t2 t1))) in
+        else stop, Int64.(to_int (div (mul (of_int y) (sub t2 stop)) (sub t2 t1))) in
     let r1 = row_of_time start step t1
     and r2 = row_of_time start step t2 in
     (*
@@ -92,8 +92,8 @@ let clip_y start stop step t1 t2 y =
         r1, r2, y
     ) else (
         (* We should split value more accurately here *)
-        let dt = r2-r1 |> float_of_int in
-        let y = y /. dt in
+        let dt = r2-r1 in
+        let y = (y + (dt/2)) / dt in
         r1, r2-1, y
     )
 
@@ -126,6 +126,7 @@ let clip_y_only ?start ?stop t1 t2 y =
     let t1, y = match start with
         | Some start ->
             if t1 >= start then t1, y
+            (*FIXME: c'est faux cette formule de clip!!*)
             else start, y - (Int64.to_int (Int64.div (Int64.sub start t1) (Int64.sub t2 t1)))
         | None -> t1, y in
     match stop with
@@ -144,10 +145,10 @@ let per_date start stop step fold =
     (* Fetch min and max available time *)
     let nb_steps = row_of_time start step stop |> succ in
     assert (nb_steps > 0) ;
-    let flat_dataset () = Array.make nb_steps None in
+    let flat_dataset () = Array.make nb_steps Distribution.zero in
     (* accumulation of a distribution into a.(r) *)
     let accum_distr a r d =
-        a.(r) <- Some (Distribution.combine d a.(r)) in
+        a.(r) <- Distribution.combine d a.(r) in
     fold (fun ts d a ->
         if ts < start || ts >= stop then a else
         let r = row_of_time start step ts in
@@ -155,9 +156,7 @@ let per_date start stop step fold =
         a)
         flat_dataset
         (fun a1 a2 -> (* merge array a2 into a1 *)
-            Array.iteri (fun r d -> match d with
-                | Some d -> accum_distr a1 r d
-                | None   -> ()) a2 ;
+            Array.iteri (fun r d -> accum_distr a1 r d) a2 ;
             a1)
 
 
@@ -274,17 +273,154 @@ let rec merge_y_array nb_steps ya1 ya2 =
         ya1
     | Empty, x | x, Empty -> x
 
-(* helper function that returns a graph (as an array of floats) representing a chunk of volume *)
-let cumul_time_graph start step nb_steps t1 t2 y prev =
-    let stop = Int64.add start (Int64.mul (Int64.of_int nb_steps) step) in
-    let cumul_y r1 r2 y = match prev with
-        | None ->
-            Array.init nb_steps (fun r -> if r < r1 || r > r2 then 0. else y)
-        | Some a ->
-            for r = r1 to r2 do a.(r) <- a.(r) +. y done ;
-            a in
-    let r1, r2, y = clip_y start stop step t1 t2 y in
-    cumul_y r1 r2 y
+(* fold iterate over the database, calling back with the key, X start, X stop and Y value. *)
+let per_time ?(max_graphs=10) start stop step fold label_of_key other_key =
+    assert (step > 0L) ;
+    (* Fetch min and max available time *)
+    let nb_steps = row_of_time start step stop |> succ in
+    assert (nb_steps > 0) ;
+    (* Now prepare the datasets as a map of Key.t to array of Y *)
+    let cumul_y m k r1 r2 y =
+        Hashtbl.modify_opt k (function
+            | None ->
+                let a = Array.init nb_steps (fun i -> if i >= r1 && i <= r2 then y else 0) in
+                Some a
+            | Some a as x ->
+                for i = r1 to r2 do Array.unsafe_set a i (Array.unsafe_get a i + y) done ;
+                x) m in
+    let m =
+        fold (fun k t1 t2 y m ->
+            (* clip t1 and t2. beware that [t1;t2] is closed while [start;stop[ is semi-closed *)
+            (* FIXME: use timestamps comparison function, sub, etc..? *)
+            assert (t1 < stop && t2 >= start) ;
+            let r1, r2, y = clip_y start stop step t1 t2 y in
+            cumul_y m k r1 r2 y ;
+            m)
+            (fun () -> Hashtbl.create 103)
+            (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
+                Hashtbl.iter (fun k a ->
+                    (* add k->a into m1 *)
+                    Hashtbl.modify_opt k (function
+                        | None -> Some a
+                        | Some a' as x ->
+                            Array.modifyi (fun i y -> y + Array.unsafe_get a i) a' ;
+                            x)
+                        m1)
+                    m2 ;
+                m1) in
+    let datasets = Hashtbl.create 71
+    and step_s = Int64.to_float step /. 1000. in
+    (* Build hashtables indexed by label (instead of map indexed by some key), and convert Y into Y per second. *)
+    Hashtbl.iter (fun k a ->
+        Array.map (fun y -> float_of_int y /. step_s) a |>
+        Hashtbl.add datasets k)
+        m ;
+
+    (* reduce number of datasets to max_graphs *)
+    top_plot_datasets max_graphs datasets nb_steps label_of_key other_key
+
+
+(* Hashtbl versions of DataSet *)
+module FindSignificant =
+struct
+    (* amongst a collection of (key, value),
+     * return N with the property that, if a key worth more than 1/Nth of the
+     * total value then it will be returned.
+     * A second pass is required to get the list
+     * of the at most N (key, tot value) that are significant enough (according to
+     * the definition above), and the tot value of all other keys. *)
+    let pass1 fold n =
+        assert (n > 0) ;
+        (* Helper: given a map m of size s, another key k and value v, add this
+         * value to the map (which size must not exceed n), either by updating the
+         * previously bound value (if k is already bound in m) or by reducing all
+         * values of m until eventualy one reach 0 and we can remove it and insert
+         * what's left from k. Update m inplace, return both m and its new min. *)
+        let update1 (k, v) (m, mi) =
+            try Hashtbl.modify k (fun v' -> v + v') m ;
+                m, mi
+            with Not_found ->
+                if Hashtbl.length m < n then (
+                    Hashtbl.add m k v ;
+                    m, min mi v
+                ) else (
+                    (* the map cannot grow: reduce all entries by either v (if it fits) or the min *)
+                    if mi > v then (
+                        (* m swallow v entirely *)
+                        Hashtbl.map_inplace (fun _k v' -> v' - v) m ;
+                        m, mi - v
+                    ) else (
+                        (* reduce by min and remove all entries reaching 0 *)
+                        let mi' = ref max_int in
+                        Hashtbl.filter_map_inplace (fun _k v' ->
+                            if v' > mi then (
+                                let new_v' = v' - mi in
+                                if new_v' < !mi' then mi' := new_v' ;
+                                Some new_v'
+                            ) else None)
+                            m ;
+                        (* add k with what's left from v *)
+                        let new_v = v - mi in
+                        Hashtbl.add m k new_v ;
+                        m, min !mi' new_v
+                    )
+                ) in
+        (* First pass: find all keys that have more than n/Nth of the value (and others) *)
+        let result, _mi =
+            fold update1
+                (fun () -> Hashtbl.create 1000, max_int)
+                (fun m_mi1 (m2, _mi2) ->
+                    (* Merge the small m2 into the big m1 *)
+                    Hashtbl.fold (fun k2 v2 prev1 ->
+                        (* FIXME: we should add k2 to v2 even if m1 grows larger than s1 *)
+                        update1 (k2, v2) prev1)
+                        m2 m_mi1) in
+        result
+
+    (* Second pass: Rescan all values, computing final value of selected keys.
+     * This time the fold function returns a third parameter: the total value
+     * for this entry. Total values are agregated using [tv_aggr] function.
+     * See below if you do not need a total value different from v (so that
+     * you can reuse the same fold function than the one for pass1) *)
+    let pass2 result fold tv_aggr tv_zero n =
+        let zeroed = Hashtbl.map (fun _k _v -> 0, tv_zero) result in
+        let result, rest, tv_rest = fold
+            (fun (k, v, tv) (m, rest, tv_rest) ->
+                try Hashtbl.modify k (fun (v', tv') ->
+                    v + v', tv_aggr tv tv') m ;
+                    m, rest, tv_rest
+                with Not_found ->
+                    m, v + rest, tv_aggr tv tv_rest)
+            (fun () -> Hashtbl.copy zeroed, 0, tv_zero)
+            (fun (m1, rest1, tv_rest1) (m2, rest2, tv_rest2) ->
+                (* Merge the small m2 into the big m1 *)
+                Hashtbl.iter (fun k2 (v2, tv2) ->
+                    Hashtbl.modify k2 (fun (v', tv') ->
+                        v' + v2, tv_aggr tv' tv2) m1 (* we *must* have k already in m1 ! *))
+                    m2 ;
+                m1, rest1 + rest2, tv_aggr tv_rest1 tv_rest2) in
+        (* Final touch: move insignificant keys from result to rest *)
+        let tot_v = Hashtbl.fold (fun _k (v, _tv) p -> v + p) result rest in
+        let new_rest = ref rest
+        and new_tv_rest = ref tv_rest
+        and min_v = tot_v / n in (* min value to stay out of "others" *)
+        let new_result = Hashtbl.filter (fun (v, tv) ->
+            if v >= min_v then true
+            else (
+                new_rest := !new_rest + v ;
+                new_tv_rest := tv_aggr !new_tv_rest tv ;
+                false
+            )) result in
+        new_result, !new_rest, !new_tv_rest
+
+    (* Same as pass2, but with no additional value *)
+    let pass2' result fold n =
+        let fold' f i m = fold (fun (k, v) p ->
+            f (k, v, ()) p) i m
+        and fake_aggr () () = () in
+        let new_result, new_rest, () = pass2 result fold' fake_aggr () n in
+        Hashtbl.map (fun _k (v, ()) -> v) new_result, new_rest
+end
 
 module DataSet (Key : DATATYPE) =
 struct
@@ -292,49 +428,6 @@ struct
         type t = Key.t
         let compare = Key.compare
     end)
-
-    (* fold iterate over the database, calling back with the key, X start, X stop and Y value. *)
-    let per_time ?(max_graphs=10) start stop step fold label_of_key other_key =
-        assert (step > 0L) ;
-        (* Fetch min and max available time *)
-        let nb_steps = row_of_time start step stop |> succ in
-        assert (nb_steps > 0) ;
-        (* Now prepare the datasets as a map of Key.t to array of Y *)
-        let flat_dataset () = Array.make nb_steps 0. in
-        let cumul_y m k r1 r2 y =
-            Maplot.update_with_default_delayed
-                (fun () ->
-                    let a = flat_dataset () in
-                    for x = r1 to r2 do a.(x) <- y done ; (* FIXME: unsafe array set by compilation option? *)
-                    a)
-                m k
-                (fun a ->
-                    for x = r1 to r2 do a.(x) <- a.(x) +. y done ;
-                    a) in
-        let m =
-            fold (fun k t1 t2 y m ->
-                (* clip t1 and t2. beware that [t1;t2] is closed while [start;stop[ is semi-closed *)
-                (* FIXME: use timestamps comparison function, sub, etc..? *)
-                assert (t1 < stop && t2 >= start) ;
-                let r1, r2, y = clip_y start stop step t1 t2 y in
-                cumul_y m k r1 r2 y)
-                (fun () -> Maplot.empty)
-                (fun m1 m2 -> (* merge two maps, m1 being the big one, so merge m2 into m1 *)
-                    Maplot.fold_left (fun m k a ->
-                        (* add k->a into m *)
-                        Maplot.update_with_default a m k (fun a' ->
-                            Array.iteri (fun i y -> a'.(i) <- y +. a.(i)) a' ;
-                            a'))
-                        m1 m2) in
-        let datasets = Hashtbl.create 71
-        and step_s = Int64.to_float step /. 1000. in
-        (* Build hashtables indexed by label (instead of map indexed by some key), and convert Y into Y per second. *)
-        Maplot.iter m (fun k a ->
-            Array.iteri (fun i y -> a.(i) <- y /. step_s) a ;
-            Hashtbl.add datasets k a) ;
-
-        (* reduce number of datasets to max_graphs *)
-        top_plot_datasets max_graphs datasets nb_steps label_of_key other_key
 
     (* We need a fold function useable polymorphically. See:
      * http://caml.inria.fr/resources/doc/faq/core.en.html#polymorphic-arguments *)
@@ -363,7 +456,7 @@ struct
                         Maplot.bind m k v, sz+1, min mi v
                     ) else (
                         (* the map cannot grow: reduce all entries by either v (if it fits) or the min *)
-                        if mi >= v then (
+                        if mi > v then (
                             (* m swallow v entirely *)
                             Maplot.map (fun _k v' -> v' - v) m, sz, mi - v
                         ) else (
@@ -504,4 +597,17 @@ let grid n start stop =
     let interv = grid_interv n start stop in
     let lo = interv *. floor (start /. interv) in
     Enum.seq lo ((+.) interv) ((>=) stop)
+
+(* Ascii Art *)
+
+let print_tops tops =
+    let print_array a =
+        Array.iter (fun s ->
+            Printf.printf "%s\t" s) a in
+    Hashtbl.iter (fun k v ->
+        (match k with
+        | Some k -> print_array k
+        | None   -> Printf.printf "\tothers\t") ;
+        print_array v ;
+        Printf.printf "\n") tops
 

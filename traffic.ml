@@ -2,6 +2,7 @@ open Datatype
 open Metric
 module Hashtbl = BatHashtbl
 let (|>) = BatPervasives.(|>)
+let (|?) = BatOption.(|?)
 
 (* FIXME: factorize all this with DNS, or generate this? *)
 
@@ -80,13 +81,36 @@ struct
         | None -> ()
 
     let accum_pkts ((count, eth_pld, mtu, ip_pld, l4_pld) as v) = function
-        | None -> v
-        | Some (count', eth_pld', mtu', ip_pld', l4_pld') ->
+        | 0, _, _, _, _ -> v
+        | count', eth_pld', mtu', ip_pld', l4_pld' ->
             count + count',
             eth_pld + eth_pld',
             max mtu mtu',
             ip_pld + ip_pld',
             l4_pld + l4_pld'
+
+    (* Field description for code templates, HTML forms, etc... *)
+    let aggr_max_int = { zero = "min_int" ; func = "max" ; fin = "identity" }
+    let aggr_min_int = { zero = "max_int" ; func = "min" ; fin = "identity" }
+    let aggr_sum_int = { zero = "0"       ; func = "(+)" ; fin = "identity" }
+    let aggr_avg_int = { zero = "(0,0)"   ; func = "(fun (c,s) v -> c+1, s+v)" ; fin = "(fun (c,s) -> s/c)" }
+    let aggrs_int = [ "max", aggr_max_int ; "min", aggr_min_int ; "sum", aggr_sum_int ; "avg", aggr_avg_int ]
+    let fields = [ "start",     { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp" } ;
+                   "stop",      { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp" } ;
+                   "count",     { aggrs = aggrs_int ;      sortable = "identity" ; keyable = false ; datatype = "Datatype.UInteger" } ;
+                   "vlan",      { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Metric.VLan" } ;
+                   "mac_src",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr" } ;
+                   "mac_dst",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr" } ;
+                   "mac_proto", { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" } ;
+                   "mac_pld",   { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger" } ;
+                   "mtu",       { aggrs = ["max", aggr_max_int] ; sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" } ;
+                   "ip_src",    { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.InetAddr" } ;
+                   "ip_dst",    { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.InetAddr" }  ;
+                   "ip_proto",  { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger8" } ;
+                   "ip_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger" } ;
+                   "port_src",  { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" } ;
+                   "port_dst",  { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" } ;
+                   "l4_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger" } ]
 
     (* This is just a way for our dynamically loaded code to reach us *)
     let filter_ = ref (fun (_ : t) -> true)
@@ -95,7 +119,7 @@ struct
     let filter_fields =
         let open User_filter in
         [ "start", TInteger ; "stop", TInteger ;
-          "packets", TInteger ; "vlan", TInteger ; "eth_src", TInteger ; "eth_dst", TInteger ;
+          "packets", TInteger ; "vlan", TInteger (* FIXME! *); "eth_src", TInteger ; "eth_dst", TInteger ;
           "eth_proto", TInteger ; "eth_payload", TInteger ; "mtu", TInteger ;
           "ip_src", TIp ; "ip_dst", TIp ; "ip_proto", TInteger ; "ip_payload", TInteger ;
           "port_src", TInteger ; "port_dst", TInteger ; "t4_payload", TInteger ]
@@ -115,22 +139,25 @@ struct
         !filter_
 
     (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
-    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name f make_fst merge =
-        let filter = compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter () in
+    let fold_all ?start ?stop ?ip_src dbdir name f make_fst merge =
         let tdir = table_name dbdir name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let res =
                     if is_within bounds start stop then (
-                        Table.fold_file tdir hnum snum read
-                            (fun x prev -> if filter x then f x prev else prev)
-                            prev
+                        Table.fold_file tdir hnum snum read f prev
                     ) else (
                         prev
                     ) in
                 res)
                 fst merge in
         fold_using_indexed ip_src tdir fold_hnum make_fst merge
+
+    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name f make_fst merge =
+        let filter = compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter () in
+        fold_all ?start ?stop ?ip_src dbdir name (fun x prev ->
+            if filter x then f x prev else prev)
+            make_fst merge
 
     let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name f =
         let dummy_merge _ _ = () in
@@ -175,9 +202,9 @@ let eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     let start, stop = min start stop, max start stop in
     let fold f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
-            f (vlan, if by_src then mac_src else mac_dst) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
+            f (vlan, if by_src then mac_src else mac_dst) t1 t2 (if what = PacketCount then count else mac_pld) p)
             i m in
-    EthPld.per_time ?max_graphs start stop step fold label_of_eth_key "others"
+    Plot.per_time ?max_graphs start stop step fold label_of_eth_key "others"
 
 (* Returns traffic per pair of MACs *)
 let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) what dbdir name =
@@ -204,66 +231,10 @@ let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
     Hashtbl.add h ("other","") rest ;
     Hashtbl.map (fun _k v -> float_of_int v) h
 
-(* Returns traffic per pair of MACs *)
-let eth_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) by_src what dbdir name =
-    let start, stop = optmin start stop, optmax start stop in
-    let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
-            (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
-                let y = if what = PacketCount then count else mac_pld in
-                let y = Plot.clip_y_only ?start ?stop t1 t2 y in
-                let k = vlan, if by_src then mac_src else mac_dst in
-                f (k, y) p)
-            i m
-        in
-    assert (max_graphs > 1) ;
-    let interm = EthPld.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = EthPld.FindSignificant.pass2' interm fold (max_graphs-1) in
-    (* We want to return a hash of src*dst -> value *)
-    let h = Hashtbl.create max_graphs in
-    EthPld.Maplot.iter result (fun k v ->
-        Hashtbl.add h (label_of_eth_key k) v) ;
-    Hashtbl.add h "other" rest ;
-    Hashtbl.map (fun _k v -> float_of_int v) h
-
-(* Returns traffic per pair of MACs *)
-let eth_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) what dbdir name =
-    let start, stop = optmin start stop, optmax start stop in
-    let label_of_key (vlan, mac_src, mac_dst) =
-        label_of_eth_key (vlan, mac_src) ^"\\u2192"^
-        EthAddr.to_string mac_dst in
-    let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
-            (fun (t1, t2, count, vlan, mac_src, mac_dst, _, mac_pld, _, _, _, _, _, _, _, _) p ->
-                let y = if what = PacketCount then count else mac_pld in
-                let y = Plot.clip_y_only ?start ?stop t1 t2 y in
-                let k = vlan, mac_src, mac_dst in
-                f (k, y) p)
-            i m
-        in
-    assert (max_graphs > 1) ;
-    let interm = EthPld2.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = EthPld2.FindSignificant.pass2' interm fold (max_graphs-1) in
-    (* We want to return a hash of src*dst -> value *)
-    let h = Hashtbl.create max_graphs in
-    EthPld2.Maplot.iter result (fun k v ->
-        Hashtbl.add h (label_of_key k) v) ;
-    Hashtbl.add h "other" rest ;
-    Hashtbl.map (fun _k v -> float_of_int v) h
-
 module IPKey = Tuple2.Make (UInteger16) (InetAddr) (* eth proto, source/dest *)
 module IPPld = Plot.DataSet (IPKey)
 module IPKey2 = Tuple3.Make (UInteger16) (InetAddr) (InetAddr) (* eth proto, source, dest *)
 module IPPld2 = Plot.DataSet (IPKey2)
-
-(* Returns traffic against time, with a different plot per IP sockpair *)
-let ip_plot_vol_time_singlepass start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs by_src what step dbdir name =
-    let start, stop = min start stop, max start stop in
-    let fold f i m =
-        Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
-            f (mac_proto, if by_src then src else dst) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
-            i m in
-    IPPld.per_time ?max_graphs start stop step fold (fun (mac_proto, ip) -> label_of_ip_key mac_proto ip) "others"
 
 let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=100) by_src what step dbdir name =
     let start, stop = min start stop, max start stop in
@@ -321,50 +292,15 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     Hashtbl.add h ("other","") rest ;
     Hashtbl.map (fun _k v -> float_of_int v) h
 
-let ip_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) by_src what dbdir name =
-    let start, stop = optmin start stop, optmax start stop in
-    let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
-            (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
-                let y = if what = PacketCount then count else mac_pld in
-                let y = Plot.clip_y_only ?start ?stop t1 t2 y in
-                let k = mac_proto, if by_src then src else dst in
-                f (k, y) p)
-            i m
-        in
-    assert (max_graphs > 1) ;
-    let interm = IPPld.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = IPPld.FindSignificant.pass2' interm fold (max_graphs-1) in
-    (* We want to return a hash of src*dst -> value *)
-    let h = Hashtbl.create max_graphs in
-    IPPld.Maplot.iter result (fun (mac_proto, ip) v ->
-        Hashtbl.add h (label_of_ip_key mac_proto ip) v) ;
-    Hashtbl.add h "other" rest ;
-    Hashtbl.map (fun _k v -> float_of_int v) h
+type top_fun = unit -> (string array option, string array) Hashtbl.t
+let dyn_top : top_fun ref = ref (fun () -> failwith "Cannot specialize top function")
 
-let ip_plot_vol_top_both ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) what dbdir name =
-    let start, stop = optmin start stop, optmax start stop in
-    let label_of_key (mac_proto, src, dst) =
-        label_of_ip_key mac_proto src ^"\\u2192"^
-        label_of_ip_key mac_proto dst in
-    let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
-            (fun (t1, t2, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
-                let y = if what = PacketCount then count else mac_pld in
-                let y = Plot.clip_y_only ?start ?stop t1 t2 y in
-                let k = mac_proto, src, dst in
-                f (k, y) p)
-            i m
-        in
-    assert (max_graphs > 1) ;
-    let interm = IPPld2.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = IPPld2.FindSignificant.pass2' interm fold (max_graphs-1) in
-    (* We want to return a hash of src*dst -> value *)
-    let h = Hashtbl.create max_graphs in
-    IPPld2.Maplot.iter result (fun k v ->
-        Hashtbl.add h (label_of_key k) v) ;
-    Hashtbl.add h "other" rest ;
-    Hashtbl.map (fun _k v -> float_of_int v) h
+let top ?start ?stop ?ip_src ?usr_filter ?(max_graphs=20) sort_by key_fields aggr_fields dbdir name =
+    let start = optmin start stop
+    and stop = optmax start stop in
+    let aggr_fields = List.map (fun n -> BatString.split n ".") aggr_fields in
+    Dynlinker.(load_top "Traffic" Traffic.fields ?start ?stop ?ip_src ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name) ;
+    !dyn_top ()
 
 (* FIXME: app should be a string, and we should also report various eth apps *)
 module AppKey = Tuple2.Make (UInteger8) (UInteger16)
@@ -384,30 +320,9 @@ let app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     let start, stop = min start stop, max start stop in
     let fold f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun (t1, t2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) p ->
-            f (proto, min p1 p2) t1 t2 (float_of_int (if what = PacketCount then count else mac_pld)) p)
+            f (proto, min p1 p2) t1 t2 (if what = PacketCount then count else mac_pld) p)
             i m in
-    AppPld.per_time ?max_graphs start stop step fold label_of_app_key "others"
-
-let app_plot_vol_top ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=10) what dbdir name =
-    let start, stop = optmin start stop, optmax start stop in
-    let fold f i m =
-        Traffic.fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name
-            (fun (t1, t2, count, _, _, _, _, mac_pld, _, _, _, proto, _, p1, p2, _) p ->
-                let y = if what = PacketCount then count else mac_pld in
-                let y = Plot.clip_y_only ?start ?stop t1 t2 y in
-                let k = (proto, min p1 p2) in
-                f (k, y) p)
-            i m
-        in
-    assert (max_graphs > 1) ;
-    let interm = AppPld.FindSignificant.pass1 fold (max_graphs-1) in
-    let result, rest = AppPld.FindSignificant.pass2' interm fold (max_graphs-1) in
-    (* We want to return a hash of src*dst -> value *)
-    let h = Hashtbl.create max_graphs in
-    AppPld.Maplot.iter result (fun k v ->
-        Hashtbl.add h (label_of_app_key k) v) ;
-    Hashtbl.add h "other" rest ;
-    Hashtbl.map (fun _k v -> float_of_int v) h
+    Plot.per_time ?max_graphs start stop step fold label_of_app_key "others"
 
 type netgraph_key = Mac of (int option * EthAddr.t) | Ip of InetAddr.t
 let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter show_mac show_ip dbdir name =

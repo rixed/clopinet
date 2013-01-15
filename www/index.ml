@@ -151,34 +151,18 @@ struct
             View.make_graph_page "Network" filters_form disp_graph
 
         let tops args =
-            let filters_form = form "Traffic/tops" (Forms.Traffic.Tops.to_edit "filter" args) in
+            let filters_form = form "Traffic/tops/show" (Forms.Traffic.Tops.to_edit "filter" args) in
+            View.make_filter_page "Tops" filters_form
+
+        let tops_show args =
+            let filters_form = form "Traffic/tops/show" (Forms.Traffic.Tops.to_edit "filter" args) in
             let disp_graph = match display_errs Forms.Traffic.Tops.from_args "filter" args with
-                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (tblname, (what, (group_by, (max_graphs, ())))))))))))))))) ->
+                | Some (start, (stop, (_vlan, (_mac_src, (_mac_dst, (_eth_proto, (ip_src, (_ip_dst, (_ip, (_ip_proto, (_port, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, ()))))))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop
-                    and what = if what = 0 then Volume else PacketCount in
-                    let key, datasets = match group_by with
-                        | 1 (* src-mac *) ->
-                            "src mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs true what dbdir tblname
-                        | 2 (* dst-mac *) ->
-                            "dst mac", eth_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs false what dbdir tblname
-                        | 3 (* mac (both) *) ->
-                            "mac (both)", eth_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip ?ip_dst ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname
-                        | 4 (* src-ip *) ->
-                            "src IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs true what dbdir tblname
-                        | 5 (* dst-ip *) ->
-                            "dst IP", ip_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs false what dbdir tblname
-                        | 6 (* ip (both) *) ->
-                            "IP (both)", ip_plot_vol_top_both ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname
-                        | _ (* app *) ->
-                            "Port", app_plot_vol_top ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname in
-
-                    if Hashtbl.is_empty datasets then
-                        []
-                    else
-                        let units = if what = PacketCount then "Packets" else "Bytes" in
-                        View.top_chart key datasets units
+                    and stop  = My_time.to_timeval stop in
+                    let datasets = top ~start ~stop ?ip_src ?usr_filter ?max_graphs sort_by group_by aggr_fields dbdir tblname in
+                    View.table_of_datasets datasets
                 | None -> [] in
             View.make_graph_page "Tops" filters_form disp_graph
 
@@ -257,7 +241,6 @@ struct
                     let tblname = Forms.Web.TblNames.options.(tblname) in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
                     (* TODO: plot_resp_time should return 0 in count instead of None... *)
-                    let datasets = Array.map (BatOption.default (0, 0.,0.,0.,0.)) datasets in
                     let fold f i =
                         let i = f i "Min" true
                             (fun i -> Distribution.min datasets.(i)) in
@@ -370,7 +353,6 @@ struct
                     let rt_max = i2s ?min:rt_min rt_max in
                     let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
                     (* TODO: plot_resp_time should return 0 in count instead of None... *)
-                    let datasets = Array.map (BatOption.default (0, 0.,0.,0.,0.)) datasets in
                     let fold f i =
                         let i = f i "Min" true
                             (fun i -> Distribution.min datasets.(i)) in
@@ -491,6 +473,8 @@ let _ =
             Ctrl.Traffic.graph
         | ["Traffic"; "tops"] ->
             Ctrl.Traffic.tops
+        | ["Traffic"; "tops"; "show"] ->
+            Ctrl.Traffic.tops_show
         | ["Traffic"; "callflow"] ->
             Ctrl.Flow.callflow
         | ["Web"; "resptime"] ->

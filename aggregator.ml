@@ -44,8 +44,9 @@ let accum flush aggr ks =
         if not !first && flush k v then (
             do_flush ()
         ) else (
-            let v' = aggr v (try Some (Hashtbl.find h k) with Not_found -> None) in
-            Hashtbl.replace h k v' ;
+            (match Hashtbl.find_option h k with
+                | None   -> Hashtbl.add h k v
+                | Some o -> Hashtbl.replace h k (aggr v o)) ;
             first := false
         )),
     do_flush

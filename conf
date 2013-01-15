@@ -3,8 +3,8 @@
 #
 
 # Print IP as names if true (slower but more informative)
-# resolver/ip = false
-resolver/ip = true
+## resolver/ip = false
+#resolver/ip = true
 
 # Same for MAC addrs
 ## resolver/mac = false

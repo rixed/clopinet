@@ -157,7 +157,7 @@ module Text_base = struct
     let parzer ?(picky=false) =
         let open Peg in
         if picky then (
-            item '"' ++ several (cond (fun c -> c != '"')) ++ item '"' >>:
+            item '"' ++ several (cond (fun c -> c <> '"')) ++ item '"' >>:
             function ((_,cs),_) -> String.of_list cs
         ) else (
             any (cond (fun c -> c <> '\t' && c <> '\n')) >>: String.of_list
@@ -215,7 +215,7 @@ module Float_base = struct
         ) ++
         numeric_suffix_float ++
         (* check we are not followed by a dot to disambiguate from all-numeric evil hostnamesb*)
-        check (either [ eof ; ign (cond (fun c -> c != '.')) ]) >>:
+        check (either [ eof ; ign (cond (fun c -> c <> '.')) ]) >>:
         fun (((((s,n),dec),exp),suf),_) ->
             let n = float_of_int n in
             let n = match dec with
@@ -328,12 +328,17 @@ module Integer_base = struct
     let to_imm t = "("^ Int.to_string t ^")"    (* need parenths for negative numbers *)
 
     let parzer ?(picky=false) =
-        ignore picky ;
         let open Peg in
         let sign =
             optional (either [ item '-' ; item '+' ]) >>: function Some '-' -> -1 | _ -> 1 in
-        sign ++ c_like_number ++ numeric_suffix_int >>:
-        fun ((s,n),suf) -> s * n * suf
+        if picky then (
+            sign ++ c_like_number ++ numeric_suffix_int ++
+            check (either [ eof ; ign (cond (fun c -> c <> '.')) ]) >>:
+            fun (((s,n),suf),_) -> s * n * suf
+        ) else (
+            sign ++ c_like_number ++ numeric_suffix_int >>:
+            fun ((s,n),suf) -> s * n * suf
+        )
 
     (*$T parzer
       parzer ['1';'2';'k'] = Peg.Res (12_000, [])
@@ -565,7 +570,7 @@ module InetAddr_base = struct
                                     with _ -> fail ] in
         if picky then p ++ check (either [ eof ; ign blank ]) >>: fst
         else p
-    
+
     (*$T parzer
       parzer (String.to_list "123.123.123.123") = \
         Peg.Res (Unix.inet_addr_of_string "123.123.123.123", [])
@@ -1041,7 +1046,6 @@ module Timestamp = struct
         Output.string oc str
 
     let parzer ?(picky=false) =
-        ignore picky ;
         let open Peg in
         let date =
             let sep = either [ item '/' ; item '-' ] in
@@ -1069,12 +1073,12 @@ module Timestamp = struct
                 Int64.add (Int64.mul s 1000L)
                           (Int64.of_int ((499 + us) / 1000)))
         and unix_ts = Float.parzer >>: fun ts -> Int64.of_float (1000.*.ts) in
-        either [ abs ++ optional (any blank ++ Interval.parzer ~picky:true) >>:
+        either ((abs ++ optional (any blank ++ Interval.parzer ~picky:true) >>:
                     (fun (ts,i_opt) -> match i_opt with
                         | None -> ts
-                        | Some (_, i) -> add_interval ts i) ;
-                 junkie ;
-                 unix_ts ]
+                        | Some (_, i) -> add_interval ts i)) ::
+                 junkie ::
+                 if not picky then [unix_ts] else [])
 
     (*$T parzer
       parzer (String.to_list "now -56 days") <> Peg.Fail

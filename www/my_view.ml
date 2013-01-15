@@ -98,18 +98,17 @@ let make_graph_page title form graph =
 
 let table_of_datasets datasets =
     let all_rows =
-        Hashtbl.fold (fun label pts doc ->
-            let rows =
-                List.map (fun (x, y) ->
-                    tr [ td [ cdata (string_of_float x) ] ;
-                         td [ cdata (string_of_float y) ] ])
-                    pts in
-            (tr [ th ~attrs:["colspan", "2"] [ cdata label ] ] ::
-            rows) @ doc)
-            datasets [] in
-    [ table (tr [ th [ cdata "time" ] ;
-                  th [ cdata "qtt" ] ] ::
-             all_rows) ]
+        Hashtbl.fold (fun key aggrs rows ->
+            let tds_of_arr a =
+                Array.enum a /@
+                (fun k -> td [ cdata k ]) |>
+                List.of_enum in
+            let tds_of_key = function
+            | None -> [ td [ cdata "others" ] ]
+            | Some ks -> tds_of_arr ks in
+            tr (tds_of_key key @ tds_of_arr aggrs) ::
+            rows) datasets [] in
+    [ table all_rows ]
 
 let tops_table tops heads vals_of_top =
     let all_rows =

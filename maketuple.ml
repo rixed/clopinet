@@ -1,5 +1,7 @@
 open Printf
 
+(* FIXME: usr Dynlinker.maketuple *)
+
 let maketuple n =
     let foreach f =
         for i = 0 to n-1 do f i done in

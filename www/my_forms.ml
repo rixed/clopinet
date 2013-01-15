@@ -236,6 +236,24 @@ module Traffic = struct
         let uniq_name = "usr_filter"
         let persistant = true
     end
+    module KeySelector = struct
+        module Type = Selector.MakeKey (Traffic.Traffic)
+        let display_name = "key"
+        let uniq_name = "traffic_tops_key"
+        let persistant = true
+    end
+    module AggrSelector = struct
+        module Type = Selector.MakeAggr (Traffic.Traffic)
+        let display_name = "fields"
+        let uniq_name = "traffic_tops_fields"
+        let persistant = true
+    end
+    module SortSelector = struct
+        module Type = Selector.MakeSort (Traffic.Traffic)
+        let display_name = "sort by"
+        let uniq_name = "traffic_tops_sort"
+        let persistant = true
+    end
 
     module Bandwidth = RecordOf (ConsOf (FieldOf (StartField))
                                 (ConsOf (FieldOf (StopField))
@@ -300,10 +318,11 @@ module Traffic = struct
                            (ConsOf (FieldOf (L4PortField))
                            (ConsOf (FieldOf (UsrFilter))
                            (ConsOf (FieldOf (TblNameField))
-                           (ConsOf (FieldOf (PlotWhat))
-                           (ConsOf (FieldOf (GroupByTopField))
+                           (ConsOf (FieldOf (KeySelector))
+                           (ConsOf (FieldOf (AggrSelector))
+                           (ConsOf (FieldOf (SortSelector))
                            (ConsOf (FieldOf (MaxGraphsField))
-                                   (NulType)))))))))))))))))
+                                   (NulType))))))))))))))))))
 
 end
 

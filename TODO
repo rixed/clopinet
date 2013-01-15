@@ -1,13 +1,16 @@
 TODO stack
 ----------
 
+Code specialization
+-------------------
+
+- Get rid of jingoo, use plain printf instead (easier to generate TupleN
+code inline)
+
+
+
 User_filter
 -----------
-
-- Datatypes.of_text and User_filter.value should share syntax and even code!  
-  (ex: bool is "f" here and "false" there) -> quite easy once we have the peg 
-parser to use it from Datatype.of_string (reverse is not true since of_string 
-need to know where the value ends)
 
 - Negation in filters (for instance, ip not 1.2.3.4), aka free query
   or convert guided filters into free query, then admit an operator in
@@ -36,7 +39,23 @@ to group by 'other-ip'.
 various stats (+ additional fields in tables)
 
 
-- rework tables
+Tables
+------
+
+- we only ever want to display the top N records (according to some field 
+  value). As all datatype admit a comparison operator, then we can get the
+  top (or bottom) N according to any field. Also, we'd like to have additional
+  "virtual" fields (like geographic position).
+- all fields that we do not want to see are aggregated (ie ignored)
+
+- so that's:
+  table -> filter -> key (all wanted fields but top field), value = top field
+
+- for now, the key is given by only one or two field (preset) and the value is
+  also chosen amongst a preset select box. Replace these by a more complex
+  selection of - the sort-by field (select), the group-by field (multiselect).
+
+- then change google charts table for our custom table.
 
 
 - An html legend next to the callflow svg, with y mouse coordinate translated

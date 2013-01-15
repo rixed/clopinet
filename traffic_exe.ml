@@ -7,7 +7,8 @@ let main =
     and eth_proto = ref None and ip_src = ref None and ip_dst = ref None
     and ip = ref None and port = ref None
     and ip_proto = ref None and create = ref false and step = ref 60
-    and usr_filter = ref None in
+    and usr_filter = ref None and sort_by = ref "mac_pld"
+    and keys = ref [] and aggrs = ref [] and max_graphs = ref 20 in
     Arg.(parse [
         "-dir", Set_string dbdir, "database directory (or './')" ;
         "-create", Set create, "create db if it does not exist yet" ;
@@ -15,6 +16,15 @@ let main =
         "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
         "-c", String Prefs.overwrite_single, "overwrite conf" ;
         "-step", Set_int step, "time step for plots (default: 60)" ;
+        "-sort_by", Set_string sort_by, "(DEBUG) sort_by field" ;
+        "-key", String (fun s -> keys := s :: !keys), "(DEBUG) Add a key for top query" ;
+        "-field", String (fun s -> aggrs := s :: !aggrs), "(DEBUG) Add a field for top query" ;
+        "-max-graphs", Set_int max_graphs, "(DEBUG) Max number of graphs/tops" ;
+        "-top", String (function tbname -> Traffic.(top ?start:!start ?stop:!stop
+                                                        ?ip_src:!ip_src ?usr_filter:!usr_filter
+                                                        ~max_graphs:!max_graphs
+                                                        !sort_by !keys !aggrs
+                                                        !dbdir tbname) |> Plot.print_tops), "(DEBUG) run `top` on this table" ;
         "-dump", String (function tbname -> Traffic.(iter ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
                                                           ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst
                                                           ?ip_src:!ip_src ?ip_dst:!ip_dst ?usr_filter:!usr_filter

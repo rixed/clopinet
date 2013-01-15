@@ -9,11 +9,13 @@ open Datatype
 
 include Tuple5.Make (Integer) (Float) (Float) (Float) (Float)
 
+let zero = 0, 0., 0., 0., 0.
+
 (* Compute the avg and standard deviation using the well known recurrence formulas (where
  * the standard deviation sigma = sqrt(v/(n-1)) *)
 let distr x = function
-    | None -> 1, x, x, x, 0.
-    | Some (n, mi, ma, avg, v) ->
+    | 0, _, _, _, _ -> 1, x, x, x, 0.
+    | n, mi, ma, avg, v ->
         let n' = n + 1 in
         let xd = x -. avg in
         let avg' = avg +. (xd /. float_of_int n') in
@@ -24,9 +26,8 @@ let distr x = function
         v +. (xd *. (x -. avg'))
 
 let combine ((n, mi, ma, avg, v) as x) = function
-    | None
-    | Some (0, _, _, _, _) -> x
-    | Some ((n', mi', ma', avg', v') as x') ->
+    | 0, _, _, _, _ -> x
+    | (n', mi', ma', avg', v') as x' ->
         if n = 0 then x' else (
             assert (n' >= 1) ;
             assert (n >= 1) ;

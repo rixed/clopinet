@@ -286,7 +286,7 @@ let pipe p1 p2 bs =
 
 (* Various useful parsers *)
 
-let blank = cond Char.is_whitespace 
+let blank = cond Char.is_whitespace
 let alphabetic = cond Char.is_letter
 let numeric = cond Char.is_digit
 let alphanum = either [ alphabetic ; numeric ]

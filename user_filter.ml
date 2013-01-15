@@ -2,8 +2,6 @@
    not get very usefull error messages, and from a security perspective
    it would not be acceptable. *)
 open Batteries
-open ParserCo
-open CharParser
 open Datatype
 open Peg
 
@@ -80,12 +78,13 @@ let value =
     either [ Timestamp.parzer ~picky:true >>: (fun v -> Timestamp v) ;
              Interval.parzer ~picky:true  >>: (fun v -> Interval v) ;
              EthAddr.parzer ~picky:true   >>: (fun v -> EthAddr v) ;
+             (* must be tried before float! *)
+             Integer.parzer ~picky:true   >>: (fun v -> Integer v) ;
              (* must be tried before hostname! *)
              Float.parzer ~picky:true     >>: (fun v -> Float v) ;
              InetAddr.parzer ~picky:true  >>: (fun v -> InetAddr v) ;
              Cidr.parzer ~picky:true      >>: (fun v -> Cidr v) ;
              Bool.parzer ~picky:true      >>: (fun v -> Bool v) ;
-             Integer.parzer ~picky:true   >>: (fun v -> Integer v) ;
              Text.parzer ~picky:true      >>: (fun v -> Text v) ]
 
 (*$T value
@@ -177,6 +176,19 @@ let expr = term_3 ++ eof >>: fst
 
 exception Type_error of (expr * expr_type (* actual type *) * expr_type (* expected type *))
 
+(* FIXME: belongs to battery *)
+let indent n str =
+    let tab = String.make n ' ' in
+    let sep = "\n" ^ tab in
+    tab ^ (String.nsplit str "\n" |>
+           String.concat sep)
+
+let string_of_type_error (e, actual_t, expected_t) =
+    Printf.sprintf "Type error: expression\n%s\nshould have type %s but has type %s instead"
+        (indent 2 (string_of_expr e))
+        (string_of_type expected_t)
+        (string_of_type actual_t)
+
 let rec type_of_expr = function
     | Value v -> type_of_value v
     | Field f -> type_of_field f
@@ -199,10 +211,12 @@ let rec type_of_expr = function
         TFloat
 and check t e =
     let t' = type_of_expr e in
-    if t' <> t then raise (Type_error (e, t', t))
+    if t' <> t then (
+        Printf.fprintf stderr "%s\n" (string_of_type_error (e, t', t)) ;
+        raise (Type_error (e, t', t))
+    )
 and check_same_type e1 e2 =
-    let t1 = type_of_expr e1 and t2 = type_of_expr e2 in
-    if t1 <> t2 then raise (Type_error (e2, t2, t1))
+    let t1 = type_of_expr e1 in check t1 e2
 and type_of_field s =
     (* we know at this point that this field exists *)
     List.assoc s !fields
@@ -218,17 +232,22 @@ and type_of_value = function
     | Timestamp _ -> TTimestamp
 
 (* Promote ints to floats where required by adding ToFloat operations *)
-let rec promote_to_float = function
+let rec promote_to_float x = match x with
     | Eq (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
+    | Not e -> Not (promote_to_float e)
+    | And (e1, e2) -> And (promote_to_float e1, promote_to_float e2)
+    | Or (e1, e2) -> Or (promote_to_float e1, promote_to_float e2)
     | Gt (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
     | Lt (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
     | Ge (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
     | Le (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
-    | x -> x
+    | StartsWith (e1, e2) -> StartsWith (promote_to_float e1, promote_to_float e2)
+    | Contains (e1, e2) -> Contains (promote_to_float e1, promote_to_float e2)
+    | ToFloat _ | Value _ | Field _ -> x
 and may_promote e1 e2 =
     let t1 = type_of_expr e1 and t2 = type_of_expr e2 in
     if t1 = TInteger && t2 = TFloat then (ToFloat e1, e2) else
-    if t1 = TFloat && t1 = TInteger then (e1, ToFloat e2) else
+    if t1 = TFloat && t2 = TInteger then (e1, ToFloat e2) else
     e1, e2
 
 (* helper for the above tests *)
@@ -272,19 +291,6 @@ and ocaml_of_value = function
     | EthAddr v   -> EthAddr.to_imm v
     | Interval v  -> Interval.to_imm v
     | Timestamp v -> Timestamp.to_imm v
-
-(* FIXME: belongs to battery *)
-let indent n str =
-    let tab = String.make n ' ' in
-    let sep = "\n" ^ tab in
-    tab ^ (String.nsplit str "\n" |>
-           String.concat sep)
-
-let string_of_type_error (e, actual_t, expected_t) =
-    Printf.sprintf "Type error: expression\n%s\nshould have type %s but has type %s instead"
-        (indent 2 (string_of_expr e))
-        (string_of_type expected_t)
-        (string_of_type actual_t)
 
 let () =
     Printexc.register_printer (function

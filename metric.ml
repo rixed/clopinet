@@ -117,3 +117,13 @@ let dbck dbdir lods read meta_read =
 
 module VLan = Datatype.Option (Datatype.UInteger16)
 
+(* Fields models for templates *)
+
+type aggr_function = { zero : string ; func : string ; fin : string }
+
+type selectable_field = {
+    aggrs : (string * aggr_function) list ;
+    sortable : string ; (* name of to_int function, or "" *)
+    keyable : bool ;
+    datatype : string }
+

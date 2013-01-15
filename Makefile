@@ -43,7 +43,7 @@ EXAMPLES_BYTE = \
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
 
-REQUIRES = batteries pfds bitstring bitstring.syntax parmap dynlink
+REQUIRES = pfds bitstring bitstring.syntax parmap dynlink
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc
@@ -84,6 +84,11 @@ tuple%.ml: maketuple.opt
 	 ./maketuple.opt $$n > $@
 
 distribution.cmo: tuple5.cmo
+metric.cmo: tuple2.cmo
+traffic.cmo: tuple2.cmo tuple16.cmo tuple3.cmo
+distribution.cmx: tuple5.cmx
+metric.cmx: tuple2.cmx
+traffic.cmx: tuple2.cmx tuple16.cmx tuple3.cmx
 
 clean-spec:
 	$(MAKE) -C www clean
