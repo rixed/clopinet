@@ -1,9 +1,4 @@
 
-function graph_init() {
-	google.load('visualization', '1.0', {'packages':['corechart','table']});
-//	google.setOnLoadCallback(drawChart);
-}
-
 function http_request(url, handler) {
 	if (window.XMLHttpRequest) {
 		// code for IE7+, Firefox, Chrome, Opera, Safari

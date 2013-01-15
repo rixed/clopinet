@@ -15,18 +15,11 @@ let add_msg = add_msg_with_class "ok"
 let add_err = add_msg_with_class "nok"
 let add_exc exc = add_err (Printexc.to_string exc ^"<br/>\n"^ Printexc.get_backtrace ())
 
-let msgs () = div ~id:"notifs" !msgs
-
-(* Google charts *)
-
 let chart_head = [
-    tag "script" ~attrs:["type","text/javascript" ; "src","https://www.google.com/jsapi"] [] ;
-    tag "script" ~attrs:["type","text/javascript" ; "src","static/js/graph.js"] [] ;
-    tag "script" ~attrs:["type","text/javascript"]
-        [ cdata "graph_init();" ]
+    tag "script" ~attrs:["type","text/javascript" ; "src","static/js/graph.js"] []
 ]
 
-let chart_div = div ~attrs:["id","chart_div"] []
+let msgs () = div ~id:"notifs" !msgs
 
 (* rendering of pages *)
 
@@ -57,7 +50,8 @@ let make_app_page content =
                                      "type", "image/svg+xml" ] [] ;
                  link_css "static/css/style.css" ;
                  link_css "http://fonts.googleapis.com/css?family=BenchNine:300|Anaheim" ] @
-               chart_head in
+                 chart_head
+    in
     html head body
 
 let make_filter_page title form =
@@ -137,28 +131,6 @@ let tops_table tops heads vals_of_top =
         List.rev in
     let heads = thead [ tr (List.map (fun v -> th [ raw v ]) heads) ] in
     [ table ~attrs:["class","tops"] (heads :: all_rows) ]
-
-let top_chart lab datasets units =
-    let js =
-        let os = IO.output_string () in
-        Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
-            lab units
-            (* display the rows *)
-            (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
-                           (fun oc s -> Printf.fprintf oc "{c:[{v:'%s'}" s)
-                           (fun oc y -> Printf.fprintf oc "{v:%f}]}" y))
-            datasets ;
-        Printf.fprintf os " \n}\n" ;
-        IO.close_out os in
-    [ chart_div ;
-      script ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
-var options = {\n\
-showRowNumber:true,\n\
-sortColumn:1,\n\
-sortAscending:false\n\
-};\n\
-var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ]
 
 let color_scale =
     [ 0.0, [| 0.0; 0.5; 1.0 |] ;
@@ -335,31 +307,6 @@ layout=\"%s\";\n"
           script "svg_explorer('netgraph', 'scaler');" ]
     with End_of_file ->
         [ raw "dot crashed" ]
-
-let peers_table ?(is_bytes=false) lab1 lab2 datasets =
-    let units = if is_bytes then "Bytes" else "Packets" in
-    let js =
-        let os = IO.output_string () in
-        Printf.fprintf os "{\ncols: [{label: '%s', type: 'string'},{label: '%s', type: 'string'},{label: '%s', type: 'number'}],\nrows: %a\n"
-            lab1 lab2 units
-            (* display the rows *)
-            (Hashtbl.print ~first:"[" ~last:"]" ~sep:",\n" ~kvsep:","
-                           (fun oc (s, d) -> Printf.fprintf oc "{c:[{v:'%s'},{v:'%s'}" s d)
-                           (fun oc y -> Printf.fprintf oc "{v:%f}]}" y))
-            datasets ;
-        Printf.fprintf os " \n}\n" ;
-        IO.close_out os in
-    [ chart_div ;
-      script ("var data = new google.visualization.DataTable(" ^ js ^ ");\n\
-var options = {\n\
-width:'100%',\n\
-height:600,\n\
-showRowNumber:true,\n\
-sortColumn:2,\n\
-sortAscending:false\n\
-};\n\
-var chart = new google.visualization.Table(document.getElementById('chart_div'));\n\
-chart.draw(data, options);\n") ]
 
 (* Dataset is a list of (ts1, ts2, peer1, peer2, descr, group), where group is used for coloring *)
 let callflow_chart start (datasets : Flow.callflow_item list) =

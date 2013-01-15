@@ -128,9 +128,7 @@ struct
                         []
                     else
                         let is_bytes = what = Volume in
-                        View.peers_chart ~is_bytes datasets @
-                        [ tag "hr" [] ] @
-                        View.peers_table ~is_bytes "src" "dst" datasets
+                        View.peers_chart ~is_bytes datasets
                 | None -> [] in
             View.make_graph_page "Peers" filters_form disp_graph
 
