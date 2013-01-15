@@ -35,7 +35,7 @@ let header () =
 
 let menu () =
     let html_of_entry e1 e2 = tag "li" [ tag "a" ~attrs:["href","?action="^e1^"/"^e2] [cdata e2] ]
-    and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "tops"; "graph"; "callflow"] ;
+    and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "top"; "graph"; "callflow"] ;
                          "DNS", ["resptime"; "top"; "distrib"] ;
                          "Web", ["resptime"; "top"; "distrib"] ;
                          "Admin", ["preferences"] ] in
@@ -96,27 +96,43 @@ let make_graph_page title form graph =
           " ] in
     make_app_page content
 
-let table_of_datasets datasets =
+let table_of_datasets key_fields aggr_fields datasets =
     let all_rows =
+        let lineno = ref 0 in
         Hashtbl.fold (fun key aggrs rows ->
             let tds_of_arr a =
                 Array.enum a /@
                 (fun k -> td [ cdata k ]) |>
                 List.of_enum in
             let tds_of_key = function
-            | None -> [ td [ cdata "others" ] ]
-            | Some ks -> tds_of_arr ks in
-            tr (tds_of_key key @ tds_of_arr aggrs) ::
-            rows) datasets [] in
-    [ table all_rows ]
+                | None -> [ td ~attrs:["colspan", List.length key_fields |> string_of_int]
+                               [ cdata "others" ] ]
+                | Some ks -> tds_of_arr ks in
+            let style = if !lineno land 1 = 0 then "even" else "odd" in
+            incr lineno ;
+            tr ~attrs:["class",style]
+               (tds_of_key key @ tds_of_arr aggrs) ::
+            rows) datasets []
+    and headers =
+        let ths_of l =
+            List.map (fun k -> th [ cdata k ]) l in
+        ths_of key_fields @ ths_of aggr_fields
+    in
+    [ table ~attrs:["class","tops"]
+            (headers @ all_rows) ]
 
 let tops_table tops heads vals_of_top =
     let all_rows =
+        let lineno = ref 0 in
         Array.fold_left (fun rows top ->
             match top with None -> rows
                          | Some top ->
                               let vals = vals_of_top top in
-                              tr (List.map (fun v -> td [ raw v ]) vals) :: rows)
+                              let style = if !lineno land 1 = 0 then "even" else "odd" in
+                              incr lineno ;
+                              tr ~attrs:["class",style]
+                                 (List.map (fun v -> td [ raw v ]) vals) ::
+                              rows)
             [] tops |>
         List.rev in
     let heads = thead [ tr (List.map (fun v -> th [ raw v ]) heads) ] in

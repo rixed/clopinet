@@ -285,7 +285,7 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
 type top_fun = unit -> (string array option, string array) Hashtbl.t
 let dyn_top : top_fun ref = ref (fun () -> failwith "Cannot specialize top function")
 
-let top ?start ?stop ?ip_src ?usr_filter ?(max_graphs=20) sort_by key_fields aggr_fields dbdir name =
+let get_top ?start ?stop ?ip_src ?usr_filter ?(max_graphs=20) sort_by key_fields aggr_fields dbdir name =
     let start = optmin start stop
     and stop = optmax start stop in
     let aggr_fields = List.map (fun n -> BatString.split n ".") aggr_fields in

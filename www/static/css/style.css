@@ -166,6 +166,8 @@ p.nok {
 
 table {
     border-collapse: collapse;
+	margin-left: auto;
+	margin-right: auto;
 }
 td, th {
 	vertical-align: top;
@@ -192,13 +194,20 @@ table.tops {
 table.tops tr:first-child td {
 	border-top: 2px solid #444;
 }
+table.tops tr {
+	height: 0.5em;
+}
+
+table.tops tr.even {
+    background-color: #f4f5f6;
+}
+table.tops tr.odd {
+    background-color: #e4e5ff;
+}
 table.tops tr:hover {
 	background-color: #abe;
 }
 
-table.tops tr {
-	height: 0.5em;
-}
 
 /* Svg graph */
 

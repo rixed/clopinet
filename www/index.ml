@@ -150,21 +150,21 @@ struct
                 | None -> [] in
             View.make_graph_page "Network" filters_form disp_graph
 
-        let tops args =
-            let filters_form = form "Traffic/tops/show" (Forms.Traffic.Tops.to_edit "filter" args) in
-            View.make_filter_page "Tops" filters_form
+        let top args =
+            let filters_form = form "Traffic/top/show" (Forms.Traffic.Tops.to_edit "filter" args) in
+            View.make_filter_page "Top Traffic" filters_form
 
-        let tops_show args =
-            let filters_form = form "Traffic/tops/show" (Forms.Traffic.Tops.to_edit "filter" args) in
+        let top_show args =
+            let filters_form = form "Traffic/top/show" (Forms.Traffic.Tops.to_edit "filter" args) in
             let disp_graph = match display_errs Forms.Traffic.Tops.from_args "filter" args with
                 | Some (start, (stop, (_vlan, (_mac_src, (_mac_dst, (_eth_proto, (ip_src, (_ip_dst, (_ip, (_ip_proto, (_port, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, ()))))))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop in
-                    let datasets = top ~start ~stop ?ip_src ?usr_filter ?max_graphs sort_by group_by aggr_fields dbdir tblname in
-                    View.table_of_datasets datasets
+                    let datasets = get_top ~start ~stop ?ip_src ?usr_filter ?max_graphs sort_by group_by aggr_fields dbdir tblname in
+                    View.table_of_datasets group_by aggr_fields datasets
                 | None -> [] in
-            View.make_graph_page "Tops" filters_form disp_graph
+            View.make_graph_page "Top Traffic" filters_form disp_graph
 
     end
 
@@ -197,6 +197,10 @@ struct
             url
 
         let top args =
+            let filters_form = form "Web/top/show" (Forms.Web.Top.to_edit "filter" args) in
+            View.make_filter_page "Web Top Requests" filters_form
+
+        let top_show args =
             let filters_form = form "Web/top" (Forms.Web.Top.to_edit "filter" args) in
             let disp_graph = match display_errs Forms.Web.Top.from_args "filter" args with
                 | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (n, (sort_order, ()))))))))))))))) ->
@@ -312,6 +316,10 @@ struct
         let dbdir = dbdir^"/dns"
 
         let top args =
+            let filters_form = form "DNS/top/show" (Forms.Dns.Top.to_edit "filter" args) in
+            View.make_filter_page "DNS Top Requests" filters_form
+
+        let top_show args =
             let filters_form = form "DNS/top" (Forms.Dns.Top.to_edit "filter" args) in
             let disp_graph = match display_errs Forms.Dns.Top.from_args "filter" args with
                 | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (error, (qname, (n, (sort_order, ()))))))))))))) ->
@@ -471,16 +479,18 @@ let _ =
             Ctrl.Traffic.peers
         | ["Traffic"; "graph"] ->
             Ctrl.Traffic.graph
-        | ["Traffic"; "tops"] ->
-            Ctrl.Traffic.tops
-        | ["Traffic"; "tops"; "show"] ->
-            Ctrl.Traffic.tops_show
+        | ["Traffic"; "top"] ->
+            Ctrl.Traffic.top
+        | ["Traffic"; "top"; "show"] ->
+            Ctrl.Traffic.top_show
         | ["Traffic"; "callflow"] ->
             Ctrl.Flow.callflow
         | ["Web"; "resptime"] ->
             Ctrl.Web.resp_time
         | ["Web"; "top"] ->
             Ctrl.Web.top
+        | ["Web"; "top"; "show"] ->
+            Ctrl.Web.top_show
         | ["Web"; "distrib"] ->
             Ctrl.Web.distrib
         | ["Web"; "distrib"; "show"] ->
@@ -489,6 +499,8 @@ let _ =
             Ctrl.Dns.resp_time
         | ["DNS"; "top"] ->
             Ctrl.Dns.top
+        | ["DNS"; "top"; "show"] ->
+            Ctrl.Dns.top_show
         | ["DNS"; "distrib"] ->
             Ctrl.Dns.distrib
         | ["DNS"; "distrib"; "show"] ->
