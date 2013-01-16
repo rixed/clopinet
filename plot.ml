@@ -487,10 +487,10 @@ let print_tops tops =
     let print_array a =
         Array.iter (fun s ->
             Printf.printf "%s\t" s) a in
-    Hashtbl.iter (fun k v ->
+    List.iter (fun (k, v, s) ->
         (match k with
         | Some k -> print_array k
         | None   -> Printf.printf "\tothers\t") ;
         print_array v ;
-        Printf.printf "\n") tops
+        Printf.printf "\t%d\n" s) tops
 

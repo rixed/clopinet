@@ -187,20 +187,22 @@ let top () =
             a.func^" "^fn^"_1 "^fn^"_2") |> String.concat ", ")) ^" in
     let result, rest, rest_tv = Plot.FindSignificant.pass2 interm fold2 tv_aggr tv_zero "^ Integer.to_imm (max_graphs-1) ^" in
     (* We want to return a Hash of (Some array of string) -> array of string *)
-    let h = Hashtbl.create "^ Integer.to_imm max_graphs ^" in
-    Hashtbl.iter
+    Hashtbl.fold
         (fun ("^ (String.concat ", " key_fields) ^")
-             (_, ("^ (String.concat ", " (List.map fst aggr_fields)) ^")) ->
+             (sort_v, ("^ (String.concat ", " (List.map fst aggr_fields)) ^"))
+             lst ->
         let k_a = [| "^ (key_fields |> List.map (fun f -> (List.assoc f fields).datatype ^ ".to_string "^f) |> String.concat "; ") ^" |]
         and v_a = [| "^ (aggr_fields |> List.map (fun (fn,an) ->
             let f = List.assoc fn fields in
             let a = List.assoc an f.aggrs in
             f.datatype ^ ".to_string ("^a.fin ^" "^fn^")") |> String.concat "; ") ^" |] in
-        Hashtbl.add h (Some k_a) v_a) result ;
-    "^ (if aggr_fields = [] then "" else "
-    let "^ (aggr_fields |> List.map (fun (fn,_) -> "rest_"^fn) |> String.concat ", ") ^" = rest_tv in
-    Hashtbl.add h None [| "^ (aggr_fields |> List.map (fun (fn,_) -> (List.assoc fn fields).datatype^".to_string rest_"^fn) |> String.concat "; ") ^" |] ;
-    ") ^" h
+        (Some k_a, v_a, sort_v) :: lst)
+        result
+        "^ (if aggr_fields = [] then "[]" else "
+        (let "^ (aggr_fields |> List.map (fun (fn,_) -> "rest_"^fn) |> String.concat ", ") ^" = rest_tv in
+            [ None, [| "^ (aggr_fields |> List.map (fun (fn,_) -> (List.assoc fn fields).datatype^".to_string rest_"^fn) |> String.concat "; ") ^" |], rest ])
+        ")^" |>
+        List.sort (fun (_,_,v1) (_,_,v2) -> compare v2 v1)
 
 let () =
     dyn_top := top" |>

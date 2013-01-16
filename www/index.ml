@@ -160,7 +160,7 @@ struct
                     and start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop in
                     let datasets = get_top ~start ~stop ?ip_src ?usr_filter ?max_graphs sort_by group_by aggr_fields dbdir tblname in
-                    View.table_of_datasets group_by aggr_fields datasets
+                    View.table_of_datasets group_by aggr_fields sort_by datasets
                 | None -> [] in
             View.make_graph_page "Top Traffic" filters_form disp_graph
 

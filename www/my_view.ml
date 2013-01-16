@@ -90,27 +90,34 @@ let make_graph_page title form graph =
           " ] in
     make_app_page content
 
-let table_of_datasets key_fields aggr_fields datasets =
+let table_of_datasets key_fields aggr_fields sort_field datasets =
     let all_rows =
         let lineno = ref 0 in
-        Hashtbl.fold (fun key aggrs rows ->
+        List.map (fun (key, aggrs, sort_v) ->
             let tds_of_arr a =
                 Array.enum a /@
                 (fun k -> td [ cdata k ]) |>
                 List.of_enum in
             let tds_of_key = function
-                | None -> [ td ~attrs:["colspan", List.length key_fields |> string_of_int]
+                | None -> [ td ~attrs:["colspan", List.length key_fields |> string_of_int ;
+                                       "class","rest" ]
                                [ cdata "others" ] ]
                 | Some ks -> tds_of_arr ks in
             let style = if !lineno land 1 = 0 then "even" else "odd" in
             incr lineno ;
             tr ~attrs:["class",style]
-               (tds_of_key key @ tds_of_arr aggrs) ::
-            rows) datasets []
+               (tds_of_key key @
+                tds_of_arr aggrs @
+                [ td ~attrs:["class","sort_by"]
+                     [ cdata (sort_v |> float_of_int |> Datatype.string_of_number) ] ]))
+            datasets
     and headers =
         let ths_of l =
             List.map (fun k -> th [ cdata k ]) l in
-        ths_of key_fields @ ths_of aggr_fields
+        ths_of key_fields @
+        ths_of aggr_fields @
+        [ th ~attrs:["class","sort_by"]
+             [ cdata sort_field ] ]
     in
     [ table ~attrs:["class","tops"]
             (headers @ all_rows) ]

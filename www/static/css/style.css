@@ -168,6 +168,7 @@ table {
     border-collapse: collapse;
 	margin-left: auto;
 	margin-right: auto;
+	margin-top: 1em;
 }
 td, th {
 	vertical-align: top;
@@ -207,7 +208,20 @@ table.tops tr.odd {
 table.tops tr:hover {
 	background-color: #abe;
 }
-
+table.tops td.rest {
+    font-weight: bold;
+    font-style: italic;
+    background-color: #d4d5d6;
+}
+table.tops td.sort_by {
+    background-color: #d4d5d6;
+}
+table.tops th {
+    background-color: #c4c5c6;
+}
+table.tops th.sort_by {
+    background-color: #b4b5b6;
+}
 
 /* Svg graph */
 
