@@ -25,9 +25,9 @@ CLIB     = lib$(CLIBNAME).a
 $(CLIB): $(C_SOURCES:.c=.o)
 	$(AR) rcs $@ $^
 $(ARCHIVE): $(OBJECTS) $(CLIB)
-	$(OCAMLC)   -a -o $@ $(SYNTAX) -package "$(REQUIRES)" -custom -linkpkg $(OCAMLFLAGS) $(OBJECTS) -cclib -l$(CLIBNAME)
+	$(OCAMLC)   -a -o $@ $(SYNTAX) -package "$(REQUIRES)" -custom -linkpkg $(OCAMLFLAGS) $(OBJECTS) -cclib -l$(CLIBNAME) $(LIBS)
 $(XARCHIVE): $(XOBJECTS) $(CLIB)
-	$(OCAMLOPT) -a -o $@ $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) $(XOBJECTS) -cclib -l$(CLIBNAME)
+	$(OCAMLOPT) -a -o $@ $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) $(XOBJECTS) -cclib -l$(CLIBNAME) $(LIBS)
 install: $(ARCHIVE) $(XARCHIVE)
 	if test -f "$(XARCHIVE)" ; then extra="$(XARCHIVE) "`basename "$(XARCHIVE)" .cmxa`.a ; fi ; \
 	ocamlfind install "$(PKG_NAME)" *.cmi "$(ARCHIVE)" META $(CLIB) $$extra

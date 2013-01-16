@@ -3,6 +3,13 @@ TODO stack
 
 - rename to netmine?
 
+Bugs
+----
+
+- netgraph does not display when macs and/or ip are resolved?
+
+
+
 Code specialization
 -------------------
 
@@ -52,6 +59,13 @@ Tables
   top (or bottom) N according to any field. Also, we'd like to have additional
   "virtual" fields (like geographic position).
 - all fields that we do not want to see are aggregated (ie ignored)
+
+- Add a sum line
+
+- In sort by column, add a percent of total in parentheses
+
+- Can mark a line by clicking on it
+
 
 - An html legend next to the callflow svg, with y mouse coordinate translated
   into time, and info on selected peer timeline (IP...?) + http link to other

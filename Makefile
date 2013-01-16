@@ -4,6 +4,7 @@ SOURCES  = \
 	log.ml \
 	prefs.ml \
 	serial.ml \
+	geoip.ml \
 	output.ml \
 	peg.ml \
 	datatype.ml \
@@ -34,7 +35,8 @@ SOURCES  = \
 	dns.ml \
 	flow.ml
 
-C_SOURCES = ll_serial.c
+C_SOURCES = ll_serial.c ll_geoip.c
+LIBS = -cclib -lpcap -cclib -lGeoIP
 
 EXAMPLES_BYTE = \
 	dns_exe.byte web_exe.byte tcp_exe.byte \
