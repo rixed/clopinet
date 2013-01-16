@@ -4,9 +4,12 @@ TODO stack
 Code specialization
 -------------------
 
-- Get rid of jingoo, use plain printf instead (easier to generate TupleN
-code inline)
+- in order for fold_all to be more useful, code a 
+  User_filter.from_simple_filter taking the simple_filter field description in 
+parameter (which field descriptions would come handy in www/my_form.ml)
 
+- Find other opportunities to specialize some code (for instance use fold_all 
+  to replace fold)
 
 
 User_filter
@@ -48,22 +51,14 @@ Tables
   "virtual" fields (like geographic position).
 - all fields that we do not want to see are aggregated (ie ignored)
 
-- so that's:
-  table -> filter -> key (all wanted fields but top field), value = top field
-
-- for now, the key is given by only one or two field (preset) and the value is
-  also chosen amongst a preset select box. Replace these by a more complex
-  selection of - the sort-by field (select), the group-by field (multiselect).
-
-- then change google charts table for our custom table.
-
-
 - An html legend next to the callflow svg, with y mouse coordinate translated
   into time, and info on selected peer timeline (IP...?) + http link to other
   infos related to this peer
 
 
 - TCP resptimes
+
+- Sort the table by sort_field before returning values
 
 
 User prefs

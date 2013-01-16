@@ -1,6 +1,6 @@
 #!/bin/sh
 
-find test.db -type f -exec /usr/sbin/filefrag {} \; 2>/dev/null |
+find test.db/ -type f -exec /usr/sbin/filefrag {} \; 2>/dev/null |
 	sed -e 's/^\(.*\): \(.*\) exten.*$/\2/' |
 	sort -nr|
 	uniq -c
