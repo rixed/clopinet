@@ -752,9 +752,10 @@ let peers_map datasets =
     [ div ~id:"map" [] ;
       tag "script" ~attrs:["type","text/javascript" ; "src","http://cdn.leafletjs.com/leaflet-0.4/leaflet.js"] [] ;
       script ("\
-var map = L.map('map').setView([51.505, -0.09], 5);\n\
+var map = L.map('map').setView([50, 0], 2);\n\
 L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {\n\
-    attribution: '&copy; <a href=\"http://osm.org/copyright\">OpenStreetMap</a> contributors'\n\
+    attribution: '&copy; <a href=\"http://osm.org/copyright\">OpenStreetMap</a> contributors',\n\
+    minZoom: 2\n\
     }).addTo(map);\n\
 " ^ all_marks)
     ]
