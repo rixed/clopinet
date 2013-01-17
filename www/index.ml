@@ -164,6 +164,24 @@ struct
                 | None -> [] in
             View.make_graph_page "Top Traffic" filters_form disp_graph
 
+        let map args =
+            let filters_form = form "Traffic/map/show" (Forms.Traffic.Map.to_edit "filter" args) in
+            View.make_filter_page "Traffic Map" filters_form
+
+        let map_show args =
+            let filters_form = form "Traffic/map/show" (Forms.Traffic.Map.to_edit "filter" args) in
+            let ip_map = match display_errs Forms.Traffic.Map.from_args "filter" args with
+                | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (usr_filter, (tblname, ()))))))))) ->
+                    let tblname = Forms.Traffic.TblNames.options.(tblname)
+                    and start = My_time.to_timeval start
+                    and stop  = My_time.to_timeval stop in
+                    let datasets = network_map start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter dbdir tblname in
+                    if Hashtbl.is_empty datasets then []
+                    else
+                        View.peers_map datasets
+                | None -> [] in
+            View.make_graph_page "Traffic Map" filters_form ip_map
+
     end
 
     module Flow =
@@ -477,6 +495,10 @@ let _ =
             Ctrl.Traffic.peers
         | ["Traffic"; "graph"] ->
             Ctrl.Traffic.graph
+        | ["Traffic"; "map"] ->
+            Ctrl.Traffic.map
+        | ["Traffic"; "map"; "show"] ->
+            Ctrl.Traffic.map_show
         | ["Traffic"; "top"] ->
             Ctrl.Traffic.top
         | ["Traffic"; "top"; "show"] ->

@@ -3,6 +3,7 @@ open Metric
 module Hashtbl = BatHashtbl
 let (|>) = BatPervasives.(|>)
 let (|?) = BatOption.(|?)
+module Set = BatSet
 
 (* FIXME: factorize all this with DNS, or generate this? *)
 
@@ -362,6 +363,39 @@ let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_f
         Hashtbl.add res (label_of_key k1) n')
         graph ;
     res
+
+let network_map start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter dbdir name =
+    let start, stop = min start stop, max start stop in
+    Geoip.init () ;
+    let location ip =
+        try Geoip.location ip
+        with Failure _ -> ("", 0., 0.) in
+    let fold f i m =
+        Traffic.fold ~start ~stop ?vlan ?eth_proto ?ip_proto ?port ?usr_filter dbdir name
+            (fun (t1, t2, _, _, _, _, mac_proto, mac_pld, _, ip_src, ip_dst, _, _, _, _, _) p ->
+                if mac_proto = 0x0800 || mac_proto = 0x86DD then (
+                    let y = mac_pld in
+                    let y = Plot.clip_y_only ~start ~stop t1 t2 y in
+                    let loc1 = location ip_src and loc2 = location ip_dst in
+                    let loc1, loc2, ip1, ip2, y_up, y_do =
+                        if compare loc1 loc2 <= 0 then loc1, loc2, ip_src, ip_dst, y, 0
+                                                  else loc2, loc1, ip_dst, ip_src, 0, y in
+                    f loc1 loc2 (Set.singleton ip1, Set.singleton ip2, y_up, y_do) p
+                ) else p)
+            i m
+    and aggr (src1, dst1, y_up1, y_do1) (src2, dst2, y_up2, y_do2) =
+        (Set.union src1 src2, Set.union dst1 dst2, y_up1+y_up2, y_do1+y_do2) in
+    let graph = Plot.netgraph fold aggr in
+    let graph =
+        match min_volume with
+        | None ->
+            graph
+        | Some min_volume ->
+            Hashtbl.filter_map (fun _k1 n ->
+                let n' = Hashtbl.filter (fun (_,_,y_up,y_do) -> y_up+y_do >= min_volume) n in
+                if Hashtbl.is_empty n' then None
+                else Some n') graph in
+    graph
 
 (* Lod1: Accumulated over 10mins *)
 (* Lod2: round timestamp to hour *)

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <arpa/inet.h>
 #include <caml/mlvalues.h>
 #include <caml/alloc.h>
 #include <caml/socketaddr.h>
@@ -16,6 +17,8 @@ static GeoIP *geoip_handler;
 value geoip_init(value database_)
 {
     CAMLparam1(database_);
+
+    if (geoip_handler) CAMLreturn(Val_unit);   // or delete it?
 
     geoip_handler = GeoIP_open(String_val(database_), GEOIP_INDEX_CACHE);
 
@@ -35,7 +38,7 @@ value geoip_location(value ip_ /* an inet_addr */)
     CAMLlocal1(ret);
 
     struct in_addr const *ip = &GET_INET_ADDR(ip_);
-    long ipnum = ip->s_addr;
+    long ipnum = ntohl(ip->s_addr);
 
     assert(geoip_handler);
     GeoIPRecord *record = GeoIP_record_by_ipnum(geoip_handler, ipnum);

@@ -17,6 +17,6 @@ export QUERY_STRING="action=Traffic%2Fbandwidth&filter.start=2011-12-13+09%3A45&
 #export QUERY_STRING="action=Traffic%2Fcallflow&filter.start=2011-12-13+09%3A50%3A00.000&filter.stop=2011-12-13+09%3A50%3A10.000&filter.vlan=&filter.ip-start=195.83.35.28&filter.ip-dst=&filter.ip-proto=&filter.src-port=&filter.dst-port="
 
 # Debug
-export QUERY_STRING="action=Traffic%2Fbandwidth&filter.start=-5d&filter.stop=now-1d&filter.vlan=&filter.eth-src=&filter.eth-dest=&filter.eth-proto=&filter.ip-src=&filter.ip-dst=&filter.ip=&filter.ip-proto=&filter.port=&filter.usr_filter=&filter.tstep=1h&filter.vol-table=2&filter.Y=0&filter.groupby=0&filter.series="
+export QUERY_STRING="action=Traffic%2Fgraph&filter.start=2011-12-13+09%3A47&filter.stop=2011-12-13+09%3A48&filter.vlan=&filter.eth-proto=&filter.ip-proto=&filter.port=&filter.volume_min=5k&filter.usr_filter=&filter.layout=4&filter.vol-table=0&filter.show_in_network=1"
 
-strace ./index.opt
+./index.opt

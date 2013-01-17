@@ -18,6 +18,13 @@
 ## gui/svg/height = 800
 
 #
+# GeoIP
+#
+
+# Path to GeoIP database file with geographic coordinates
+geoip/database = /usr/share/GeoIP/GeoLiteCity.dat
+
+#
 # DB
 #
 

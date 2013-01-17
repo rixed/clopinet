@@ -28,7 +28,7 @@ let header () =
 
 let menu () =
     let html_of_entry e1 e2 = tag "li" [ tag "a" ~attrs:["href","?action="^e1^"/"^e2] [cdata e2] ]
-    and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "top"; "graph"; "callflow"] ;
+    and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "top"; "graph"; "map"; "callflow"] ;
                          "DNS", ["resptime"; "top"; "distrib"] ;
                          "Web", ["resptime"; "top"; "distrib"] ;
                          "Admin", ["preferences"] ] in
@@ -49,7 +49,11 @@ let make_app_page content =
                                      "href", "static/img/favicon.svg" ;
                                      "type", "image/svg+xml" ] [] ;
                  link_css "static/css/style.css" ;
-                 link_css "http://fonts.googleapis.com/css?family=BenchNine:300|Anaheim" ] @
+                 link_css "http://fonts.googleapis.com/css?family=BenchNine:300|Anaheim" ;
+                 link_css "http://cdn.leafletjs.com/leaflet-0.4/leaflet.css" ;
+                 raw "<!--[if lte IE 8]>\n\
+                      <link rel=\"stylesheet\" href=\"http://cdn.leafletjs.com/leaflet-0.4/leaflet.ie.css\" />\n\
+                      <![endif]-->\n" ] @
                  chart_head
     in
     html head body
@@ -180,7 +184,7 @@ let peers_chart ?(is_bytes=false) datasets =
     let get_by_name p =
         List.find_map (fun ((p', _, _) as r) -> if p = p' then Some r else None) peers in
     [ table ~attrs:["class","svg"] [ tr [ td
-        [ svg
+        [ svg ~attrs:["class","mlrrd"]
             [ (* Traffic *)
               g (Hashtbl.fold (fun (p1, p2) v l ->
                  try (
@@ -300,7 +304,7 @@ layout=\"%s\";\n"
            iif the div box actually stick to svg's boundary). *)
         [ table ~attrs:["class","svg"] [ tr
             [ td ~id:"netgraph"
-                [ svg
+                [ svg ~attrs:["class","mlrrd"]
                     [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
                         [ g svg_edges ;
                           g ~attrs:["style","text-anchor:middle; dominant-baseline:central" ;
@@ -505,7 +509,7 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
         ) datasets in
     [ table ~attrs:["class","svg"] [ tr
         [ td ~id:"callflow"
-            [ svg
+            [ svg ~attrs:["class","mlrrd"]
               [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
                   [ g svg_grid ;
                     g svg_flows ;
@@ -707,3 +711,42 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
         (* for this we really do want stdlib's string_of_float not our stripped down version *)
         script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", 'filter.minrt', 'filter.maxrt', 'filter.distr-prec');") ]
 
+let peers_map datasets =
+    let max_volume = Hashtbl.fold (fun _loc1 h m ->
+        Hashtbl.fold (fun _loc2 (_s,_d,up,down) m' ->
+            max (up+down) m') h m) datasets 0 |> float_of_int in
+    let opacity w = 0.05 +. 0.95 *. w
+    and color w = Color.get color_scale w in
+    let mark_loc (cc,lat,long) ips =
+        if cc = "" then "" else
+        let os = IO.output_string () in
+        Printf.fprintf os "L.marker([%f, %f]).bindPopup('%a').addTo(map);\n"
+            lat long
+            (Set.print ~first:"" ~last:"" ~sep:"<br/>"
+                       (fun fmt ip -> Printf.fprintf fmt "%s" (Datatype.InetAddr.to_string ip)))
+            ips ;
+        IO.close_out os in
+    let mark_link (cc1,lat1,long1) (cc2,lat2,long2) vol =
+        if cc1 = "" || cc2 = "" then "" else
+        let os = IO.output_string () in
+        let w = float_of_int vol /. max_volume in
+        Printf.fprintf os "L.polygon([[%f, %f],[%f, %f]], {noClip: false, fill: false, color: '%s', opacity: %f}).addTo(map);\n"
+            lat1 long1 lat2 long2
+            (color w) (opacity w) ;
+        IO.close_out os in
+    let all_marks =
+        Hashtbl.fold (fun loc1 h p ->
+            let str, srcs = Hashtbl.fold (fun loc2 (srcs, dsts, up, down) (prev_str,prev_srcs) ->
+                prev_str ^ mark_loc loc2 dsts ^ mark_link loc1 loc2 (up+down), Set.union srcs prev_srcs)
+                h (p, Set.empty) in
+            str ^ (mark_loc loc1 srcs))
+            datasets "" in
+    [ div ~id:"map" [] ;
+      tag "script" ~attrs:["type","text/javascript" ; "src","http://cdn.leafletjs.com/leaflet-0.4/leaflet.js"] [] ;
+      script ("\
+var map = L.map('map').setView([51.505, -0.09], 5);\n\
+L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {\n\
+    attribution: '&copy; <a href=\"http://osm.org/copyright\">OpenStreetMap</a> contributors'\n\
+    }).addTo(map);\n\
+" ^ all_marks)
+    ]

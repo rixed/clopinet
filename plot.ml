@@ -216,8 +216,8 @@ let hash_update_with_default def h k f =
     with Not_found ->
         Hashtbl.add h k def
 
-(* Given a fold function yielding key1, key2 (ordered), user_data,
- * returns a hash of key1 to a map of key2 to the user_values,
+(* Given a fold function yielding key1, key2 (ordered) and user_data,
+ * returns a hash of key1 to a hash of key2 to the user_values,
  * aggregated with [aggr user_value1 user_value2]. *)
 let netgraph fold aggr =
     let update_h h k1 k2 v =

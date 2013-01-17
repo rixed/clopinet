@@ -305,6 +305,17 @@ module Traffic = struct
                             (ConsOf (FieldOf (GroupByGraphField))
                                     (NulType))))))))))))
 
+     module Map = RecordOf (ConsOf (FieldOf (StartField))
+                           (ConsOf (FieldOf (StopField))
+                           (ConsOf (FieldOf (VlanField))
+                           (ConsOf (FieldOf (EthProtoField))
+                           (ConsOf (FieldOf (IpProtoField))
+                           (ConsOf (FieldOf (L4PortField))
+                           (ConsOf (FieldOf (MinTraffic))
+                           (ConsOf (FieldOf (UsrFilter))
+                           (ConsOf (FieldOf (TblNameField))
+                                   (NulType))))))))))
+
     module Tops = RecordOf (ConsOf (FieldOf (StartField))
                            (ConsOf (FieldOf (StopField))
                            (ConsOf (FieldOf (VlanField))

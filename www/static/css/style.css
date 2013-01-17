@@ -252,7 +252,7 @@ div.svg-info p#selected-peer-links a {
     text-decoration: none;
 }
 
-svg {
+svg.mlrrd {
     border-width: 1.5px;
     border-style: solid;
     border-color: #fff #ccc #ccc #fff;
@@ -272,4 +272,15 @@ span.color-box {
 
 p.hitem.selected {
     font-weight: bold;
+}
+
+/* Map */
+
+div#map {
+/*    height: 900px;
+    width: 1000px;*/
+    height: 90%;
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
 }
