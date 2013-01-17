@@ -1,4 +1,5 @@
 open Batteries
+open Metric
 module Timestamp = Datatype.Timestamp
 module UInteger64 = Datatype.UInteger64
 
@@ -712,19 +713,25 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
         script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", 'filter.minrt', 'filter.maxrt', 'filter.distr-prec');") ]
 
 let peers_map datasets =
+    let max_ips = Prefs.get_int "geoip/max_ips" 10 in
     let max_volume = Hashtbl.fold (fun _loc1 h m ->
-        Hashtbl.fold (fun _loc2 (_s,_d,up,down) m' ->
+        Hashtbl.fold (fun _loc2 (_,_,up,down) m' ->
             max (up+down) m') h m) datasets 0 |> float_of_int in
-    let opacity w = 0.05 +. 0.95 *. w
+    let opacity w = 0.3 +. 0.7 *. w
     and color w = Color.get color_scale w in
     let mark_loc (cc,lat,long) ips =
         if cc = "" then "" else
         let os = IO.output_string () in
+        let len = List.length ips in
+        let ips, last =
+            let m = max_ips - 1 in
+            if len > m then list_merge_lim m ips [], "<br/>..."
+                       else ips, "" in
         Printf.fprintf os "L.marker([%f, %f]).bindPopup('%a').addTo(map);\n"
             lat long
-            (Set.print ~first:"" ~last:"" ~sep:"<br/>"
-                       (fun fmt ip -> Printf.fprintf fmt "%s" (Datatype.InetAddr.to_string ip)))
-            ips ;
+            (List.print ~first:"" ~last ~sep:"<br/>"
+                        (fun fmt ip -> Printf.fprintf fmt "%s" (Datatype.InetAddr.to_string ip)))
+                ips ;
         IO.close_out os in
     let mark_link (cc1,lat1,long1) (cc2,lat2,long2) vol =
         if cc1 = "" || cc2 = "" then "" else
@@ -737,8 +744,9 @@ let peers_map datasets =
     let all_marks =
         Hashtbl.fold (fun loc1 h p ->
             let str, srcs = Hashtbl.fold (fun loc2 (srcs, dsts, up, down) (prev_str,prev_srcs) ->
-                prev_str ^ mark_loc loc2 dsts ^ mark_link loc1 loc2 (up+down), Set.union srcs prev_srcs)
-                h (p, Set.empty) in
+                prev_str ^ mark_loc loc2 dsts ^ mark_link loc1 loc2 (up+down),
+                list_merge_lim max_ips srcs prev_srcs)
+                h (p, []) in
             str ^ (mark_loc loc1 srcs))
             datasets "" in
     [ div ~id:"map" [] ;

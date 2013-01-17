@@ -24,6 +24,9 @@
 # Path to GeoIP database file with geographic coordinates
 geoip/database = /usr/share/GeoIP/GeoLiteCity.dat
 
+# Max number of IP to display in traffic map bubbles
+## geoip/max_ips = 10
+
 #
 # DB
 #

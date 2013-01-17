@@ -3,7 +3,6 @@ open Metric
 module Hashtbl = BatHashtbl
 let (|>) = BatPervasives.(|>)
 let (|?) = BatOption.(|?)
-module Set = BatSet
 
 (* FIXME: factorize all this with DNS, or generate this? *)
 
@@ -365,6 +364,7 @@ let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_f
     res
 
 let network_map start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter dbdir name =
+    let max_ips = Prefs.get_int "geoip/max_ips" 10 in
     let start, stop = min start stop, max start stop in
     Geoip.init () ;
     let location ip =
@@ -380,11 +380,13 @@ let network_map start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_fil
                     let loc1, loc2, ip1, ip2, y_up, y_do =
                         if compare loc1 loc2 <= 0 then loc1, loc2, ip_src, ip_dst, y, 0
                                                   else loc2, loc1, ip_dst, ip_src, 0, y in
-                    f loc1 loc2 (Set.singleton ip1, Set.singleton ip2, y_up, y_do) p
+                    f loc1 loc2 ([ip1], [ip2], y_up, y_do) p
                 ) else p)
             i m
     and aggr (src1, dst1, y_up1, y_do1) (src2, dst2, y_up2, y_do2) =
-        (Set.union src1 src2, Set.union dst1 dst2, y_up1+y_up2, y_do1+y_do2) in
+        list_merge_lim max_ips src1 src2,
+        list_merge_lim max_ips dst1 dst2,
+        y_up1+y_up2, y_do1+y_do2 in
     let graph = Plot.netgraph fold aggr in
     let graph =
         match min_volume with

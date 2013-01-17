@@ -8,6 +8,29 @@ module BoundsTS = Tuple2.Make (Timestamp) (Timestamp)
 
 open Batteries
 
+(* Tools *)
+
+let list_merge_lim lim l1 l2 =
+    (* as lists are short, not tail rec *)
+    let rec aux lim l1 l2 =
+        if lim <= 0 then [] else
+        match l1,l2 with
+            | a::a', b::b' -> if a < b then a :: aux (lim-1) a' l2 else
+                              if a > b then b :: aux (lim-1) l1 b' else
+                                            a :: aux (lim-1) a' b'
+            | a::a', [] -> a :: aux (lim-1) a' l2
+            | [], b::b' -> b :: aux (lim-1) l1 b'
+            | [], [] -> []
+    in
+    aux lim l1 l2
+
+(*$= list_merge_lim as lml & ~printer:(IO.to_string (List.print Int.print))
+  (lml 5 [1;3] [2;4]) [1;2;3;4]
+  (lml 3 [1;3] [2;4]) [1;2;3]
+  (* check fusion of same elements *)\
+  (lml 5 [1;2;3] [2;3;4;5]) [1;2;3;4;5]
+ *)
+
 let check vopt f = match vopt with
     | None -> true
     | Some v -> f v

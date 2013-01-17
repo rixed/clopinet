@@ -47,9 +47,6 @@ to group by 'other-ip'.
 - Use logarithmic Y scale for primary Y in resp times vs time charts
 
 
-- Use geoip database to offer another layout in netgraph, and other
-various stats (+ additional fields in tables)
-
 
 Tables
 ------
@@ -75,6 +72,13 @@ Tables
 - TCP resptimes
 
 - Sort the table by sort_field before returning values
+
+
+Traffic Map
+-----------
+
+- automatic center on graph boundary
+
 
 
 User prefs
