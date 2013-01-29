@@ -167,7 +167,10 @@ let top () =
                         else max_stop, Int64.(to_int (div (mul (of_int y) (sub max_stop start)) (sub stop start))) in
                     ") |> BatOption.default "") ^"
                     let k = "^ String.concat ", " key_fields ^" in
-                    let tv = "^ (if aggr_fields = [] then "()" else String.concat ", " (List.map fst aggr_fields)) ^" in
+                    let tv = "^ (if aggr_fields = [] then "()" else String.concat ", " (List.map (fun (fn,an) ->
+                        let f = List.assoc fn fields in
+                        let a = List.assoc an f.aggrs in
+                        a.singleton ^" "^ fn) aggr_fields)) ^" in
                     f (k, y, tv) p
                 ) else p)
             i m
@@ -179,28 +182,31 @@ let top () =
         let a = List.assoc an f.aggrs in
         a.zero) |> String.concat ", ")) ^"
     and tv_aggr
-        ("^ (aggr_fields |> List.map (fun (fn,_) -> fn ^ "_1") |> String.concat ", ") ^")
-        ("^ (aggr_fields |> List.map (fun (fn,_) -> fn ^ "_2") |> String.concat ", ") ^") =
+        ("^ (aggr_fields |> List.map (fun (fn,an) -> fn ^"_"^ an ^"_1") |> String.concat ", ") ^")
+        ("^ (aggr_fields |> List.map (fun (fn,an) -> fn ^"_"^ an ^"_2") |> String.concat ", ") ^") =
         "^ (if aggr_fields = [] then "()" else (aggr_fields |> List.map (fun (fn,an) ->
             let f = List.assoc fn fields in
             let a = List.assoc an f.aggrs in
-            a.func^" "^fn^"_1 "^fn^"_2") |> String.concat ", ")) ^" in
+            a.func^" "^fn^"_"^an^"_1 "^fn^"_"^an^"_2") |> String.concat ", ")) ^" in
     let result, rest, rest_tv = Plot.FindSignificant.pass2 interm fold2 tv_aggr tv_zero "^ Integer.to_imm (max_graphs-1) ^" in
     (* We want to return a Hash of (Some array of string) -> array of string *)
     Hashtbl.fold
         (fun ("^ (String.concat ", " key_fields) ^")
-             (sort_v, ("^ (String.concat ", " (List.map fst aggr_fields)) ^"))
+             (sort_v, ("^ (String.concat ", " (List.map (fun (fn,an) -> fn^"_"^an) aggr_fields)) ^"))
              lst ->
         let k_a = [| "^ (key_fields |> List.map (fun f -> (List.assoc f fields).datatype ^ ".to_string "^f) |> String.concat "; ") ^" |]
         and v_a = [| "^ (aggr_fields |> List.map (fun (fn,an) ->
             let f = List.assoc fn fields in
             let a = List.assoc an f.aggrs in
-            f.datatype ^ ".to_string ("^a.fin ^" "^fn^")") |> String.concat "; ") ^" |] in
+            f.datatype ^ ".to_string ("^a.fin ^" "^fn^"_"^an^")") |> String.concat "; ") ^" |] in
         (Some k_a, v_a, sort_v) :: lst)
         result
         "^ (if aggr_fields = [] then "[]" else "
-        (let "^ (aggr_fields |> List.map (fun (fn,_) -> "rest_"^fn) |> String.concat ", ") ^" = rest_tv in
-            [ None, [| "^ (aggr_fields |> List.map (fun (fn,_) -> (List.assoc fn fields).datatype^".to_string rest_"^fn) |> String.concat "; ") ^" |], rest ])
+        (let "^ (aggr_fields |> List.map (fun (fn,an) -> "rest_"^fn^"_"^an) |> String.concat ", ") ^" = rest_tv in
+            [ None, [| "^ (aggr_fields |> List.map (fun (fn,an) ->
+                let f = List.assoc fn fields in
+                let a = List.assoc an f.aggrs in
+                f.datatype ^ ".to_string ("^a.fin ^" rest_"^fn^"_"^an^")") |> String.concat "; ") ^" |], rest ])
         ")^" |>
         List.sort (fun (_,_,v1) (_,_,v2) -> compare v2 v1)
 

@@ -32,9 +32,6 @@ from of guided filter values ?
 
 - code metrics to measure time spent in fold, group by...
 
-- overall structure : (table -> filter)* -> ploting function (parameters) -> 
-  chart (parameters). Only the filter needs to be optimized.
-
 
 - base 10 for choosing timestamps is not the best. See:
 http://eneide.happyleptic.org/~rixed/mlrrd/?action=Traffic%2Fbandwidth&filter.start=-1month&filter.stop=-0d&filter.vlan=&filter.eth-src=&filter.eth-dest=&filter.eth-proto=&filter.ip-src=&filter.ip-dst=&filter.ip=eneide.happyleptic.org&filter.ip-proto=&filter.port=&filter.tstep=8h&filter.vol-table=2&filter.Y=0&filter.groupby=0&filter.series=&filter.start=1354386529.752809&filter.stop=1356079225.483146&filter.tstep=18703.8202247191&filter.start=1354854398.4538653&filter.stop=1356014560.6820674&filter.tstep=12819.47213483146&filter.start=1355332802.4229686&filter.stop=1356008042.9037416&filter.tstep=7461.220782022472&filter.start=1355917697.8783033&filter.stop=1355998119.7698314&filter.tstep=888.6396853932584

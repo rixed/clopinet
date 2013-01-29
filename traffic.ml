@@ -90,10 +90,10 @@ struct
             l4_pld + l4_pld'
 
     (* Field description for code templates, HTML forms, etc... *)
-    let aggr_max_int = { zero = "min_int" ; func = "max" ; fin = "identity" }
-    let aggr_min_int = { zero = "max_int" ; func = "min" ; fin = "identity" }
-    let aggr_sum_int = { zero = "0"       ; func = "(+)" ; fin = "identity" }
-    let aggr_avg_int = { zero = "(0,0)"   ; func = "(fun (c,s) v -> c+1, s+v)" ; fin = "(fun (c,s) -> s/c)" }
+    let aggr_max_int = { zero = "min_int" ; singleton = "identity" ; func = "max" ; fin = "identity" }
+    let aggr_min_int = { zero = "max_int" ; singleton = "identity" ; func = "min" ; fin = "identity" }
+    let aggr_sum_int = { zero = "0"       ; singleton = "identity" ; func = "(+)" ; fin = "identity" }
+    let aggr_avg_int = { zero = "(0,0)"   ; singleton = "(fun v -> 1,v)" ; func = "(fun (c1,s1) (c2,s2) -> c1+c2, s1+s2)" ; fin = "(fun (c,s) -> s/c)" }
     let aggrs_int = [ "max", aggr_max_int ; "min", aggr_min_int ; "sum", aggr_sum_int ; "avg", aggr_avg_int ]
     let fields = [ "start",     { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp" } ;
                    "stop",      { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp" } ;
