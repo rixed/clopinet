@@ -34,7 +34,7 @@ let menu () =
     and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "top"; "graph"; "map"; "callflow"] ;
                          "DNS", ["resptime"; "top"; "distrib"] ;
                          "Web", ["resptime"; "top"; "distrib"] ;
-                         "Reports", report_names ;
+                         "Reports/show", report_names ;
                          "Admin", ["preferences"] ] in
     span ~id:"menu" [
         tag "ul" (List.map (fun (section, links) ->
@@ -97,6 +97,12 @@ let make_chart title form graph =
           filter_"^id^".addEventListener('mouseover', show_"^id^", false);\n\
           data_"^id^".addEventListener('mouseover', hide_"^id^", false);\n\
       ") ]
+
+let make_report_page page_no title descr chart =
+    [ h2 (string_of_int (succ page_no) ^": "^
+          BatOption.default "notitle" title) ;
+      (match descr with None -> span [] | Some txt -> h3 txt) ;
+      div ~attrs:["class","report_page"] chart ]
 
 let table_of_datasets key_fields aggr_fields sort_field datasets =
     let all_rows =
