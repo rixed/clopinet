@@ -1,7 +1,7 @@
 open Batteries
 open Datatype
 
-let () = Prefs.set_base "./conf.check"
+let () = Prefs.set_base "./conf-check"
 
 let assert_exc exn f x =
     let ok =
@@ -179,12 +179,11 @@ let check_prefs () =
     assert (get_int "over2" 0 = 42) ;
     assert (get_float "over2" 0. = 42.) ;
     assert (get_int "not_defined" 1 = 1) ;
-    assert (get_int "file1/foo/bar" 0 = 42) ;
-    assert (get_int "dir1/dir2/foo/bar" 0 = 42) ;
-    assert (get_bool "file1/boolean" false = true) ;
+    assert (get_int "foo/bar" 0 = 42) ;
+    assert (get_bool "boolean" false = true) ;
     assert (get_string "comment" "" = "") ;
-    assert_exc (Scanf.Scan_failure "scanf: bad input at char number 0: ``float_of_string''") (get_int "file1/boolean") 0 ;
-    assert (get_int "file1/big" 0 = 1_500_000) ;
+    assert_exc (Scanf.Scan_failure "scanf: bad input at char number 0: ``float_of_string''") (get_int "boolean") 0 ;
+    assert (get_int "big" 0 = 1_500_000) ;
     overwrite_single "not_defined = 42" ;
     assert (get_int "not_defined" 0 = 42)
 

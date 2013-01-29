@@ -5,7 +5,7 @@ TODO stack
 them, then have hitters produce same output, and let the user choose it's
 scanning method (single or two passes)
 
-- rename to netmine?
+- rename to ...something?
 
 Reports
 -------
@@ -15,8 +15,8 @@ report name and page_no of the submitted form ; then Reports/save should write
 the new params and re-run Reports/show. So, we should pass Ctrl.functions 
 these additional parameters (target + set of additional hidden values)
 
-- for easier saving of reports, replace conf file hierarchy with a simpler, 
-single file, that's map_inplaced for certain keys when saved.
+- Implement prefs.save, map_inplacing the conf file for certain keys (to keep 
+  comments).
 
 
 Bugs

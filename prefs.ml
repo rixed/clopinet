@@ -38,33 +38,26 @@ let get_from_cached_file fname pname =
     let renew_cache () =
         load_file fname |>
         Option.map (fun cache ->
-            Hashtbl.replace file_cache fname (Unix.time(), cache) ;
+            Hashtbl.replace file_cache fname (Unix.time (), cache) ;
             cache) in
     (* get the file cache *)
     let cache = match Hashtbl.find_option file_cache fname with
     | None ->
         renew_cache ()
     | Some (cache_date, cache) ->
-        if cache_date < Unix.time () -. cache_timeout then
+        let mdate = Unix.((stat fname).st_mtime) in
+        if cache_date < mdate then
             renew_cache ()
         else Some cache in
     (* use it to get the parameter from *)
     Option.bind cache (fun cache ->
         Hashtbl.find_option cache pname)
 
-let rec get_from_dir fname pname =
-    match get_from_cached_file fname pname with
-    | None ->
-        (try let basename, paramname = String.split pname "/" in
-            get_from_dir (fname ^"/"^ basename) paramname
-        with Not_found -> None)
-    | x -> x
-
 let get_option name =
     match !overwrite_function name with
     | None ->
         (match Hashtbl.find_option overwrite_h name with
-        | None -> get_from_dir !base name
+        | None -> get_from_cached_file !base name
         | x -> x)
     | x -> x
 
