@@ -45,3 +45,24 @@ geoip/database = /usr/share/GeoIP/GeoLiteCity.dat
 # Increase only if you have many!
 ## db/#cores = 1
 
+#
+# Reports
+#
+# constitued of report/report_name/page_number/, with properties:
+# - title
+# - descr
+# - params
+#
+# Then, the action 'report' will, given a name, build (with a single DB scan) build
+# all the views and place them in a single html page (that can be viewed with a normal
+# browser or nicely printed given a specialized CSS).
+
+report/daily/0/title = Yesterdays Bandwidth
+report/daily/0/descr = yes my lord
+report/daily/0/params = action=Traffic%2Fbandwidth&filter.start=2011-12-13+09%3A45&filter.stop=2011-12-13+10%3A00&filter.vlan=&filter.eth-src=&filter.eth-dest=&filter.eth-proto=&filter.ip-src=&filter.ip-dst=&filter.ip=&filter.ip-proto=&filter.port=&filter.usr_filter=&filter.tstep=1min&filter.vol-table=0&filter.Y=0&filter.groupby=1&filter.series=
+
+report/daily/1/title = Yesterdays Peers
+report/daily/1/descr = I wonder how to allow multilines here?
+report/daily/1/params = action=Traffic%2Fpeers&filter.start=2011-12-13+09%3A45&filter.stop=2011-12-13+10%3A00&filter.vlan=&filter.eth-src=&filter.eth-dest=&filter.eth-proto=&filter.ip-src=&filter.ip-dst=&filter.ip=&filter.ip-proto=&filter.port=&filter.usr_filter=&filter.vol-table=2&filter.Y=0&filter.groupby=1&filter.series=1000
+
+

@@ -28,7 +28,7 @@ html {
     font-variant: small-caps;
 	margin-left: auto;
 	margin-right: auto;
-	width: 620px;
+	width: 800px;
 	height: 40px;
 }
 #menu li {
@@ -116,7 +116,7 @@ form th {
 
 /* Filter Form */
 
-#filter {
+.filter {
     position: absolute;
     top: 160px;
     left: 0px;
@@ -128,21 +128,21 @@ form th {
     box-shadow: 6px 9px 3px #ccc;
 	z-index: 50;
 }
-#filter-handle {
+.filter-handle {
 	width: 20px;
 }
-#filter th, #filter td {
+.filter th, .filter td {
     color: #d0ffe8;
 }
 
 /* Login and other stand alone forms */
 
-div#page {
+div.page {
     text-align: center;
     width: 100%;
 }
 
-div#page > form {
+div.page > form {
     display: inline-block;
     margin-left: auto;
     margin-right: auto;
@@ -225,7 +225,7 @@ table.tops th.sort_by {
 
 /* Svg graph */
 
-#data {
+.data {
 }
 table.svg, table.svg tr td:first-child, table.svg svg {
     height: 100%;

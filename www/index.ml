@@ -59,7 +59,7 @@ struct
         let username = try Sys.getenv "REMOTE_USER"
                        with Not_found -> "you!" in
         let msg = "Hello "^username in
-        View.make_app_page [cdata msg]
+        [ cdata msg ]
 
     let display_errs (from_args : 'a -> 'b -> 'c) (name : 'a) (args : 'b) : 'c option =
         try Some (from_args name args)
@@ -71,9 +71,9 @@ struct
     struct
         include Traffic
         let dbdir = dbdir^"/traffic"
+
         let bandwidth args =
-            let filters_form = form "Traffic/bandwidth" (Forms.Traffic.Bandwidth.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Traffic.Bandwidth.from_args "filter" args with
+            let chart = match display_errs Forms.Traffic.Bandwidth.from_args "filter" args with
                 | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (time_step, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))))) ->
                     let time_step = Interval.to_ms time_step
                     and start = My_time.to_timeval start
@@ -108,12 +108,12 @@ struct
                                       "time" what
                                       (Timestamp.to_unixfloat start) time_step nb_vx
                                       { Chart.fold = fold }
-                | None -> [] in
-            View.make_graph_page "Bandwidth" filters_form disp_graph
+                | None -> []
+            and filters_form = form "Traffic/bandwidth" (Forms.Traffic.Bandwidth.to_edit "filter" args) in
+            View.make_chart "Bandwidth" filters_form chart
 
         let peers args =
-            let filters_form = form "Traffic/peers" (Forms.Traffic.Peers.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Traffic.Peers.from_args "filter" args with
+            let chart = match display_errs Forms.Traffic.Peers.from_args "filter" args with
                 | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (tblname, (what, (group_by, (max_graphs, ())))))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
@@ -129,8 +129,9 @@ struct
                     else
                         let is_bytes = what = Volume in
                         View.peers_chart ~is_bytes datasets
-                | None -> [] in
-            View.make_graph_page "Peers" filters_form disp_graph
+                | None -> []
+            and filters_form = form "Traffic/peers" (Forms.Traffic.Peers.to_edit "filter" args) in
+            View.make_chart "Peers" filters_form chart
 
         let graph args =
             let filters_form = form "Traffic/graph" (Forms.Traffic.Graph.to_edit "filter" args) in
@@ -146,11 +147,11 @@ struct
                     else
                         View.peers_graph datasets Forms.Traffic.LayoutType.options.(layout)
                 | None -> [] in
-            View.make_graph_page "Network" filters_form disp_graph
+            View.make_chart "Network" filters_form disp_graph
 
         let top args =
             let filters_form = form "Traffic/top/show" (Forms.Traffic.Tops.to_edit "filter" args) in
-            View.make_filter_page "Top Traffic" filters_form
+            View.make_filter "Top Traffic" filters_form
 
         let top_show args =
             let filters_form = form "Traffic/top/show" (Forms.Traffic.Tops.to_edit "filter" args) in
@@ -162,11 +163,11 @@ struct
                     let datasets = get_top ~start ~stop ?ip_src ?usr_filter ?max_graphs sort_by group_by aggr_fields dbdir tblname in
                     View.table_of_datasets group_by aggr_fields sort_by datasets
                 | None -> [] in
-            View.make_graph_page "Top Traffic" filters_form disp_graph
+            View.make_chart "Top Traffic" filters_form disp_graph
 
         let map args =
             let filters_form = form "Traffic/map/show" (Forms.Traffic.Map.to_edit "filter" args) in
-            View.make_filter_page "Traffic Map" filters_form
+            View.make_filter "Traffic Map" filters_form
 
         let map_show args =
             let filters_form = form "Traffic/map/show" (Forms.Traffic.Map.to_edit "filter" args) in
@@ -180,7 +181,7 @@ struct
                     else
                         View.peers_map datasets
                 | None -> [] in
-            View.make_graph_page "Traffic Map" filters_form ip_map
+            View.make_chart "Traffic Map" filters_form ip_map
 
     end
 
@@ -200,7 +201,7 @@ struct
                                      ~tcp_dbdir:(dbdir^"/tcp") flow_dbdir in
                     View.callflow_chart (InetAddr.to_string ip_start) datasets
                 | None -> [] in
-            View.make_graph_page "Call Flow" filters_form disp_graph
+            View.make_chart "Call Flow" filters_form disp_graph
     end
 
     module Web =
@@ -214,7 +215,7 @@ struct
 
         let top args =
             let filters_form = form "Web/top/show" (Forms.Web.Top.to_edit "filter" args) in
-            View.make_filter_page "Web Top Requests" filters_form
+            View.make_filter "Web Top Requests" filters_form
 
         let top_show args =
             let filters_form = form "Web/top" (Forms.Web.Top.to_edit "filter" args) in
@@ -247,7 +248,7 @@ struct
                               string_of_float rt ;
                               url_name host port url ])
                 | None -> [] in
-            View.make_graph_page "Web Top Requests" filters_form disp_graph
+            View.make_chart "Web Top Requests" filters_form disp_graph
 
         let resp_time args =
             let filters_form = form "Web/resptime" (Forms.Web.RespTime.to_edit "filter" args) in
@@ -285,11 +286,11 @@ struct
                                   (Timestamp.to_unixfloat start) time_step nb_vx
                                   { Chart.fold = fold }
                 | None -> [] in
-            View.make_graph_page "Web Response Time" filters_form disp_graph
+            View.make_chart "Web Response Time" filters_form disp_graph
 
         let distrib args =
             let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.to_edit "filter" args) in
-            View.make_filter_page "Web Response Times" filters_form
+            View.make_filter "Web Response Times" filters_form
 
         let distrib_show args =
             let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.to_edit "filter" args) in
@@ -322,7 +323,7 @@ struct
                                   vx_min vx_step nb_vx
                                   { Chart.fold = fold }
                 | None -> [] in
-            View.make_graph_page "Web Response Times" filters_form disp_graph
+            View.make_chart "Web Response Times" filters_form disp_graph
 
     end
 
@@ -333,7 +334,7 @@ struct
 
         let top args =
             let filters_form = form "DNS/top/show" (Forms.Dns.Top.to_edit "filter" args) in
-            View.make_filter_page "DNS Top Requests" filters_form
+            View.make_filter "DNS Top Requests" filters_form
 
         let top_show args =
             let filters_form = form "DNS/top" (Forms.Dns.Top.to_edit "filter" args) in
@@ -363,7 +364,7 @@ struct
                           string_of_float rt ;
                           name ])
                 | None -> [] in
-            View.make_graph_page "DNS Top Requests" filters_form disp_graph
+            View.make_chart "DNS Top Requests" filters_form disp_graph
 
         let resp_time args =
             let filters_form = form "DNS/resptime" (Forms.Dns.RespTime.to_edit "filter" args) in
@@ -401,11 +402,11 @@ struct
                                   (Timestamp.to_unixfloat start) time_step nb_vx
                                   { Chart.fold = fold }
                 | None -> [] in
-            View.make_graph_page "DNS Response Time" filters_form disp_graph
+            View.make_chart "DNS Response Time" filters_form disp_graph
 
         let distrib args =
             let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.to_edit "filter" args) in
-            View.make_filter_page "DNS Response Times" filters_form
+            View.make_filter "DNS Response Times" filters_form
 
         let distrib_show args =
             let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.to_edit "filter" args) in
@@ -438,7 +439,7 @@ struct
                                   vx_min vx_step nb_vx
                                   { Chart.fold = fold }
                 | None -> [] in
-            View.make_graph_page "DNS Response Times" filters_form disp_graph
+            View.make_chart "DNS Response Times" filters_form disp_graph
 
     end
 
@@ -455,10 +456,8 @@ struct
                                      "resolver/ip" ; "resolver/mac" ;
                                      "db/#cores" ] ;
             let prefs_form = form "Admin/preferences/save" (Forms.Admin.Preferences.to_edit "prefs" args) in
-            View.make_app_page [
-                h1 "DNS Response Times" ;
-                div ~id:"preferences" [ prefs_form ]
-            ]
+            [ h1 "DNS Response Times" ;
+              div ~id:"preferences" [ prefs_form ] ]
 
         let save_preferences args =
             (match display_errs Forms.Admin.Preferences.from_args "prefs" args with
@@ -476,6 +475,108 @@ struct
             | None -> ()) ;
             preferences args
     end
+
+    module Report =
+    struct
+        type report_page = { page_no : int ;
+                             title : string option ;
+                             descr : string option ;
+                             params : string }
+
+        let get_report_page name page_no =
+            let pn n = "report/"^ name ^"/"^ string_of_int page_no ^"/" ^ n in
+            match Prefs.get_option (pn "params") with
+            | None -> None
+            | Some params ->
+                Some { page_no ; params ;
+                       title = Prefs.get_option (pn "title") ;
+                       descr = Prefs.get_option (pn "descr") }
+            
+        let get_report name =
+            Enum.unfold 0 (fun page_no ->
+                BatOption.bind (get_report_page name page_no)
+                    (fun page -> Some (page, succ page_no)))
+
+        let parse_param_string params =
+            let one_assoc s =
+                try let i = String.index s '=' in
+                    Cgi.decode (String.sub s 0 i), 
+                    Cgi.decode (String.sub s (succ i) (String.length s - i - 1))
+                with Not_found -> s, "" in
+            let assocs = String.nsplit params "&"
+            and h = Hashtbl.create 17 in
+            List.map one_assoc assocs |>
+            List.iter (fun (n,v) -> Hashtbl.add h n v) ;
+            h
+
+        let rec chart_of_params params =
+            let args = parse_param_string params in
+            let action = Hashtbl.find args "action" |> String.nsplit ~by:"/" in
+            dispatch action args
+
+        and build report_name _args =
+            get_report report_name /@
+            (fun page -> (* TODO: make_report_page *)
+                [ h2 (string_of_int (succ page.page_no) ^": "^
+                      BatOption.default "notitle" page.title) ;
+                  (match page.descr with None -> span [] | Some txt -> h3 txt) ;
+                  div ~attrs:["class","report_page"] (chart_of_params page.params) ;
+                  comment ("params: "^ page.params^"\n"^
+                           "page "^ string_of_int page.page_no) ]) |>
+            List.of_enum |> List.concat |>
+            List.cons (h1 report_name)
+            
+        and dispatch : string list -> (string, string) Hashtbl.t -> html = function
+            | ["info"] ->
+                Info.run
+            | [""] | ["main"] ->
+                main
+            | ["Traffic"; "bandwidth"] ->
+                Traffic.bandwidth
+            | ["Traffic"; "peers"] ->
+                Traffic.peers
+            | ["Traffic"; "graph"] ->
+                Traffic.graph
+            | ["Traffic"; "map"] ->
+                Traffic.map
+            | ["Traffic"; "map"; "show"] ->
+                Traffic.map_show
+            | ["Traffic"; "top"] ->
+                Traffic.top
+            | ["Traffic"; "top"; "show"] ->
+                Traffic.top_show
+            | ["Traffic"; "callflow"] ->
+                Flow.callflow
+            | ["Web"; "resptime"] ->
+                Web.resp_time
+            | ["Web"; "top"] ->
+                Web.top
+            | ["Web"; "top"; "show"] ->
+                Web.top_show
+            | ["Web"; "distrib"] ->
+                Web.distrib
+            | ["Web"; "distrib"; "show"] ->
+                Web.distrib_show
+            | ["DNS"; "resptime"] ->
+                Dns.resp_time
+            | ["DNS"; "top"] ->
+                Dns.top
+            | ["DNS"; "top"; "show"] ->
+                Dns.top_show
+            | ["DNS"; "distrib"] ->
+                Dns.distrib
+            | ["DNS"; "distrib"; "show"] ->
+                Dns.distrib_show
+            | ["Reports"; name] ->
+                build name
+            | ["Admin"; "preferences"] ->
+                Admin.preferences
+            | ["Admin"; "preferences"; "save"] ->
+                Admin.save_preferences
+            | _ ->
+                Invalid.run
+    end
+
 end
 
 let _ =
@@ -485,49 +586,5 @@ let _ =
             Some (decode_cookie s)
         with Not_found -> None in
     Prefs.set_overwrite_function get_from_cookie ;
-    Dispatch.run (function
-        | ["info"] -> Ctrl.Info.run
-        | [""] | ["main"] ->
-            Ctrl.main
-        | ["Traffic"; "bandwidth"] ->
-            Ctrl.Traffic.bandwidth
-        | ["Traffic"; "peers"] ->
-            Ctrl.Traffic.peers
-        | ["Traffic"; "graph"] ->
-            Ctrl.Traffic.graph
-        | ["Traffic"; "map"] ->
-            Ctrl.Traffic.map
-        | ["Traffic"; "map"; "show"] ->
-            Ctrl.Traffic.map_show
-        | ["Traffic"; "top"] ->
-            Ctrl.Traffic.top
-        | ["Traffic"; "top"; "show"] ->
-            Ctrl.Traffic.top_show
-        | ["Traffic"; "callflow"] ->
-            Ctrl.Flow.callflow
-        | ["Web"; "resptime"] ->
-            Ctrl.Web.resp_time
-        | ["Web"; "top"] ->
-            Ctrl.Web.top
-        | ["Web"; "top"; "show"] ->
-            Ctrl.Web.top_show
-        | ["Web"; "distrib"] ->
-            Ctrl.Web.distrib
-        | ["Web"; "distrib"; "show"] ->
-            Ctrl.Web.distrib_show
-        | ["DNS"; "resptime"] ->
-            Ctrl.Dns.resp_time
-        | ["DNS"; "top"] ->
-            Ctrl.Dns.top
-        | ["DNS"; "top"; "show"] ->
-            Ctrl.Dns.top_show
-        | ["DNS"; "distrib"] ->
-            Ctrl.Dns.distrib
-        | ["DNS"; "distrib"; "show"] ->
-            Ctrl.Dns.distrib_show
-        | ["Admin"; "preferences"] ->
-            Ctrl.Admin.preferences
-        | ["Admin"; "preferences"; "save"] ->
-            Ctrl.Admin.save_preferences
-        | _ -> Ctrl.Invalid.run)
+    Dispatch.run (fun action args -> Ctrl.Report.dispatch action args |> View.make_app_page)
 

@@ -28,10 +28,13 @@ let header () =
     div ~id:"header" []
 
 let menu () =
+    (* TODO: get list of alldefined reports... *)
+    let report_names = [ "daily" ] in
     let html_of_entry e1 e2 = tag "li" [ tag "a" ~attrs:["href","?action="^e1^"/"^e2] [cdata e2] ]
     and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "top"; "graph"; "map"; "callflow"] ;
                          "DNS", ["resptime"; "top"; "distrib"] ;
                          "Web", ["resptime"; "top"; "distrib"] ;
+                         "Reports", report_names ;
                          "Admin", ["preferences"] ] in
     span ~id:"menu" [
         tag "ul" (List.map (fun (section, links) ->
@@ -44,7 +47,7 @@ let make_app_page content =
     let body = [ header () ;
                  menu () ;
                  msgs () ;
-                 tag "div" ~attrs:["id","page"] content ]
+                 div ~cls:"page" content ]
     and head = [ title "MlRRD" ;
                  tag "link" ~attrs:[ "rel", "shortcut icon" ;
                                      "href", "static/img/favicon.svg" ;
@@ -57,43 +60,43 @@ let make_app_page content =
                       <![endif]-->\n" ] @
                  chart_head
     in
-    html head body
+    [ html head body ]
 
-let make_filter_page title form =
-    let content =
-        [ h1 title ;
-          div ~id:"filter"
-            [ div ~id:"filter-form" [ form ] ;
-              div ~id:"filter-handle" [] ] ;
-        ] in
-    make_app_page content
+let make_filter title form =
+    [ h1 title ;
+      div ~cls:"filter"
+        [ div ~cls:"filter-form" [ form ] ;
+          div ~cls:"filter-handle" [] ] ; ]
 
-let make_graph_page title form graph =
-    let content =
-        [ h1 title ;
-          div ~id:"filter"
-            [ div ~id:"filter-form" [ form ] ;
-              div ~id:"filter-handle" [] ] ;
-          div ~id:"data" graph ;
-          if graph = [] then raw "No data" else
-          script "\n\
-              var filter = document.getElementById('filter');\n\
-              var handle = document.getElementById('filter-handle');\n\
-              var form = document.getElementById('filter-form');\n\
-              var data = document.getElementById('data');\n\
-              function show() {\n\
-                  form.style.width = null;\n\
-                  form.style.visibility = 'visible';\n\
-              }\n\
-              function hide() {\n\
-                  form.style.width = '0';\n\
-                  form.style.visibility = 'hidden';\n\
-              }\n\
-              hide();\n\
-              filter.addEventListener('mouseover', show, false);\n\
-              data.addEventListener('mouseover', hide, false);\n\
-          " ] in
-    make_app_page content
+let random_id () =
+    let chars = "abcdefghijklmnopqrstuvwxyz_" in
+    String.init 7 (fun _ -> chars.[Random.int (String.length chars)])
+
+let make_chart title form graph =
+    let id = random_id () in
+    [ h1 title ;
+      div ~attrs:["style","position:relative"] [
+          div ~cls:"filter" ~id
+            [ div ~cls:"filter-form" ~id:(id^"-form") [ form ] ;
+              div ~cls:"filter-handle" [] ] ;
+          div ~cls:"data" ~id:(id^"-data") graph ] ;
+      if graph = [] then raw "No data" else
+      script ("\n\
+          var filter_"^id^" = document.getElementById('"^id^"');\n\
+          var form_"^id^" = document.getElementById('"^id^"-form');\n\
+          var data_"^id^" = document.getElementById('"^id^"-data');\n\
+          function show_"^id^"() {\n\
+              form_"^id^".style.width = null;\n\
+              form_"^id^".style.visibility = 'visible';\n\
+          }\n\
+          function hide_"^id^"() {\n\
+              form_"^id^".style.width = '0';\n\
+              form_"^id^".style.visibility = 'hidden';\n\
+          }\n\
+          hide_"^id^"();\n\
+          filter_"^id^".addEventListener('mouseover', show_"^id^", false);\n\
+          data_"^id^".addEventListener('mouseover', hide_"^id^", false);\n\
+      ") ]
 
 let table_of_datasets key_fields aggr_fields sort_field datasets =
     let all_rows =
