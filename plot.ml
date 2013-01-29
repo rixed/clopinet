@@ -337,8 +337,15 @@ struct
          * values of m until eventualy one reach 0 and we can remove it and insert
          * what's left from k. Update m inplace, return both m and its new min. *)
         let update1 (k, v) (m, mi) =
-            try Hashtbl.modify k (fun v' -> v + v') m ;
-                m, mi
+            try let search_min = ref false in
+                Hashtbl.modify k (fun v' ->
+                if v' = mi then search_min := true ;
+                v + v') m ;
+                m,
+                if !search_min then (
+                    (* look for new min *)
+                    Hashtbl.fold (fun _k v mi -> min v mi) m max_int
+                ) else mi
             with Not_found ->
                 if Hashtbl.length m < n then (
                     Hashtbl.add m k v ;
