@@ -17,3 +17,4 @@
 tuple*.ml
 nohup.out
 all_tests.ml
+conf-check.old

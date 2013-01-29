@@ -3,6 +3,9 @@
 
 foo/bar = 42
 
+# This one alternate between true and false
+change-me = true
+
 # booleans are case insensitive
 boolean = TrUE
 

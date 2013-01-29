@@ -185,12 +185,21 @@ let check_prefs () =
     assert_exc (Scanf.Scan_failure "scanf: bad input at char number 0: ``float_of_string''") (get_int "boolean") 0 ;
     assert (get_int "big" 0 = 1_500_000) ;
     overwrite_single "not_defined = 42" ;
-    assert (get_int "not_defined" 0 = 42)
+    assert (get_int "not_defined" 0 = 42) ;
+    let prev = get_bool_option "change-me" in
+    let inverse_it k v =
+        if k = "change-me" then string_of_bool (not (bool_of_string v)) else v in
+    map_inplace inverse_it ;
+    assert (get_bool_option "change-me" = Some true && prev = Some false ||
+            get_bool_option "change-me" = Some false && prev = Some true) ;
+    map_inplace inverse_it (* once again to reset conffile to initial state *)
 
+let ok = ref true
 let check name f =
     try f () ;
         Printf.printf "%s: Ok\n" name
     with _ ->
+        ok := false ;
         Printf.printf "%s: Fail:\n" name ;
         Printexc.print_backtrace stdout ;
         Printf.printf "----------\n"
@@ -207,4 +216,5 @@ let () =
     check "distribution" check_distribution ;
     check "serial" check_serial ;
     check "disp_numbers" check_disp_numbers ;
-    check "prefs" check_prefs
+    check "prefs" check_prefs ;
+    exit (if !ok then 0 else 1)

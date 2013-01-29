@@ -3,13 +3,19 @@ open Batteries
 let overwrite_function = ref (fun _s -> None)
 let set_overwrite_function f = overwrite_function := f
 
-let insert_into h line =
+let pair_from_line line =
     let open String in
     if length line > 0 && line.[0] <> '#' then
         try let pname, pvalue = split line "=" in
-            Hashtbl.add h (trim pname) (trim pvalue)
-        with Not_found -> ()
-    else ()
+            Some (trim pname, trim pvalue)
+        with Not_found -> None
+    else None
+
+let line_from_pair k v = k ^" = "^ v
+
+let insert_into h line =
+    pair_from_line line |>
+    BatOption.may (fun (k, v) -> Hashtbl.add h k v)
 
 let overwrite_h = Hashtbl.create 31
 let overwrite_many h =
@@ -18,46 +24,30 @@ let overwrite_single s =
     insert_into overwrite_h s
 
 let base = ref "./conf"
-let set_base d = base := d
+let last_read = ref 0.
+let cache = Hashtbl.create 11
 
-let cache_timeout = 60. (* re-read param files every minutes *)
-type cache_file = float * (string, string) Hashtbl.t
-let file_cache : (string, cache_file) Hashtbl.t = Hashtbl.create 11 (* from filename to cache_file *)
+let set_base d =
+    base := d ;
+    last_read := 0.
 
-(** Read a whole file into a hash *)
-let load_file fname =
-    try let h = Hashtbl.create 11 in
-        File.lines_of fname |>
-        Enum.iter (insert_into h) ;
-        Some h
-    with Sys_error _ ->
-        (* No such file *)
-        None
-
-let get_from_cached_file fname pname =
-    let renew_cache () =
-        load_file fname |>
-        Option.map (fun cache ->
-            Hashtbl.replace file_cache fname (Unix.time (), cache) ;
-            cache) in
-    (* get the file cache *)
-    let cache = match Hashtbl.find_option file_cache fname with
-    | None ->
-        renew_cache ()
-    | Some (cache_date, cache) ->
-        let mdate = Unix.((stat fname).st_mtime) in
-        if cache_date < mdate then
-            renew_cache ()
-        else Some cache in
-    (* use it to get the parameter from *)
-    Option.bind cache (fun cache ->
-        Hashtbl.find_option cache pname)
+let get_from_cached_file pname =
+    let mdate = Unix.((stat !base).st_mtime) in
+    if !last_read < mdate then (
+        (* renew cache *)
+        Hashtbl.clear cache ;
+        File.lines_of !base |>
+        Enum.iter (insert_into cache) ;
+        last_read := mdate
+    ) ;
+    (* then read from the cache *)
+    Hashtbl.find_option cache pname
 
 let get_option name =
     match !overwrite_function name with
     | None ->
         (match Hashtbl.find_option overwrite_h name with
-        | None -> get_from_cached_file !base name
+        | None -> get_from_cached_file name
         | x -> x)
     | x -> x
 
@@ -102,4 +92,20 @@ let get_bool_option name =
 let get_bool name default =
     get_bool_option name |>
     Option.default default
+
+let filter_file fname f =
+    let tmpfile = fname ^ (Random.int 99999 |> string_of_int) ^ ".tmp" in
+    ignore_exceptions Unix.unlink tmpfile ;
+    File.lines_of fname /@ f |> File.write_lines tmpfile ;
+    let backup = fname ^".old" in
+    ignore_exceptions Unix.unlink backup ;
+    Unix.rename fname backup ;
+    Unix.rename tmpfile fname
+
+let map_inplace f =
+    (* Loop over all lines of base file *)
+    filter_file !base (fun line ->
+        match pair_from_line line with
+        | Some (k, v) -> line_from_pair k (f k v)
+        | None -> line)
 
