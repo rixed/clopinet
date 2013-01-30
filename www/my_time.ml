@@ -14,15 +14,15 @@ let to_timeval = function
     | Abs ts -> ts
     | Rel iv -> Timestamp.add_interval (Timestamp.now ()) iv
 
-let to_edit name args =
+let to_edit name getter =
     [ Html.input
         [ "name", name ;
-          "value", input_text_of name args ] ]
+          "value", input_text_of name getter ] ]
 
-let from_args name args =
-    match Hashtbl.find_option args name with
-        | None | Some "" -> missing_field ()
-        | Some s ->
+let from name getter =
+    match getter name with
+        | [] | [""] -> missing_field ()
+        | s::_ ->
             try Abs (Timestamp.of_string s)
             with _ -> try Rel (Interval.of_string s)
             with _ -> input_error "Can not parse as date nor time"

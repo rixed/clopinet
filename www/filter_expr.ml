@@ -7,15 +7,15 @@ module Make (Conf : sig val filter_fields : (string * User_filter.expr_type) lis
 struct
     type t = expr
 
-    let to_edit name args =
+    let to_edit name getter =
         [ Html.input
             [ "name", name ;
-              "value", input_text_of name args ] ]
+              "value", input_text_of name getter ] ]
 
-    let from_args name args =
-        match Hashtbl.find_option args name with
-            | None | Some "" -> missing_field ()
-            | Some s ->
+    let from name getter =
+        match getter name with
+            | [] | [""] -> missing_field ()
+            | s::_ ->
                 try expression TBool Conf.filter_fields s
                 with Peg.Parse_error -> input_error "Parse Error!"
                    | Type_error x -> input_error (string_of_type_error x)

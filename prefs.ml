@@ -11,8 +11,6 @@ let pair_from_line line =
         with Not_found -> None
     else None
 
-let line_from_pair k v = k ^" = "^ v
-
 let insert_into h line =
     pair_from_line line |>
     BatOption.may (fun (k, v) -> Hashtbl.add h k v)
@@ -101,11 +99,4 @@ let filter_file fname f =
     ignore_exceptions Unix.unlink backup ;
     Unix.rename fname backup ;
     Unix.rename tmpfile fname
-
-let map_inplace f =
-    (* Loop over all lines of base file *)
-    filter_file !base (fun line ->
-        match pair_from_line line with
-        | Some (k, v) -> line_from_pair k (f k v)
-        | None -> line)
 

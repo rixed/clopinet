@@ -11,6 +11,9 @@ scanning method (single or two passes)
 Reports
 -------
 
+- No, reports must take their user filters (and, optionaly, other filters) 
+  from text conf and need not be editable via GUI.
+
 - filters target should be Reports/save and hidden values in form should tell
 report name and page_no of the submitted form ; then Reports/save should write 
 the new params and re-run Reports/show. So, we should pass Ctrl.functions 

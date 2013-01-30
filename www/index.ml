@@ -55,14 +55,14 @@ struct
         if name = "admin" && passwd = "secret" then Some 1 else None
 
     (* Main app page *)
-    let main _args =
+    let main _getter =
         let username = try Sys.getenv "REMOTE_USER"
                        with Not_found -> "you!" in
         let msg = "Hello "^username in
         [ cdata msg ]
 
-    let display_errs (from_args : 'a -> 'b -> 'c) (name : 'a) (args : 'b) : 'c option =
-        try Some (from_args name args)
+    let display_errs (f : 'a -> 'b -> 'c) (p1 : 'a) (p2 : 'b) : 'c option =
+        try Some (f p1 p2)
         with InputError str -> View.add_err str ; None
            | exc -> View.add_exc exc ; None
 
@@ -72,70 +72,76 @@ struct
         include Traffic
         let dbdir = dbdir^"/traffic"
 
-        let bandwidth ?hiddens ?(target="Traffic/bandwidth") args =
-            let chart = match display_errs Forms.Traffic.Bandwidth.from_args "filter" args with
-                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (time_step, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))))) ->
-                    let time_step = Interval.to_ms time_step
-                    and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop
-                    and tblname = Forms.Traffic.TblNames.options.(tblname)
-                    and what = if what = 0 then Volume else PacketCount in
-                    let datasets = match group_by with
-                        | 1 (* src-mac *) | 2 (* dst-mac *) as sd ->
-                            eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 1) what time_step dbdir tblname
-                        | 3 (* src-ip *) | 4 (* dst-ip *) as sd ->
-                            ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 3) what time_step dbdir tblname
-                        | _ (* default, apps *) ->
-                            app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what time_step dbdir tblname in
-                    if datasets = [] then
-                        []
-                    else
-                        let what = if what = PacketCount then "Packets" else "Bytes" in
-                        let nb_vx =
-                            List.fold_left (fun ma (_l, a) ->
-                                max ma (Array.length a))
-                                0 datasets in
-                        let time_step = (Int64.to_float time_step) *. 0.001
-                        and svg_width  = Prefs.get_float "gui/svg/width" 1000.
-                        and svg_height = Prefs.get_float "gui/svg/height" 600. in
-                        let fold f i =
-                            List.fold_left (fun prev (l, a) ->
-                                let get i = Array.get a i in
-                                f prev l true get)
-                                i datasets in
-                        Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.Stacked
-                                      ~force_show_0:true ~string_of_x:string_of_date
-                                      "time" what
-                                      (Timestamp.to_unixfloat start) time_step nb_vx
-                                      { Chart.fold = fold }
-                | None -> []
-            and filters_form = form ?hiddens target (Forms.Traffic.Bandwidth.to_edit "filter" args) in
+        let bandwidth_chart = function
+            | None ->
+                [ p ~cls:"err" [ cdata "No selection" ] ]
+            | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (time_step, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))))) ->
+                let time_step = Interval.to_ms time_step
+                and start = My_time.to_timeval start
+                and stop  = My_time.to_timeval stop
+                and tblname = Forms.Traffic.TblNames.options.(tblname)
+                and what = if what = 0 then Volume else PacketCount in
+                let datasets = match group_by with
+                    | 1 (* src-mac *) | 2 (* dst-mac *) as sd ->
+                        eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 1) what time_step dbdir tblname
+                    | 3 (* src-ip *) | 4 (* dst-ip *) as sd ->
+                        ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 3) what time_step dbdir tblname
+                    | _ (* default, apps *) ->
+                        app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what time_step dbdir tblname in
+                if datasets = [] then []
+                else
+                    let what = if what = PacketCount then "Packets" else "Bytes" in
+                    let nb_vx =
+                        List.fold_left (fun ma (_l, a) ->
+                            max ma (Array.length a))
+                            0 datasets in
+                    let time_step = (Int64.to_float time_step) *. 0.001
+                    and svg_width  = Prefs.get_float "gui/svg/width" 1000.
+                    and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                    let fold f i =
+                        List.fold_left (fun prev (l, a) ->
+                            let get i = Array.get a i in
+                            f prev l true get)
+                            i datasets in
+                    Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.Stacked
+                                  ~force_show_0:true ~string_of_x:string_of_date
+                                  "time" what
+                                  (Timestamp.to_unixfloat start) time_step nb_vx
+                                  { Chart.fold = fold }
+
+        let bandwidth getter =
+            let selection = display_errs Forms.Traffic.Bandwidth.from "filter" getter in
+            let chart = bandwidth_chart selection
+            and filters_form = form "Traffic/bandwidth" (Forms.Traffic.Bandwidth.to_edit "filter" getter) in
             View.make_chart "Bandwidth" filters_form chart
 
-        let peers ?hiddens ?(target="Traffic/graph") args =
-            let chart = match display_errs Forms.Traffic.Peers.from_args "filter" args with
-                | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (tblname, (what, (group_by, (max_graphs, ())))))))))))))))) ->
-                    let tblname = Forms.Traffic.TblNames.options.(tblname)
-                    and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop
-                    and what = if what = 0 then Volume else PacketCount in
-                    let datasets = match group_by with
-                        | 0 (* mac *) ->
-                            eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname
-                        | _ (* ip *) ->
-                            ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname in
-                    if Hashtbl.is_empty datasets then
-                        []
-                    else
-                        let is_bytes = what = Volume in
-                        View.peers_chart ~is_bytes datasets
-                | None -> []
-            and filters_form = form ?hiddens target (Forms.Traffic.Peers.to_edit "filter" args) in
+        let peers_chart = function
+            | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (tblname, (what, (group_by, (max_graphs, ())))))))))))))))) ->
+                let tblname = Forms.Traffic.TblNames.options.(tblname)
+                and start = My_time.to_timeval start
+                and stop  = My_time.to_timeval stop
+                and what = if what = 0 then Volume else PacketCount in
+                let datasets = match group_by with
+                    | 0 (* mac *) ->
+                        eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname
+                    | _ (* ip *) ->
+                        ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname in
+                if Hashtbl.is_empty datasets then
+                    []
+                else
+                    let is_bytes = what = Volume in
+                    View.peers_chart ~is_bytes datasets
+            | None -> []
+
+        let peers getter =
+            let selection = display_errs Forms.Traffic.Peers.from "filter" getter in
+            let chart = peers_chart selection
+            and filters_form = form "Traffic/peers" (Forms.Traffic.Peers.to_edit "filter" getter) in
             View.make_chart "Peers" filters_form chart
 
-        let graph ?hiddens ?(target="Traffic/graph") args =
-            let filters_form = form ?hiddens target (Forms.Traffic.Graph.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Traffic.Graph.from_args "filter" args with
+        let graph getter =
+            let filters_form = form "Traffic/graph" (Forms.Traffic.Graph.to_edit "filter" getter) in
+            let disp_graph = match display_errs Forms.Traffic.Graph.from "filter" getter with
                 | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (usr_filter, (layout, (tblname, (group_by, ()))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
@@ -149,13 +155,13 @@ struct
                 | None -> [] in
             View.make_chart "Network" filters_form disp_graph
 
-        let top args =
-            let filters_form = form "Traffic/top/show" (Forms.Traffic.Tops.to_edit "filter" args) in
+        let top getter =
+            let filters_form = form "Traffic/top/show" (Forms.Traffic.Tops.to_edit "filter" getter) in
             View.make_filter "Top Traffic" filters_form
 
-        let top_show ?hiddens ?(target="Traffic/top/show") args =
-            let filters_form = form ?hiddens target (Forms.Traffic.Tops.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Traffic.Tops.from_args "filter" args with
+        let top_show getter =
+            let filters_form = form "Traffic/top/show" (Forms.Traffic.Tops.to_edit "filter" getter) in
+            let disp_graph = match display_errs Forms.Traffic.Tops.from "filter" getter with
                 | Some (start, (stop, (_vlan, (_mac_src, (_mac_dst, (_eth_proto, (ip_src, (_ip_dst, (_ip, (_ip_proto, (_port, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, ()))))))))))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
@@ -165,13 +171,13 @@ struct
                 | None -> [] in
             View.make_chart "Top Traffic" filters_form disp_graph
 
-        let map args =
-            let filters_form = form "Traffic/map/show" (Forms.Traffic.Map.to_edit "filter" args) in
+        let map getter =
+            let filters_form = form "Traffic/map/show" (Forms.Traffic.Map.to_edit "filter" getter) in
             View.make_filter "Traffic Map" filters_form
 
-        let map_show ?hiddens ?(target="Traffic/map/show") args =
-            let filters_form = form ?hiddens target (Forms.Traffic.Map.to_edit "filter" args) in
-            let ip_map = match display_errs Forms.Traffic.Map.from_args "filter" args with
+        let map_show getter =
+            let filters_form = form "Traffic/map/show" (Forms.Traffic.Map.to_edit "filter" getter) in
+            let ip_map = match display_errs Forms.Traffic.Map.from "filter" getter with
                 | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (usr_filter, (tblname, ()))))))))) ->
                     let tblname = Forms.Traffic.TblNames.options.(tblname)
                     and start = My_time.to_timeval start
@@ -189,9 +195,9 @@ struct
     struct
         include Flow
         let flow_dbdir = dbdir^"/flow"
-        let callflow ?hiddens ?(target="Traffic/callflow") args =
-            let filters_form = form ?hiddens target (Forms.Flow.Callflow.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Flow.Callflow.from_args "filter" args with
+        let callflow getter =
+            let filters_form = form "Traffic/callflow" (Forms.Flow.Callflow.to_edit "filter" getter) in
+            let disp_graph = match display_errs Forms.Flow.Callflow.from "filter" getter with
                 | Some (start, (stop, (vlan, (ip_start, (ip_dst, (ip_proto, (port_src, (port_dst, ())))))))) ->
                     let start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop in
@@ -213,13 +219,13 @@ struct
             (if port = 80 then "" else (":" ^ string_of_int port)) ^
             url
 
-        let top args =
-            let filters_form = form "Web/top/show" (Forms.Web.Top.to_edit "filter" args) in
+        let top getter =
+            let filters_form = form "Web/top/show" (Forms.Web.Top.to_edit "filter" getter) in
             View.make_filter "Web Top Requests" filters_form
 
-        let top_show ?hiddens ?(target="Web/top") args =
-            let filters_form = form ?hiddens target (Forms.Web.Top.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Web.Top.from_args "filter" args with
+        let top_show getter =
+            let filters_form = form "Web/top" (Forms.Web.Top.to_edit "filter" getter) in
+            let disp_graph = match display_errs Forms.Web.Top.from "filter" getter with
                 | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (n, (sort_order, ()))))))))))))))) ->
                     let n = BatOption.default 30 n
                     and start  = My_time.to_timeval start
@@ -250,9 +256,9 @@ struct
                 | None -> [] in
             View.make_chart "Web Top Requests" filters_form disp_graph
 
-        let resp_time ?hiddens ?(target="Web/resptime") args =
-            let filters_form = form ?hiddens target (Forms.Web.RespTime.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Web.RespTime.from_args "filter" args with
+        let resp_time getter =
+            let filters_form = form "Web/resptime" (Forms.Web.RespTime.to_edit "filter" getter) in
+            let disp_graph = match display_errs Forms.Web.RespTime.from "filter" getter with
                 | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (time_step, (tblname, ()))))))))))))))) ->
                     let time_step = Interval.to_ms time_step (* FIXME: plot_resp_time should take seconds instead *)
                     and start = My_time.to_timeval start
@@ -288,13 +294,13 @@ struct
                 | None -> [] in
             View.make_chart "Web Response Time" filters_form disp_graph
 
-        let distrib args =
-            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.to_edit "filter" args) in
+        let distrib getter =
+            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.to_edit "filter" getter) in
             View.make_filter "Web Response Times" filters_form
 
-        let distrib_show ?hiddens ?(target="Web/distrib/show") args =
-            let filters_form = form ?hiddens target (Forms.Web.Distrib.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Web.Distrib.from_args "filter" args with
+        let distrib_show getter =
+            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.to_edit "filter" getter) in
+            let disp_graph = match display_errs Forms.Web.Distrib.from "filter" getter with
                 | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))))))) ->
                     let tblname = Forms.Dns.TblNames.options.(tblname)
                     and start  = My_time.to_timeval start
@@ -332,13 +338,13 @@ struct
         include Dns
         let dbdir = dbdir^"/dns"
 
-        let top args =
-            let filters_form = form "DNS/top/show" (Forms.Dns.Top.to_edit "filter" args) in
+        let top getter =
+            let filters_form = form "DNS/top/show" (Forms.Dns.Top.to_edit "filter" getter) in
             View.make_filter "DNS Top Requests" filters_form
 
-        let top_show ?hiddens ?(target="DNS/top") args =
-            let filters_form = form ?hiddens target (Forms.Dns.Top.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Dns.Top.from_args "filter" args with
+        let top_show getter =
+            let filters_form = form "DNS/top" (Forms.Dns.Top.to_edit "filter" getter) in
+            let disp_graph = match display_errs Forms.Dns.Top.from "filter" getter with
                 | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (error, (qname, (n, (sort_order, ()))))))))))))) ->
                     let start = My_time.to_timeval start
                     and stop  = My_time.to_timeval stop in
@@ -366,9 +372,9 @@ struct
                 | None -> [] in
             View.make_chart "DNS Top Requests" filters_form disp_graph
 
-        let resp_time ?hiddens ?(target="DNS/resptime") args =
-            let filters_form = form ?hiddens target (Forms.Dns.RespTime.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Dns.RespTime.from_args "filter" args with
+        let resp_time getter =
+            let filters_form = form "DNS/resptime" (Forms.Dns.RespTime.to_edit "filter" getter) in
+            let disp_graph = match display_errs Forms.Dns.RespTime.from "filter" getter with
                 | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (tx_min, (rt_min, (rt_max, (time_step, (tblname, ())))))))))))) ->
                     let time_step = Interval.to_ms time_step
                     and tblname = Forms.Dns.TblNames.options.(tblname)
@@ -404,13 +410,13 @@ struct
                 | None -> [] in
             View.make_chart "DNS Response Time" filters_form disp_graph
 
-        let distrib args =
-            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.to_edit "filter" args) in
+        let distrib getter =
+            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.to_edit "filter" getter) in
             View.make_filter "DNS Response Times" filters_form
 
-        let distrib_show ?hiddens ?(target="DNS/distrib/show") args =
-            let filters_form = form ?hiddens target (Forms.Dns.Distrib.to_edit "filter" args) in
-            let disp_graph = match display_errs Forms.Dns.Distrib.from_args "filter" args with
+        let distrib_show getter =
+            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.to_edit "filter" getter) in
+            let disp_graph = match display_errs Forms.Dns.Distrib.from "filter" getter with
                 | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))) ->
                     let tblname = Forms.Dns.TblNames.options.(tblname)
                     and start  = My_time.to_timeval start
@@ -445,22 +451,20 @@ struct
 
     module Admin =
     struct
-        let preferences args =
-            (* fill args from preferences *)
-            let pref_to_args name =
-                if not (Hashtbl.mem args name) then
-                    Prefs.get_option name |>
-                    BatOption.may (fun v ->
-                        Hashtbl.add args ("prefs."^name) v) in
-            List.iter pref_to_args [ "gui/svg/width" ; "gui/svg/height" ;
-                                     "resolver/ip" ; "resolver/mac" ;
-                                     "db/#cores" ] ;
-            let prefs_form = form "Admin/preferences/save" (Forms.Admin.Preferences.to_edit "prefs" args) in
+        let preferences getter =
+            (* fill getter from preferences *)
+            let getter' name =
+                if String.starts_with "prefs/" name then (
+                    match Prefs.get_option (String.split ~by:"/" name |> snd) with
+                    | Some v -> [v]
+                    | None   -> getter name
+                ) else getter name in
+            let prefs_form = form "Admin/preferences/save" (Forms.Admin.Preferences.to_edit "prefs" getter') in
             [ h1 "DNS Response Times" ;
               div ~id:"preferences" [ prefs_form ] ]
 
-        let save_preferences args =
-            (match display_errs Forms.Admin.Preferences.from_args "prefs" args with
+        let save_preferences getter =
+            (match display_errs Forms.Admin.Preferences.from "prefs" getter with
             | Some (svg_width, (svg_height, (resolve_ip, (resolve_mac, (ncores, ()))))) ->
                 (* Save as much as possible in cookies as base64 string (not marshalled) *)
                 let save_param n v to_string =
@@ -473,7 +477,7 @@ struct
                 save_param "db/#cores" ncores string_of_int ;
                 View.add_msg "Saved"
             | None -> ()) ;
-            preferences args
+            preferences getter
     end
 
     module Report =
@@ -481,114 +485,92 @@ struct
         type report_page = { page_no : int ;
                              title : string option ;
                              descr : string option ;
-                             params : string }
+                             chart : string ;
+                             getter : string -> string list }
+
+        let report_page_prefix name page_no =
+            "report/"^ name ^"/"^ string_of_int page_no
 
         let get_report_page name page_no =
-            let pn n = "report/"^ name ^"/"^ string_of_int page_no ^"/" ^ n in
-            match Prefs.get_option (pn "params") with
-            | None -> None
-            | Some params ->
-                Some { page_no ; params ;
-                       title = Prefs.get_option (pn "title") ;
-                       descr = Prefs.get_option (pn "descr") }
-            
+            let pn n = report_page_prefix name page_no ^"/"^ n in
+            { page_no ;
+              title = Prefs.get_option (pn "title") ;
+              descr = Prefs.get_option (pn "descr") ;
+              chart = Prefs.get_option (pn "chart") |> BatOption.get ;
+              getter = (fun n ->
+                match Prefs.get_option n with
+                | Some x -> [x]
+                | None -> []) }
+        
         let get_report name =
             Enum.unfold 0 (fun page_no ->
-                BatOption.bind (get_report_page name page_no)
-                    (fun page -> Some (page, succ page_no)))
+                Log.info "try to fetch page %d..." page_no ;
+                try Some (get_report_page name page_no, succ page_no)
+                with Invalid_argument _ -> None)
 
-        let parse_param_string params =
-            let one_assoc s =
-                try let i = String.index s '=' in
-                    Cgi.decode (String.sub s 0 i), 
-                    Cgi.decode (String.sub s (succ i) (String.length s - i - 1))
-                with Not_found -> s, "" in
-            let assocs = String.nsplit params "&"
-            and h = Hashtbl.create 17 in
-            List.map one_assoc assocs |>
-            List.iter (fun (n,v) -> Hashtbl.add h n v) ;
-            h
+        let chart_of report_name page =
+            let rn = report_page_prefix report_name page.page_no in
+            match page.chart with
+            | "Traffic/bandwidth" ->
+                display_errs Forms.Traffic.Bandwidth.from rn page.getter |>
+                Traffic.bandwidth_chart
+            | "Traffic/peers" ->
+                display_errs Forms.Traffic.Peers.from rn page.getter |>
+                Traffic.peers_chart
+            | x ->
+                [ p ~cls:"err" [ cdata "No such chart " ;
+                                 tag "i" [ cdata x ] ] ]
 
-        let rec chart_of_params ?(hiddens=[]) params =
-            let args = parse_param_string params in
-            let action = Hashtbl.find args "action" in
-            let hiddens = ("orig_action",action)::hiddens in
-            let action = String.nsplit ~by:"/" action in
-            get_page ~hiddens ~target:"Reports/save" action args
-
-        and build report_name _args =
+        let build report_name _args =
             get_report report_name /@
             (fun page ->
-                let hiddens = [ "report_name", report_name; "report_page_no", string_of_int page.page_no ] in
-                let chart = chart_of_params ~hiddens page.params in
-                (comment ("params: "^ page.params^"\n"^
-                          "page "^ string_of_int page.page_no)) ::
+                let chart = chart_of report_name page in
                 View.make_report_page page.page_no page.title page.descr chart) |>
             List.of_enum |> List.concat |>
             List.cons (h1 report_name)
 
-        and save args =
-            let report_name = Hashtbl.find args "report_name"
-            and report_page_no = Hashtbl.find args "report_page_no" in
-            let params =
-                Hashtbl.enum args //@
-                (fun (k, v) ->
-                    if k = "orig_action" then
-                        Some ("action="^ v)
-                    else if k <> "report_name" && k <> "report_page_no" && k <> "action" then
-                        Some (k ^"="^ v)
-                    else None) |>
-                Enum.fold (fun s p -> if s = "" then p else s ^"&"^ p) "" in
-            Prefs.map_inplace (fun k v ->
-                if k = "report/"^report_name^"/"^report_page_no^"/params" then
-                    params
-                else v) ;
-            [ p ~cls:"ok" [ cdata "saved" ] ]
-
-        and get_page ?hiddens ?target = function
+        let get_page = function
             | ["info"] ->
                 Info.run
             | [""] | ["main"] ->
                 main
             | ["Traffic"; "bandwidth"] ->
-                Traffic.bandwidth ?hiddens ?target
+                Traffic.bandwidth
             | ["Traffic"; "peers"] ->
-                Traffic.peers ?hiddens ?target
+                Traffic.peers
             | ["Traffic"; "graph"] ->
-                Traffic.graph ?hiddens ?target
+                Traffic.graph
             | ["Traffic"; "map"] ->
                 Traffic.map
             | ["Traffic"; "map"; "show"] ->
-                Traffic.map_show ?hiddens ?target
+                Traffic.map_show
             | ["Traffic"; "top"] ->
                 Traffic.top
             | ["Traffic"; "top"; "show"] ->
-                Traffic.top_show ?hiddens ?target
+                Traffic.top_show
             | ["Traffic"; "callflow"] ->
-                Flow.callflow ?hiddens ?target
+                Flow.callflow
             | ["Web"; "resptime"] ->
-                Web.resp_time ?hiddens ?target
+                Web.resp_time
             | ["Web"; "top"] ->
                 Web.top
             | ["Web"; "top"; "show"] ->
-                Web.top_show ?hiddens ?target
+                Web.top_show
             | ["Web"; "distrib"] ->
                 Web.distrib
             | ["Web"; "distrib"; "show"] ->
-                Web.distrib_show ?hiddens ?target
+                Web.distrib_show
             | ["DNS"; "resptime"] ->
-                Dns.resp_time ?hiddens ?target
+                Dns.resp_time
             | ["DNS"; "top"] ->
                 Dns.top
             | ["DNS"; "top"; "show"] ->
-                Dns.top_show ?hiddens ?target
+                Dns.top_show
             | ["DNS"; "distrib"] ->
                 Dns.distrib
             | ["DNS"; "distrib"; "show"] ->
-                Dns.distrib_show ?hiddens ?target
-            | ["Reports"; "save"] ->
-                save
-            | ["Reports"; name] ->  (* yep, you can't name a report "save" *)
+                Dns.distrib_show
+            | ["Reports"; name] ->
                 build name
             | ["Admin"; "preferences"] ->
                 Admin.preferences
@@ -607,5 +589,5 @@ let _ =
             Some (decode_cookie s)
         with Not_found -> None in
     Prefs.set_overwrite_function get_from_cookie ;
-    Dispatch.run (fun action args -> Ctrl.Report.get_page action args |> View.make_app_page)
+    Dispatch.run (fun name getter -> Ctrl.Report.get_page name getter |> View.make_app_page)
 

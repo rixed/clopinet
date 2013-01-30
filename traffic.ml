@@ -231,7 +231,6 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
     let start, stop = min start stop, max start stop in
     let nb_steps = Plot.row_of_time start step stop |> succ in
     (* First pass: find the biggest contributors *)
-    Log.info "Pass 1..." ;
     let fold1 f i m =
         Traffic.fold ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name (fun (_, _, count, _, _, _, mac_proto, mac_pld, _, src, dst, _, _, _, _, _) p ->
             let key = mac_proto, if by_src then src else dst

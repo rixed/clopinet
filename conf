@@ -32,7 +32,8 @@ geoip/database = /usr/share/GeoIP/GeoLiteCity.dat
 #
 
 # Basedir location
-## db/base_dir = "./test.db"
+## db/base_dir = ./test.db
+db/base_dir = /home/rixed/share/src/mlrrd/test.db
 
 # How many DB files are kept open for writing (needs restart)
 ## db/max_opened_filedescr = 1000
@@ -61,11 +62,23 @@ geoip/database = /usr/share/GeoIP/GeoLiteCity.dat
 # browser or nicely printed given a specialized CSS).
 
 report/daily/0/title = Yesterdays Bandwidth
-report/daily/0/descr = yes my lord
-report/daily/0/params = action=Traffic%2Fbandwidth&filter.start=2011-12-13+09%3A45&filter.stop=2011-12-13+10%3A00&filter.vlan=&filter.eth-src=&filter.eth-dest=&filter.eth-proto=&filter.ip-src=&filter.ip-dst=&filter.ip=&filter.ip-proto=&filter.port=&filter.usr_filter=&filter.tstep=1min&filter.vol-table=0&filter.Y=0&filter.groupby=1&filter.series=
+report/daily/0/descr = everything starts with a BW chart
+report/daily/0/chart = Traffic/bandwidth
+report/daily/0/start = 2011-12-13 09:45
+report/daily/0/stop  = 2011-12-13 10:00
+report/daily/0/tstep = 1min
+report/daily/0/vol-table = 1min
+report/daily/0/Y = volume
+report/daily/0/groupby = port
 
 report/daily/1/title = Yesterdays Peers
-report/daily/1/descr = I wonder how to allow multilines here?
-report/daily/1/params = action=Traffic%2Fpeers&filter.start=2011-12-13+09%3A45&filter.stop=2011-12-13+10%3A00&filter.vlan=&filter.eth-src=&filter.eth-dest=&filter.eth-proto=&filter.ip-src=&filter.ip-dst=&filter.ip=&filter.ip-proto=&filter.port=&filter.usr_filter=&filter.vol-table=2&filter.Y=0&filter.groupby=1&filter.series=1000
+report/daily/1/descr = how nice
+report/daily/1/chart = Traffic/peers
+report/daily/1/start = 2011-12-13 09:45
+report/daily/1/stop  = 2011-12-13 10:00
+report/daily/1/vol-table = 10mins
+report/daily/1/groupby = ip
+report/daily/1/Y = volume
+report/daily/1/series = 500
 
-
+#### many of these filters (value, groupby, Y...) should be optional

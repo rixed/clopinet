@@ -8,11 +8,11 @@ module InputOfDatatype (D : DATATYPE) :
 struct
     module String = Input.String (struct let min = Some 1 let max = None end)
     type t = D.t
-    let to_edit name args =
+    let to_edit name getter =
         [ input [ "name", name ;
-                  "value", input_text_of name args ] ]
-    let from_args name args =
-        let s = String.from_args name args in
+                  "value", input_text_of name getter ] ]
+    let from name getter =
+        let s = String.from name getter in
         try D.of_string s
         with End_of_file -> input_error "Not enough data"
            | Overflow    -> input_error "Integer overflow"

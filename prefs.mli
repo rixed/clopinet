@@ -41,7 +41,3 @@ val get_bool : string -> bool -> bool
 
 val get_bool_option : string -> bool option
 
-val map_inplace : (string -> string -> string) -> unit
-(** [map_inplace f] iterates over all defined values in the preference file and replace
- * each previous values [v] for key [k] by [f k v] *)
-
