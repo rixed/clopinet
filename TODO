@@ -5,7 +5,8 @@ TODO stack
 them, then have hitters produce same output, and let the user choose it's
 scanning method (single or two passes)
 
-- rename to ...something?
+- rename to ...nenet?
+
 
 Reports
 -------
@@ -15,8 +16,17 @@ report name and page_no of the submitted form ; then Reports/save should write
 the new params and re-run Reports/show. So, we should pass Ctrl.functions 
 these additional parameters (target + set of additional hidden values)
 
-- Implement prefs.save, map_inplacing the conf file for certain keys (to keep 
-  comments).
+- Reports menu entry should direct to "Reports/$name", that offer filters for 
+  editing charts, buttons to reorder pages and rename all pages, and another 
+target, "report_show/$name", not in menu, should display everything without 
+any form -> charts functions must receive an optional bool to disable 
+displaying of filters (but not JS interaction).
+
+- "Reports/new" should creates a default report named "unamed.$id".
+
+- Every chart page should have another form offering to add the chart in any 
+  existing report.
+
 
 
 Bugs

@@ -509,10 +509,12 @@ struct
             List.iter (fun (n,v) -> Hashtbl.add h n v) ;
             h
 
-        let rec chart_of_params ?hiddens params =
+        let rec chart_of_params ?(hiddens=[]) params =
             let args = parse_param_string params in
-            let action = Hashtbl.find args "action" |> String.nsplit ~by:"/" in
-            get_page ?hiddens action args
+            let action = Hashtbl.find args "action" in
+            let hiddens = ("orig_action",action)::hiddens in
+            let action = String.nsplit ~by:"/" action in
+            get_page ~hiddens ~target:"Reports/save" action args
 
         and build report_name _args =
             get_report report_name /@
@@ -531,7 +533,9 @@ struct
             let params =
                 Hashtbl.enum args //@
                 (fun (k, v) ->
-                    if k <> "report_name" && k <> "report_page_no" then
+                    if k = "orig_action" then
+                        Some ("action="^ v)
+                    else if k <> "report_name" && k <> "report_page_no" && k <> "action" then
                         Some (k ^"="^ v)
                     else None) |>
                 Enum.fold (fun s p -> if s = "" then p else s ^"&"^ p) "" in
@@ -541,50 +545,50 @@ struct
                 else v) ;
             [ p ~cls:"ok" [ cdata "saved" ] ]
 
-        and get_page ?hiddens ?(target="Reports/save") = function
+        and get_page ?hiddens ?target = function
             | ["info"] ->
                 Info.run
             | [""] | ["main"] ->
                 main
             | ["Traffic"; "bandwidth"] ->
-                Traffic.bandwidth ?hiddens ~target
+                Traffic.bandwidth ?hiddens ?target
             | ["Traffic"; "peers"] ->
-                Traffic.peers ?hiddens ~target
+                Traffic.peers ?hiddens ?target
             | ["Traffic"; "graph"] ->
-                Traffic.graph ?hiddens ~target
+                Traffic.graph ?hiddens ?target
             | ["Traffic"; "map"] ->
                 Traffic.map
             | ["Traffic"; "map"; "show"] ->
-                Traffic.map_show ?hiddens ~target
+                Traffic.map_show ?hiddens ?target
             | ["Traffic"; "top"] ->
                 Traffic.top
             | ["Traffic"; "top"; "show"] ->
-                Traffic.top_show ?hiddens ~target
+                Traffic.top_show ?hiddens ?target
             | ["Traffic"; "callflow"] ->
-                Flow.callflow ?hiddens ~target
+                Flow.callflow ?hiddens ?target
             | ["Web"; "resptime"] ->
-                Web.resp_time ?hiddens ~target
+                Web.resp_time ?hiddens ?target
             | ["Web"; "top"] ->
                 Web.top
             | ["Web"; "top"; "show"] ->
-                Web.top_show ?hiddens ~target
+                Web.top_show ?hiddens ?target
             | ["Web"; "distrib"] ->
                 Web.distrib
             | ["Web"; "distrib"; "show"] ->
-                Web.distrib_show ?hiddens ~target
+                Web.distrib_show ?hiddens ?target
             | ["DNS"; "resptime"] ->
-                Dns.resp_time ?hiddens ~target
+                Dns.resp_time ?hiddens ?target
             | ["DNS"; "top"] ->
                 Dns.top
             | ["DNS"; "top"; "show"] ->
-                Dns.top_show ?hiddens ~target
+                Dns.top_show ?hiddens ?target
             | ["DNS"; "distrib"] ->
                 Dns.distrib
             | ["DNS"; "distrib"; "show"] ->
-                Dns.distrib_show ?hiddens ~target
+                Dns.distrib_show ?hiddens ?target
             | ["Reports"; "save"] ->
                 save
-            | ["Reports"; "show"; name] ->
+            | ["Reports"; name] ->  (* yep, you can't name a report "save" *)
                 build name
             | ["Admin"; "preferences"] ->
                 Admin.preferences
