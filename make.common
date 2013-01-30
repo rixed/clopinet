@@ -1,11 +1,11 @@
 # vim:filetype=make
-OCAMLC     = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlc -rectypes -thread
-OCAMLOPT   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlopt -rectypes -thread
+OCAMLC     = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlc
+OCAMLOPT   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlopt
 OCAMLLEX   = ocamllex
 OCAMLYACC  = ocamlyacc
 OCAMLDEP   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldep
 OCAMLDOC   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldoc -html -colorize-code -all-params
-OCAMLMKTOP = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlmktop -g -rectypes -thread
+OCAMLMKTOP = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlmktop -g
 QTEST      = qtest
 override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -inline 9 -S
 override OCAMLFLAGS    += $(INCS) -w Ael -g -annot

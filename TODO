@@ -35,6 +35,9 @@ displaying of filters (but not JS interaction).
 Bugs
 ----
 
+- svg_plot_explorer does not work from within a report since it blindly uses 
+  window.location.search
+
 - netgraph does not display when macs and/or ip are resolved?
 
 - traffic/bandwidth: ask for a time interval of 10 minutes with a time step of 
