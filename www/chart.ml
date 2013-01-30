@@ -122,7 +122,7 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
             ?(margin_bottom=30.) ?(margin_left=10.) ?(margin_top=30.) ?(margin_right=10.)
             ?(y_tick_spacing=100.) ?(x_tick_spacing=200.) ?(tick_length=5.5)
             ?(axis_arrow_h=11.)
-            ?(vxmin_filter="filter.start") ?(vxmax_filter="filter.stop") ?(vxstep_filter="filter.tstep")
+            ?(vxmin_filter="filter/start") ?(vxmax_filter="filter/stop") ?(vxstep_filter="filter/tstep")
             ?(stacked=NotStacked) ?(force_show_0=false)
             x_label y_label
             vx_min vx_step nb_vx

@@ -66,6 +66,28 @@ struct
         with InputError str -> View.add_err str ; None
            | exc -> View.add_exc exc ; None
 
+    module ChartDescr =
+    struct
+        (* A chart unique id is "category/title" *)
+        type t = { category : string ; (* for menus *)
+                   title : string ; (* submenu entry *)
+                   to_html : string -> (string -> string list) -> html ;
+                   filter : string -> string -> (string -> string list) -> html_chunk (* FIXME: html! *)}
+
+    let filtered_chart_show chart_descr getter =
+        let namespace = "filter" in
+        let target = chart_descr.category ^"/"^ chart_descr.title ^"/show" in
+        let chart = chart_descr.to_html namespace getter in
+        let form = chart_descr.filter target namespace getter in
+        View.make_chart chart_descr.title form chart
+
+    let filtered_chart chart_descr getter =
+        let target = chart_descr.category ^"/"^ chart_descr.title ^"/show" in
+        let form = chart_descr.filter target "filter" getter in
+        View.make_filter chart_descr.title form
+
+    end
+
     (* DB search pages *)
     module Traffic =
     struct
@@ -109,11 +131,14 @@ struct
                                   (Timestamp.to_unixfloat start) time_step nb_vx
                                   { Chart.fold = fold }
 
-        let bandwidth getter =
-            let selection = display_errs Forms.Traffic.Bandwidth.from "filter" getter in
-            let chart = bandwidth_chart selection
-            and filters_form = form "Traffic/bandwidth" (Forms.Traffic.Bandwidth.to_edit "filter" getter) in
-            View.make_chart "Bandwidth" filters_form chart
+        let bw_chart_descr =
+            { ChartDescr.category = "Traffic" ;
+              ChartDescr.title = "bandwidth" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Traffic.Bandwidth.from name getter |> bandwidth_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Traffic.Bandwidth.to_edit name getter)) }
+
 
         let peers_chart = function
             | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (tblname, (what, (group_by, (max_graphs, ())))))))))))))))) ->
@@ -133,61 +158,70 @@ struct
                     View.peers_chart ~is_bytes datasets
             | None -> []
 
-        let peers getter =
-            let selection = display_errs Forms.Traffic.Peers.from "filter" getter in
-            let chart = peers_chart selection
-            and filters_form = form "Traffic/peers" (Forms.Traffic.Peers.to_edit "filter" getter) in
-            View.make_chart "Peers" filters_form chart
+        let peer_chart_descr =
+            { ChartDescr.category = "Traffic" ;
+              ChartDescr.title = "peers" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Traffic.Peers.from name getter |> peers_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Traffic.Peers.to_edit name getter)) }
 
-        let graph getter =
-            let filters_form = form "Traffic/graph" (Forms.Traffic.Graph.to_edit "filter" getter) in
-            let disp_graph = match display_errs Forms.Traffic.Graph.from "filter" getter with
-                | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (usr_filter, (layout, (tblname, (group_by, ()))))))))))) ->
-                    let tblname = Forms.Traffic.TblNames.options.(tblname)
-                    and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop
-                    and show_ip = group_by <> 2 and show_mac = group_by <> 1 in
-                    let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter show_mac show_ip dbdir tblname in
-                    if Hashtbl.is_empty datasets then
-                        []
-                    else
-                        View.peers_graph datasets Forms.Traffic.LayoutType.options.(layout)
-                | None -> [] in
-            View.make_chart "Network" filters_form disp_graph
+        let graph_chart = function
+            | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (usr_filter, (layout, (tblname, (group_by, ()))))))))))) ->
+                let tblname = Forms.Traffic.TblNames.options.(tblname)
+                and start = My_time.to_timeval start
+                and stop  = My_time.to_timeval stop
+                and show_ip = group_by <> 2 and show_mac = group_by <> 1 in
+                let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter show_mac show_ip dbdir tblname in
+                if Hashtbl.is_empty datasets then
+                    []
+                else
+                    View.peers_graph datasets Forms.Traffic.LayoutType.options.(layout)
+            | None -> []
 
-        let top getter =
-            let filters_form = form "Traffic/top/show" (Forms.Traffic.Tops.to_edit "filter" getter) in
-            View.make_filter "Top Traffic" filters_form
+        let graph_chart_descr =
+            { ChartDescr.category = "Traffic" ;
+              ChartDescr.title = "graph" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Traffic.Graph.from name getter |> graph_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Traffic.Graph.to_edit name getter)) }
 
-        let top_show getter =
-            let filters_form = form "Traffic/top/show" (Forms.Traffic.Tops.to_edit "filter" getter) in
-            let disp_graph = match display_errs Forms.Traffic.Tops.from "filter" getter with
-                | Some (start, (stop, (_vlan, (_mac_src, (_mac_dst, (_eth_proto, (ip_src, (_ip_dst, (_ip, (_ip_proto, (_port, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, ()))))))))))))))))) ->
-                    let tblname = Forms.Traffic.TblNames.options.(tblname)
-                    and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop in
-                    let datasets = get_top ~start ~stop ?ip_src ?usr_filter ?max_graphs sort_by group_by aggr_fields dbdir tblname in
-                    View.table_of_datasets group_by aggr_fields sort_by datasets
-                | None -> [] in
-            View.make_chart "Top Traffic" filters_form disp_graph
+        let top_chart = function
+            | Some (start, (stop, (_vlan, (_mac_src, (_mac_dst, (_eth_proto, (ip_src, (_ip_dst, (_ip, (_ip_proto, (_port, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, ()))))))))))))))))) ->
+                let tblname = Forms.Traffic.TblNames.options.(tblname)
+                and start = My_time.to_timeval start
+                and stop  = My_time.to_timeval stop in
+                let datasets = get_top ~start ~stop ?ip_src ?usr_filter ?max_graphs sort_by group_by aggr_fields dbdir tblname in
+                View.table_of_datasets group_by aggr_fields sort_by datasets
+            | None -> []
 
-        let map getter =
-            let filters_form = form "Traffic/map/show" (Forms.Traffic.Map.to_edit "filter" getter) in
-            View.make_filter "Traffic Map" filters_form
+        let top_chart_descr =
+            { ChartDescr.category = "Traffic" ;
+              ChartDescr.title = "top" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Traffic.Tops.from name getter |> top_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Traffic.Tops.to_edit name getter)) }
 
-        let map_show getter =
-            let filters_form = form "Traffic/map/show" (Forms.Traffic.Map.to_edit "filter" getter) in
-            let ip_map = match display_errs Forms.Traffic.Map.from "filter" getter with
-                | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (usr_filter, (tblname, ()))))))))) ->
-                    let tblname = Forms.Traffic.TblNames.options.(tblname)
-                    and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop in
-                    let datasets = network_map start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter dbdir tblname in
-                    if Hashtbl.is_empty datasets then []
-                    else
-                        View.peers_map datasets
-                | None -> [] in
-            View.make_chart "Traffic Map" filters_form ip_map
+        let map_chart = function
+            | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (usr_filter, (tblname, ()))))))))) ->
+                let tblname = Forms.Traffic.TblNames.options.(tblname)
+                and start = My_time.to_timeval start
+                and stop  = My_time.to_timeval stop in
+                let datasets = network_map start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter dbdir tblname in
+                if Hashtbl.is_empty datasets then []
+                else
+                    View.peers_map datasets
+            | None -> []
+
+        let map_chart_descr =
+            { ChartDescr.category = "Traffic" ;
+              ChartDescr.title = "map" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Traffic.Map.from name getter |> map_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Traffic.Map.to_edit name getter)) }
 
     end
 
@@ -195,141 +229,156 @@ struct
     struct
         include Flow
         let flow_dbdir = dbdir^"/flow"
-        let callflow getter =
-            let filters_form = form "Traffic/callflow" (Forms.Flow.Callflow.to_edit "filter" getter) in
-            let disp_graph = match display_errs Forms.Flow.Callflow.from "filter" getter with
-                | Some (start, (stop, (vlan, (ip_start, (ip_dst, (ip_proto, (port_src, (port_dst, ())))))))) ->
-                    let start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop in
-                    let datasets =
-                        get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
-                                     ~dns_dbdir:(dbdir^"/dns") ~web_dbdir:(dbdir^"/web")
-                                     ~tcp_dbdir:(dbdir^"/tcp") flow_dbdir in
-                    View.callflow_chart (InetAddr.to_string ip_start) datasets
-                | None -> [] in
-            View.make_chart "Call Flow" filters_form disp_graph
+
+        let callflow_chart = function
+            | Some (start, (stop, (vlan, (ip_start, (ip_dst, (ip_proto, (port_src, (port_dst, ())))))))) ->
+                let start = My_time.to_timeval start
+                and stop  = My_time.to_timeval stop in
+                let datasets =
+                    get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
+                                 ~dns_dbdir:(dbdir^"/dns") ~web_dbdir:(dbdir^"/web")
+                                 ~tcp_dbdir:(dbdir^"/tcp") flow_dbdir in
+                View.callflow_chart (InetAddr.to_string ip_start) datasets
+            | None -> []
+
+        let callflow_chart_descr =
+            { ChartDescr.category = "Traffic" ;
+              ChartDescr.title = "callflow" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Flow.Callflow.from name getter |> callflow_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Flow.Callflow.to_edit name getter)) }
+
     end
 
     module Web =
     struct
         include Web
         let dbdir = dbdir^"/web"
+
         let url_name host port url =
             host ^
             (if port = 80 then "" else (":" ^ string_of_int port)) ^
             url
 
-        let top getter =
-            let filters_form = form "Web/top/show" (Forms.Web.Top.to_edit "filter" getter) in
-            View.make_filter "Web Top Requests" filters_form
+        let top_chart = function
+            | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (n, (sort_order, ()))))))))))))))) ->
+                let n = BatOption.default 30 n
+                and start  = My_time.to_timeval start
+                and stop   = My_time.to_timeval stop in
+                let rt_min = i2s ~min:0. rt_min in
+                let rt_max = i2s ?min:rt_min rt_max in
+                let sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
+                let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
+                let field_display_names =
+                    [ "VLAN" ;
+                      "Client MAC" ; "Client IP" ;
+                      "Server MAC" ; "Server IP" ;
+                      "Method"     ; "Error Code" ;
+                      "Timestamp" ;
+                      "Response Time (&#x00B5s)" ;
+                      "URL" ] in
+                View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, port, meth, err, ts, (_, _, _, rt, _), host, url) ->
+                    [ string_of_vlan vlan ;
+                      EthAddr.to_string eclt ;
+                      Cidr.to_string clt ;
+                          EthAddr.to_string esrv ;
+                          InetAddr.to_string srv ;
+                          string_of_method meth ;
+                          string_of_int err ;
+                          Timestamp.to_string ts ;
+                          string_of_float rt ;
+                          url_name host port url ])
+            | None -> []
 
-        let top_show getter =
-            let filters_form = form "Web/top" (Forms.Web.Top.to_edit "filter" getter) in
-            let disp_graph = match display_errs Forms.Web.Top.from "filter" getter with
-                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (n, (sort_order, ()))))))))))))))) ->
-                    let n = BatOption.default 30 n
-                    and start  = My_time.to_timeval start
-                    and stop   = My_time.to_timeval stop in
-                    let rt_min = i2s ~min:0. rt_min in
-                    let rt_max = i2s ?min:rt_min rt_max in
-                    let sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
-                    let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
-                    let field_display_names =
-                        [ "VLAN" ;
-                          "Client MAC" ; "Client IP" ;
-                          "Server MAC" ; "Server IP" ;
-                          "Method"     ; "Error Code" ;
-                          "Timestamp" ;
-                          "Response Time (&#x00B5s)" ;
-                          "URL" ] in
-                    View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, port, meth, err, ts, (_, _, _, rt, _), host, url) ->
-                        [ string_of_vlan vlan ;
-                          EthAddr.to_string eclt ;
-                          Cidr.to_string clt ;
-                              EthAddr.to_string esrv ;
-                              InetAddr.to_string srv ;
-                              string_of_method meth ;
-                              string_of_int err ;
-                              Timestamp.to_string ts ;
-                              string_of_float rt ;
-                              url_name host port url ])
-                | None -> [] in
-            View.make_chart "Web Top Requests" filters_form disp_graph
+        let top_chart_descr =
+            { ChartDescr.category = "Web" ;
+              ChartDescr.title = "top" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Web.Top.from name getter |> top_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Web.Top.to_edit name getter)) }
 
-        let resp_time getter =
-            let filters_form = form "Web/resptime" (Forms.Web.RespTime.to_edit "filter" getter) in
-            let disp_graph = match display_errs Forms.Web.RespTime.from "filter" getter with
-                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (time_step, (tblname, ()))))))))))))))) ->
-                    let time_step = Interval.to_ms time_step (* FIXME: plot_resp_time should take seconds instead *)
-                    and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop in
-                    let rt_min = i2s ~min:0. rt_min in
-                    let rt_max = i2s ?min:rt_min rt_max in
-                    let tblname = Forms.Web.TblNames.options.(tblname) in
-                    let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
-                    (* TODO: plot_resp_time should return 0 in count instead of None... *)
-                    let fold f i =
-                        let i = f i "Min" true
-                            (fun i -> Distribution.min datasets.(i)) in
-                        let i = f i "Avg-&sigma;" true
-                            (fun i -> max 0. Distribution.(avg datasets.(i) -. std_dev datasets.(i))) in
-                        let i = f i "Avg" true
-                            (fun i -> Distribution.avg datasets.(i)) in
-                        let i = f i "Avg+&sigma;" true
-                            (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
-                        let i = f i "Max" true
-                            (fun i -> Distribution.max datasets.(i)) in
-                        let i = f i "#Transactions" false
-                            (fun i -> Distribution.count datasets.(i) |> float_of_int) in
-                        i in
-                    let nb_vx = Array.length datasets in
-                    let time_step = (Int64.to_float time_step) *. 0.001
-                    and svg_width  = Prefs.get_float "gui/svg/width" 1000.
-                    and svg_height = Prefs.get_float "gui/svg/height" 600. in
-                    Chart.xy_plot ~svg_width ~svg_height
-                                  ~string_of_x:string_of_date ~stacked:Chart.Stacked
-                                  "time" "response time (s)"
-                                  (Timestamp.to_unixfloat start) time_step nb_vx
-                                  { Chart.fold = fold }
-                | None -> [] in
-            View.make_chart "Web Response Time" filters_form disp_graph
+        let srt_chart = function
+            | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (time_step, (tblname, ()))))))))))))))) ->
+                let time_step = Interval.to_ms time_step (* FIXME: plot_resp_time should take seconds instead *)
+                and start = My_time.to_timeval start
+                and stop  = My_time.to_timeval stop in
+                let rt_min = i2s ~min:0. rt_min in
+                let rt_max = i2s ?min:rt_min rt_max in
+                let tblname = Forms.Web.TblNames.options.(tblname) in
+                let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
+                (* TODO: plot_resp_time should return 0 in count instead of None... *)
+                let fold f i =
+                    let i = f i "Min" true
+                        (fun i -> Distribution.min datasets.(i)) in
+                    let i = f i "Avg-&sigma;" true
+                        (fun i -> max 0. Distribution.(avg datasets.(i) -. std_dev datasets.(i))) in
+                    let i = f i "Avg" true
+                        (fun i -> Distribution.avg datasets.(i)) in
+                    let i = f i "Avg+&sigma;" true
+                        (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
+                    let i = f i "Max" true
+                        (fun i -> Distribution.max datasets.(i)) in
+                    let i = f i "#Transactions" false
+                        (fun i -> Distribution.count datasets.(i) |> float_of_int) in
+                    i in
+                let nb_vx = Array.length datasets in
+                let time_step = (Int64.to_float time_step) *. 0.001
+                and svg_width  = Prefs.get_float "gui/svg/width" 1000.
+                and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                Chart.xy_plot ~svg_width ~svg_height
+                              ~string_of_x:string_of_date ~stacked:Chart.Stacked
+                              "time" "response time (s)"
+                              (Timestamp.to_unixfloat start) time_step nb_vx
+                              { Chart.fold = fold }
+            | None -> []
 
-        let distrib getter =
-            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.to_edit "filter" getter) in
-            View.make_filter "Web Response Times" filters_form
+        let srt_chart_descr =
+            { ChartDescr.category = "Web" ;
+              ChartDescr.title = "resptime" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Web.RespTime.from name getter |> srt_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Web.RespTime.to_edit name getter)) }
 
-        let distrib_show getter =
-            let filters_form = form "Web/distrib/show" (Forms.Web.Distrib.to_edit "filter" getter) in
-            let disp_graph = match display_errs Forms.Web.Distrib.from "filter" getter with
-                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))))))) ->
-                    let tblname = Forms.Dns.TblNames.options.(tblname)
-                    and start  = My_time.to_timeval start
-                    and stop   = My_time.to_timeval stop in
-                    let rt_min = i2s ~min:0. rt_min in
-                    let rt_max = i2s ?min:rt_min rt_max in
-                    let prec   = i2s ~min:0.00001 ~max:1. prec in
-                    let vx_step, bucket_min, bucket_max, datasets =
-                        plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
-                    let vx_min = (float_of_int bucket_min +. 0.5) *. vx_step
-                    and nb_vx = bucket_max - bucket_min |> succ in
-                    let fold f i =
-                        List.fold_left (fun p (label, mi, d) ->
-                            let get i =
-                                let i = i - (mi - bucket_min) in
-                                if i < 0 || i >= Array.length d then 0.
-                                else float_of_int d.(i) in
-                            f p label true get)
-                            i datasets
-                    and svg_width  = Prefs.get_float "gui/svg/width" 1000.
-                    and svg_height = Prefs.get_float "gui/svg/height" 600. in
-                    Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
-                                  ~vxmin_filter:"filter.minrt" ~vxmax_filter:"filter.maxrt"
-                                  ~vxstep_filter:"filter.distr-prec"
-                                  "response time (s)" "#queries"
-                                  vx_min vx_step nb_vx
-                                  { Chart.fold = fold }
-                | None -> [] in
-            View.make_chart "Web Response Times" filters_form disp_graph
+        let distrib_chart = function
+            | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))))))) ->
+                let tblname = Forms.Dns.TblNames.options.(tblname)
+                and start  = My_time.to_timeval start
+                and stop   = My_time.to_timeval stop in
+                let rt_min = i2s ~min:0. rt_min in
+                let rt_max = i2s ?min:rt_min rt_max in
+                let prec   = i2s ~min:0.00001 ~max:1. prec in
+                let vx_step, bucket_min, bucket_max, datasets =
+                    plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
+                let vx_min = (float_of_int bucket_min +. 0.5) *. vx_step
+                and nb_vx = bucket_max - bucket_min |> succ in
+                let fold f i =
+                    List.fold_left (fun p (label, mi, d) ->
+                        let get i =
+                            let i = i - (mi - bucket_min) in
+                            if i < 0 || i >= Array.length d then 0.
+                            else float_of_int d.(i) in
+                        f p label true get)
+                        i datasets
+                and svg_width  = Prefs.get_float "gui/svg/width" 1000.
+                and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
+                              ~vxmin_filter:"filter/minrt" ~vxmax_filter:"filter/maxrt"
+                              ~vxstep_filter:"filter/distr-prec"
+                              "response time (s)" "#queries"
+                              vx_min vx_step nb_vx
+                              { Chart.fold = fold }
+            | None -> []
+
+        let distrib_chart_descr =
+            { ChartDescr.category = "Web" ;
+              ChartDescr.title = "distrib" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Web.Distrib.from name getter |> distrib_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Web.Distrib.to_edit name getter)) }
 
     end
 
@@ -338,116 +387,136 @@ struct
         include Dns
         let dbdir = dbdir^"/dns"
 
-        let top getter =
-            let filters_form = form "DNS/top/show" (Forms.Dns.Top.to_edit "filter" getter) in
-            View.make_filter "DNS Top Requests" filters_form
+        let top_chart = function
+            | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (error, (qname, (n, (sort_order, ()))))))))))))) ->
+                let start = My_time.to_timeval start
+                and stop  = My_time.to_timeval stop in
+                let rt_min = i2s ~min:0. rt_min in
+                let rt_max = i2s ?min:rt_min rt_max in
+                let n = BatOption.default 30 n
+                and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
+                let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir n sort_order in
+                let field_display_names =
+                    [ "VLAN" ;
+                      "Client MAC" ; "Client IP" ;
+                      "Server MAC" ; "Server IP" ;
+                      "Error Code" ; "Timestamp" ;
+                      "Response Time (&#x00B5s)" ; "Query Name" ] in
+                View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, err, ts, (_, _, _, rt, _), name) ->
+                    [ string_of_vlan vlan ;
+                      EthAddr.to_string eclt ;
+                      Cidr.to_string clt ;
+                      EthAddr.to_string esrv ;
+                      InetAddr.to_string srv ;
+                      string_of_int err ;
+                      Timestamp.to_string ts ;
+                      string_of_float rt ;
+                      name ])
+            | None -> []
 
-        let top_show getter =
-            let filters_form = form "DNS/top" (Forms.Dns.Top.to_edit "filter" getter) in
-            let disp_graph = match display_errs Forms.Dns.Top.from "filter" getter with
-                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (error, (qname, (n, (sort_order, ()))))))))))))) ->
-                    let start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop in
-                    let rt_min = i2s ~min:0. rt_min in
-                    let rt_max = i2s ?min:rt_min rt_max in
-                    let n = BatOption.default 30 n
-                    and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
-                    let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir n sort_order in
-                    let field_display_names =
-                        [ "VLAN" ;
-                          "Client MAC" ; "Client IP" ;
-                          "Server MAC" ; "Server IP" ;
-                          "Error Code" ; "Timestamp" ;
-                          "Response Time (&#x00B5s)" ; "Query Name" ] in
-                    View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, err, ts, (_, _, _, rt, _), name) ->
-                        [ string_of_vlan vlan ;
-                          EthAddr.to_string eclt ;
-                          Cidr.to_string clt ;
-                          EthAddr.to_string esrv ;
-                          InetAddr.to_string srv ;
-                          string_of_int err ;
-                          Timestamp.to_string ts ;
-                          string_of_float rt ;
-                          name ])
-                | None -> [] in
-            View.make_chart "DNS Top Requests" filters_form disp_graph
+        let top_chart_descr =
+            { ChartDescr.category = "DNS" ;
+              ChartDescr.title = "top" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Dns.Top.from name getter |> top_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Dns.Top.to_edit name getter)) }
 
-        let resp_time getter =
-            let filters_form = form "DNS/resptime" (Forms.Dns.RespTime.to_edit "filter" getter) in
-            let disp_graph = match display_errs Forms.Dns.RespTime.from "filter" getter with
-                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (tx_min, (rt_min, (rt_max, (time_step, (tblname, ())))))))))))) ->
-                    let time_step = Interval.to_ms time_step
-                    and tblname = Forms.Dns.TblNames.options.(tblname)
-                    and start = My_time.to_timeval start
-                    and stop  = My_time.to_timeval stop in
-                    let rt_min = i2s ~min:0. rt_min in
-                    let rt_max = i2s ?min:rt_min rt_max in
-                    let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
-                    (* TODO: plot_resp_time should return 0 in count instead of None... *)
-                    let fold f i =
-                        let i = f i "Min" true
-                            (fun i -> Distribution.min datasets.(i)) in
-                        let i = f i "Avg-&sigma;" true
-                            (fun i -> max 0. Distribution.(avg datasets.(i) -. std_dev datasets.(i))) in
-                        let i = f i "Avg" true
-                            (fun i -> Distribution.avg datasets.(i)) in
-                        let i = f i "Avg+&sigma;" true
-                            (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
-                        let i = f i "Max" true
-                            (fun i -> Distribution.max datasets.(i)) in
-                        let i = f i "#Transactions" false
-                            (fun i -> Distribution.count datasets.(i) |> float_of_int) in
-                        i in
-                    let nb_vx = Array.length datasets in
-                    let time_step = (Int64.to_float time_step) *. 0.001
-                    and svg_width  = Prefs.get_float "gui/svg/width" 1000.
-                    and svg_height = Prefs.get_float "gui/svg/height" 600. in
-                    Chart.xy_plot ~svg_width ~svg_height
-                                  ~string_of_x:string_of_date ~stacked:Chart.Stacked
-                                  "time" "response time (s)"
-                                  (Timestamp.to_unixfloat start) time_step nb_vx
-                                  { Chart.fold = fold }
-                | None -> [] in
-            View.make_chart "DNS Response Time" filters_form disp_graph
+        let srt_chart = function
+            | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (tx_min, (rt_min, (rt_max, (time_step, (tblname, ())))))))))))) ->
+                let time_step = Interval.to_ms time_step
+                and tblname = Forms.Dns.TblNames.options.(tblname)
+                and start = My_time.to_timeval start
+                and stop  = My_time.to_timeval stop in
+                let rt_min = i2s ~min:0. rt_min in
+                let rt_max = i2s ?min:rt_min rt_max in
+                let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
+                (* TODO: plot_resp_time should return 0 in count instead of None... *)
+                let fold f i =
+                    let i = f i "Min" true
+                        (fun i -> Distribution.min datasets.(i)) in
+                    let i = f i "Avg-&sigma;" true
+                        (fun i -> max 0. Distribution.(avg datasets.(i) -. std_dev datasets.(i))) in
+                    let i = f i "Avg" true
+                        (fun i -> Distribution.avg datasets.(i)) in
+                    let i = f i "Avg+&sigma;" true
+                        (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
+                    let i = f i "Max" true
+                        (fun i -> Distribution.max datasets.(i)) in
+                    let i = f i "#Transactions" false
+                        (fun i -> Distribution.count datasets.(i) |> float_of_int) in
+                    i in
+                let nb_vx = Array.length datasets in
+                let time_step = (Int64.to_float time_step) *. 0.001
+                and svg_width  = Prefs.get_float "gui/svg/width" 1000.
+                and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                Chart.xy_plot ~svg_width ~svg_height
+                              ~string_of_x:string_of_date ~stacked:Chart.Stacked
+                              "time" "response time (s)"
+                              (Timestamp.to_unixfloat start) time_step nb_vx
+                              { Chart.fold = fold }
+            | None -> []
 
-        let distrib getter =
-            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.to_edit "filter" getter) in
-            View.make_filter "DNS Response Times" filters_form
+        let srt_chart_descr =
+            { ChartDescr.category = "DNS" ;
+              ChartDescr.title = "resptime" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Dns.RespTime.from name getter |> srt_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Dns.RespTime.to_edit name getter)) }
 
-        let distrib_show getter =
-            let filters_form = form "DNS/distrib/show" (Forms.Dns.Distrib.to_edit "filter" getter) in
-            let disp_graph = match display_errs Forms.Dns.Distrib.from "filter" getter with
-                | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))) ->
-                    let tblname = Forms.Dns.TblNames.options.(tblname)
-                    and start  = My_time.to_timeval start
-                    and stop   = My_time.to_timeval stop in
-                    let rt_min = i2s ~min:0. rt_min in
-                    let rt_max = i2s ?min:rt_min rt_max in
-                    let prec   = i2s ~min:0.00001 ~max:1. prec in
-                    let vx_step, bucket_min, bucket_max, datasets =
-                        plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
-                    let vx_min = (float_of_int bucket_min +. 0.5) *. vx_step
-                    and nb_vx = bucket_max - bucket_min |> succ in
-                    let fold f i =
-                        List.fold_left (fun p (label, mi, d) ->
-                            let get i =
-                                let i = i - (mi - bucket_min) in
-                                if i < 0 || i >= Array.length d then 0.
-                                else float_of_int d.(i) in
-                            f p label true get)
-                            i datasets
-                    and svg_width  = Prefs.get_float "gui/svg/width" 1000.
-                    and svg_height = Prefs.get_float "gui/svg/height" 600. in
-                    Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
-                                  ~vxmin_filter:"filter.minrt" ~vxmax_filter:"filter.maxrt"
-                                  ~vxstep_filter:"filter.distr-prec"
-                                  "response time (s)" "#queries"
-                                  vx_min vx_step nb_vx
-                                  { Chart.fold = fold }
-                | None -> [] in
-            View.make_chart "DNS Response Times" filters_form disp_graph
+
+        let distrib_chart = function
+            | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))) ->
+                let tblname = Forms.Dns.TblNames.options.(tblname)
+                and start  = My_time.to_timeval start
+                and stop   = My_time.to_timeval stop in
+                let rt_min = i2s ~min:0. rt_min in
+                let rt_max = i2s ?min:rt_min rt_max in
+                let prec   = i2s ~min:0.00001 ~max:1. prec in
+                let vx_step, bucket_min, bucket_max, datasets =
+                    plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
+                let vx_min = (float_of_int bucket_min +. 0.5) *. vx_step
+                and nb_vx = bucket_max - bucket_min |> succ in
+                let fold f i =
+                    List.fold_left (fun p (label, mi, d) ->
+                        let get i =
+                            let i = i - (mi - bucket_min) in
+                            if i < 0 || i >= Array.length d then 0.
+                            else float_of_int d.(i) in
+                        f p label true get)
+                        i datasets
+                and svg_width  = Prefs.get_float "gui/svg/width" 1000.
+                and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
+                              ~vxmin_filter:"filter/minrt" ~vxmax_filter:"filter/maxrt"
+                              ~vxstep_filter:"filter/distr-prec"
+                              "response time (s)" "#queries"
+                              vx_min vx_step nb_vx
+                              { Chart.fold = fold }
+            | None -> []
+
+        let distrib_chart_descr =
+            { ChartDescr.category = "DNS" ;
+              ChartDescr.title = "distrib" ;
+              ChartDescr.to_html = (fun name getter ->
+                          display_errs Forms.Dns.Distrib.from name getter |> distrib_chart) ;
+              ChartDescr.filter = (fun target name getter ->
+                          form target (Forms.Dns.Distrib.to_edit name getter)) }
 
     end
+
+    (* Generic functions for displaying charts *)
+
+    let chart_descrs = [ Traffic.bw_chart_descr ; Traffic.peer_chart_descr ;
+                         Traffic.graph_chart_descr ; Traffic.top_chart_descr ;
+                         Traffic.map_chart_descr ;
+                         Flow.callflow_chart_descr ;
+                         Web.top_chart_descr ; Web.srt_chart_descr ; Web.distrib_chart_descr ;
+                         Dns.top_chart_descr ; Dns.srt_chart_descr ; Dns.distrib_chart_descr ]
+
+    let find_chart cat title =
+        List.find (fun d -> d.ChartDescr.category = cat && d.ChartDescr.title = title) chart_descrs
 
     module Admin =
     struct
@@ -507,19 +576,17 @@ struct
                 Log.info "try to fetch page %d..." page_no ;
                 try Some (get_report_page name page_no, succ page_no)
                 with Invalid_argument _ -> None)
+        
+        let chart_descr_of_page page =
+            List.find (fun d -> d.ChartDescr.category ^"/"^ d.ChartDescr.title = page.chart) chart_descrs
 
         let chart_of report_name page =
             let rn = report_page_prefix report_name page.page_no in
-            match page.chart with
-            | "Traffic/bandwidth" ->
-                display_errs Forms.Traffic.Bandwidth.from rn page.getter |>
-                Traffic.bandwidth_chart
-            | "Traffic/peers" ->
-                display_errs Forms.Traffic.Peers.from rn page.getter |>
-                Traffic.peers_chart
-            | x ->
+            try let chart_descr = chart_descr_of_page page in
+                chart_descr.ChartDescr.to_html rn page.getter
+            with Not_found ->
                 [ p ~cls:"err" [ cdata "No such chart " ;
-                                 tag "i" [ cdata x ] ] ]
+                                 tag "i" [ cdata page.chart ] ] ]
 
         let build report_name _args =
             get_report report_name /@
@@ -534,48 +601,18 @@ struct
                 Info.run
             | [""] | ["main"] ->
                 main
-            | ["Traffic"; "bandwidth"] ->
-                Traffic.bandwidth
-            | ["Traffic"; "peers"] ->
-                Traffic.peers
-            | ["Traffic"; "graph"] ->
-                Traffic.graph
-            | ["Traffic"; "map"] ->
-                Traffic.map
-            | ["Traffic"; "map"; "show"] ->
-                Traffic.map_show
-            | ["Traffic"; "top"] ->
-                Traffic.top
-            | ["Traffic"; "top"; "show"] ->
-                Traffic.top_show
-            | ["Traffic"; "callflow"] ->
-                Flow.callflow
-            | ["Web"; "resptime"] ->
-                Web.resp_time
-            | ["Web"; "top"] ->
-                Web.top
-            | ["Web"; "top"; "show"] ->
-                Web.top_show
-            | ["Web"; "distrib"] ->
-                Web.distrib
-            | ["Web"; "distrib"; "show"] ->
-                Web.distrib_show
-            | ["DNS"; "resptime"] ->
-                Dns.resp_time
-            | ["DNS"; "top"] ->
-                Dns.top
-            | ["DNS"; "top"; "show"] ->
-                Dns.top_show
-            | ["DNS"; "distrib"] ->
-                Dns.distrib
-            | ["DNS"; "distrib"; "show"] ->
-                Dns.distrib_show
             | ["Reports"; name] ->
                 build name
             | ["Admin"; "preferences"] ->
                 Admin.preferences
             | ["Admin"; "preferences"; "save"] ->
                 Admin.save_preferences
+            | [cat; title] ->
+                let descr = find_chart cat title in
+                ChartDescr.filtered_chart descr
+            | [cat; title; "show"] ->
+                let descr = find_chart cat title in
+                ChartDescr.filtered_chart_show descr
             | _ ->
                 Invalid.run
     end

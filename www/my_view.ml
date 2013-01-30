@@ -719,7 +719,7 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
                    h3 "Legend" ] @
                  (List.map legend_of_dataset datasets)) ] ] ] ;
         (* for this we really do want stdlib's string_of_float not our stripped down version *)
-        script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", 'filter.minrt', 'filter.maxrt', 'filter.distr-prec');") ]
+        script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", 'filter/minrt', 'filter/maxrt', 'filter/distr-prec');") ]
 
 let peers_map datasets =
     let max_ips = Prefs.get_int "geoip/max_ips" 10 in

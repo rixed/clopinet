@@ -52,7 +52,7 @@ value geoip_location(value ip_ /* an inet_addr */)
         fprintf(stderr, "Cannot GeoIP_record_by_ipnum\n");
         caml_failwith("GeoIP_record_by_ipnum");
     }
-    
+
     CAMLreturn(ret);
 }
 
