@@ -6,7 +6,7 @@ open Html
 open Input.Ops
 open Datatype
 
-let dbdir = "../test.db"
+let dbdir = Prefs.get_string "db/base_dir" "./test.db"
 
 let i2s ?min ?max i =
     let (>>=) = BatOption.bind in

@@ -31,6 +31,9 @@ geoip/database = /usr/share/GeoIP/GeoLiteCity.dat
 # DB
 #
 
+# Basedir location
+## db/base_dir = "./test.db"
+
 # How many DB files are kept open for writing (needs restart)
 ## db/max_opened_filedescr = 1000
 
