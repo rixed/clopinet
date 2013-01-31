@@ -73,8 +73,6 @@ static size_t really_read(int fd, uint8_t *buf, size_t n)
  * Buffered output
  */
 
-/* FIXME: lock opened obufs (cd dbfile.ml), or even better: flush at record boundary */
-
 struct obuf {
     int fd;
     unsigned next;
@@ -108,16 +106,17 @@ static void obuf_ctor(struct obuf *ob, char const *fname, bool trunc, off_t prea
     ob->next = 0;
 }
 
-static void obuf_flush(struct obuf *ob)
+static void flush(struct obuf *ob)
 {
     really_write(ob->fd, ob->buf, ob->next);
+    ob->next = 0;
 }
 
 static void obuf_make_room(struct obuf *ob, unsigned sz)
 {
     if (ob->next + sz <= OBUFLEN) return;
-    obuf_flush(ob);
-    ob->next = 0;
+    //flush(ob);
+    assert(!"No room in obuf!");
 }
 
 static void obuf_dtor(struct obuf *ob)
@@ -126,7 +125,7 @@ static void obuf_dtor(struct obuf *ob)
     fprintf(stderr, "Destruct obuf while fd=%d, buf=%p and next=%u\n", ob->fd, ob->buf, ob->next);
 #   endif
     if (ob->fd < 0) return;
-    obuf_flush(ob);
+    flush(ob);
     (void)close(ob->fd);
     ob->fd = -1;
 }
@@ -165,6 +164,14 @@ value obuf_close(value custom)
     CAMLparam1(custom);
     struct obuf *ob = Data_custom_val(custom);
     obuf_dtor(ob);
+    CAMLreturn(Val_unit);
+}
+
+value obuf_flush(value custom)
+{
+    CAMLparam1(custom);
+    struct obuf *ob = Data_custom_val(custom);
+    flush(ob);
     CAMLreturn(Val_unit);
 }
 

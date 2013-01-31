@@ -5,6 +5,7 @@ type ibuf
 
 external make_obuf : string -> bool -> int -> obuf = "obuf_open"
 external make_ibuf : string -> ibuf = "ibuf_open"
+external flush_obuf : obuf -> unit = "obuf_flush"
 external close_obuf : obuf -> unit = "obuf_close"
 external close_ibuf : ibuf -> unit = "ibuf_close"
 external position : ibuf -> int64 = "ibuf_position"

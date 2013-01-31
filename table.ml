@@ -226,6 +226,7 @@ let append t x =
     let file, oc = Dbfile.get ?prev:h_cache.file max_file_size t.dir hnum h_cache.max_snum in
     h_cache.file <- Some file ;
     t.val_writer oc x ;
+    Serial.flush_obuf oc ;
     h_cache.aggr <- Some (t.aggregator x h_cache.aggr) ;
     (* Save the meta file once in a while so that readers can have
      * up to date description of last snum *)
