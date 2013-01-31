@@ -81,7 +81,8 @@ let check_timestamp () =
     (* when no units nor sign are given, it's a timestamp *)
     assert (compare (of_string "1323765999.42") (of_string "2011-12-13 09:46:39.42") = 0) ;
     (* parser must handle junkie's format *)
-    assert (parzer (s2l "1323766045s 962156us") = Peg.Res (1323766045962L, []))
+    assert (parzer (s2l "1323766045s 962156us") = Peg.Res (1323766045962L, [])) ;
+    assert (parzer (s2l "1323766045s") = Peg.Res (1323766045000L, []))
 
 let check_interval () =
     let open Interval in

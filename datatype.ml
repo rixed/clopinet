@@ -1068,10 +1068,13 @@ module Timestamp = struct
                 (* special *)
                 istring "now" >>: (fun _ -> now ()) ]
         and junkie = (* junkie's format *)
-            UInteger64.parzer ++ string "s " ++ Integer.parzer ++ string "us" >>:
-            (fun (((s,_),us),_) ->
-                Int64.add (Int64.mul s 1000L)
-                          (Int64.of_int ((499 + us) / 1000)))
+            either [
+                UInteger64.parzer ++ string "s " ++ Integer.parzer ++ string "us" >>:
+                (fun (((s,_),us),_) ->
+                    Int64.add (Int64.mul s 1000L)
+                              (Int64.of_int ((499 + us) / 1000))) ;
+                UInteger64.parzer ++ string "s" >>:
+                (fun (s,_) -> Int64.mul s 1000L) ]
         and unix_ts = Float.parzer >>: fun ts -> Int64.of_float (1000.*.ts) in
         either ((abs ++ optional (any blank ++ Interval.parzer ~picky:true) >>:
                     (fun (ts,i_opt) -> match i_opt with

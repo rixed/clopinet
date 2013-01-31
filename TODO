@@ -8,28 +8,6 @@ scanning method (single or two passes)
 - rename to ...nenet?
 
 
-Reports
--------
-
-- No, reports must take their user filters (and, optionaly, other filters) 
-  from text conf and need not be editable via GUI.
-
-- filters target should be Reports/save and hidden values in form should tell
-report name and page_no of the submitted form ; then Reports/save should write 
-the new params and re-run Reports/show. So, we should pass Ctrl.functions 
-these additional parameters (target + set of additional hidden values)
-
-- Reports menu entry should direct to "Reports/$name", that offer filters for 
-  editing charts, buttons to reorder pages and rename all pages, and another 
-target, "report_show/$name", not in menu, should display everything without 
-any form -> charts functions must receive an optional bool to disable 
-displaying of filters (but not JS interaction).
-
-- "Reports/new" should creates a default report named "unamed.$id".
-
-- Every chart page should have another form offering to add the chart in any 
-  existing report.
-
 
 
 Bugs

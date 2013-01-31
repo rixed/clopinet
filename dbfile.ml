@@ -7,7 +7,7 @@ open Batteries
  *)
 
 let fds = Array.make (Prefs.get_int "db/max_opened_filedescr" 1000) None
-let free_fds = ref (BatList.init (Array.length fds - 1) (fun i -> i))
+let free_fds = ref (BatList.init (Array.length fds) (fun i -> i))
 
 let dir tdir hnum =
     Printf.sprintf "%s/%d" tdir hnum
