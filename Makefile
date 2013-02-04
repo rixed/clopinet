@@ -26,7 +26,6 @@ SOURCES  = \
 	aggregator.ml \
 	dbfile.ml \
 	table.ml \
-	hitters.ml \
 	plot.ml \
 	subnet.ml \
     metric.ml \

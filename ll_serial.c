@@ -394,7 +394,7 @@ static unsigned long read_varuint(struct ibuf *ib)
 #       endif
     }
 #   ifdef DEBUG_IBUF
-    fprintf(stderr, "<varuint n = 0x%lx\n", n & 1 ? -nn : nn);
+    fprintf(stderr, "<varuint n = 0x%lx\n", n);
 #   endif
     return n;
 }

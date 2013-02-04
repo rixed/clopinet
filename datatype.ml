@@ -1099,6 +1099,11 @@ module Timestamp = struct
         | Res ((v,_), _) -> v
         | Fail -> raise Parse_error
 
+    (*$T of_string
+      ignore (of_string "now") ; true
+      ignore (of_string "now-24h") ; true
+     *)
+
     (*$>*)
 end
 

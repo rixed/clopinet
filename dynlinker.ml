@@ -9,7 +9,7 @@ let load_string str =
                 IO.nwrite oc str ;
                 fname) in
     let cmxs = Dynlink.adapt_filename fname in
-    let cmd = Printf.sprintf "PATH=/bin:/usr/bin:/home/rixed/ocalme/bin OCAMLPATH=/home/rixed/share/src /home/rixed/ocalme/bin/ocamlfind ocamlopt -o %s -package mlrrd -S -rectypes -inline 9 -shared -thread %s" cmxs fname in
+    let cmd = Printf.sprintf "PATH=/bin:/usr/bin:/home/rixed/ocalme/bin OCAMLPATH=/home/rixed/share/src /home/rixed/ocalme/bin/ocamlfind ocamlopt -o %s -package mlrrd -S -inline 9 -shared %s" cmxs fname in
     match Unix.system cmd with
     | Unix.WEXITED 0 ->
         (try Dynlink.loadfile cmxs
@@ -119,6 +119,9 @@ let top () =
     "^ (ip_src|> BatOption.map (fun i -> "let req_ip_src = "^ (i |> Cidr.to_imm) ^" in") |> BatOption.default "") ^"
     let fold1 f i m =
         "^ modname ^".fold_all
+            "^ (start |> BatOption.map (fun _ -> "~start:min_start") |> BatOption.default "") ^"
+            "^ (stop  |> BatOption.map (fun _ -> "~stop:max_stop") |> BatOption.default "") ^"
+            "^ (ip_src|> BatOption.map (fun _ -> "~ip_src:req_ip_src") |> BatOption.default "") ^"
             "^ Text.to_imm dbdir ^" "^ Text.to_imm name ^"
             (fun ("^ (fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
                 if "^ (usr_filter |> BatOption.map User_filter.ocaml_of_expr |> BatOption.default "true") ^" &&
@@ -189,7 +192,7 @@ let top () =
             let a = List.assoc an f.aggrs in
             a.func^" "^fn^"_"^an^"_1 "^fn^"_"^an^"_2") |> String.concat ", ")) ^" in
     let result, rest, rest_tv = Plot.FindSignificant.pass2 interm fold2 tv_aggr tv_zero "^ Integer.to_imm (max_graphs-1) ^" in
-    (* We want to return a Hash of (Some array of string) -> array of string *)
+    (* We want to return a list of (Some array of string) * array of string * volume *)
     Hashtbl.fold
         (fun ("^ (String.concat ", " key_fields) ^")
              (sort_v, ("^ (String.concat ", " (List.map (fun (fn,an) -> fn^"_"^an) aggr_fields)) ^"))
@@ -212,5 +215,86 @@ let top () =
 
 let () =
     dyn_top := top" |>
+    load_string
+
+
+(* monopass variant *)
+let load_top_monopass modname fields ?start ?stop ?ip_src ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
+"open "^ modname ^"
+open Batteries
+
+let top () =
+    "^ (start |> BatOption.map (fun s -> "let min_start = "^ (s |> Timestamp.to_imm) ^" in") |> BatOption.default "") ^"
+    "^ (stop  |> BatOption.map (fun s -> "let max_stop  = "^ (s |> Timestamp.to_imm) ^" in") |> BatOption.default "") ^"
+    "^ (ip_src|> BatOption.map (fun i -> "let req_ip_src = "^ (i |> Cidr.to_imm) ^" in") |> BatOption.default "") ^"
+    let fold f i m =
+        "^ modname ^".fold_all
+            "^ (start |> BatOption.map (fun _ -> "~start:min_start") |> BatOption.default "") ^"
+            "^ (stop  |> BatOption.map (fun _ -> "~stop:max_stop") |> BatOption.default "") ^"
+            "^ (ip_src|> BatOption.map (fun _ -> "~ip_src:req_ip_src") |> BatOption.default "") ^"
+            "^ Text.to_imm dbdir ^" "^ Text.to_imm name ^"
+            (fun ("^ (fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
+                if "^ (usr_filter |> BatOption.map User_filter.ocaml_of_expr |> BatOption.default "true") ^" &&
+                   "^ (start |> BatOption.map (fun _ -> "Datatype.Timestamp.compare stop min_start >= 0") |> BatOption.default "true") ^" &&
+                   "^ (stop  |> BatOption.map (fun _ -> "Datatype.Timestamp.compare max_stop start > 0") |> BatOption.default "true") ^" &&
+                   "^ (ip_src|> BatOption.map (fun _ -> "Datatype.in_cidr ip_src req_ip_src") |> BatOption.default "true") ^"
+                then (
+                    let y = "^ sort_by ^" in
+                    "^ (start |> BatOption.map (fun _ ->
+                    "let start, y =
+                        if start >= min_start then start, y
+                        else min_start, Int64.(to_int (div (mul (of_int y) (sub stop min_start)) (sub stop start))) in
+                    ") |> BatOption.default "") ^"
+                    "^ (stop |> BatOption.map (fun _ ->
+                    "let stop, y =
+                        if stop <= max_stop then stop, y
+                        else max_stop, Int64.(to_int (div (mul (of_int y) (sub max_stop start)) (sub stop start))) in
+                    ") |> BatOption.default "") ^"
+                    let k = "^ String.concat ", " key_fields ^" in
+                    let tv = "^ (if aggr_fields = [] then "()" else String.concat ", " (List.map (fun (fn,an) ->
+                        let f = List.assoc fn fields in
+                        let a = List.assoc an f.aggrs in
+                        a.singleton ^" "^ fn) aggr_fields)) ^" in
+                    f (k, y, tv, 0) p (* call update and ignore f for better inlining? *)
+                ) else p)
+            i m
+        in
+
+    (* We now build a distribution function for the whole tuple, out of the individual field aggr functions *)
+    let tv_zero = "^ (if aggr_fields = [] then "()" else (aggr_fields |> List.map (fun (fn,an) ->
+        let f = List.assoc fn fields in
+        let a = List.assoc an f.aggrs in
+        a.zero) |> String.concat ", ")) ^"
+    and tv_aggr
+        ("^ (aggr_fields |> List.map (fun (fn,an) -> fn ^"_"^ an ^"_1") |> String.concat ", ") ^")
+        ("^ (aggr_fields |> List.map (fun (fn,an) -> fn ^"_"^ an ^"_2") |> String.concat ", ") ^") =
+        "^ (if aggr_fields = [] then "()" else (aggr_fields |> List.map (fun (fn,an) ->
+            let f = List.assoc fn fields in
+            let a = List.assoc an f.aggrs in
+            a.func^" "^fn^"_"^an^"_1 "^fn^"_"^an^"_2") |> String.concat ", ")) ^" in
+    let h, o, n, rv, rtv, _kmin = Plot.heavy_hitters "^ Integer.to_imm max_graphs ^" fold tv_aggr tv_zero in
+    (* We want to return a (string array option * string array * int) list *)
+    Hashtbl.fold
+        (fun ("^ (String.concat ", " key_fields) ^") (* h key *)
+             (v, ("^ (String.concat ", " (List.map (fun (fn,an) -> fn^"_"^an) aggr_fields)) ^"), v0, n0) (* h value *)
+             lst ->
+        let k_a = [| "^ (key_fields |> List.map (fun f -> (List.assoc f fields).datatype ^ ".to_string "^f) |> String.concat "; ") ^" |]
+        and v_a = [| "^ (aggr_fields |> List.map (fun (fn,an) ->
+            let f = List.assoc fn fields in
+            let a = List.assoc an f.aggrs in
+            f.datatype ^ ".to_string ("^a.fin ^" "^fn^"_"^an^")") |> String.concat "; ") ^" |] in
+        (Some k_a, v_a, v) :: lst)
+        h
+        "^ (if aggr_fields = [] then "[]" else "
+        (let "^ (aggr_fields |> List.map (fun (fn,an) -> "r_"^fn^"_"^an) |> String.concat ", ") ^" = rtv in
+            [ None, [| "^ (aggr_fields |> List.map (fun (fn,an) ->
+                let f = List.assoc fn fields in
+                let a = List.assoc an f.aggrs in
+                f.datatype ^ ".to_string ("^a.fin ^" r_"^fn^"_"^an^")") |> String.concat "; ") ^" |], rv ])
+        ")^" |>
+        List.sort (fun (_,_,v1) (_,_,v2) -> compare v2 v1)
+
+let () =
+    dyn_top_monopass := top" |>
     load_string
 

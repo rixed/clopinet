@@ -39,7 +39,9 @@ let get ?prev prealloc tdir hnum snum =
                 Serial.close_obuf oc ;
                 fds.(i) <- None ;
                 fopen i
-            | None -> assert false) in
+            | None ->
+                Printf.fprintf stderr "fd(i=%d/%d) is empty!?\n%!" i (Array.length fds) ;
+                assert false) in
     match prev with
     | Some i ->
         (match fds.(i) with

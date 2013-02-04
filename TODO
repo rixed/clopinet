@@ -19,7 +19,7 @@ Bugs
 - netgraph does not display when macs and/or ip are resolved?
 
 - traffic/bandwidth: ask for a time interval of 10 minutes with a time step of 
-  10 month consumes all memory and crash?!
+  10 months consumes all memory and crash?!
 
 
 
@@ -55,6 +55,13 @@ to group by 'other-ip'.
 
 
 - Use logarithmic Y scale for primary Y in resp times vs time charts
+
+
+Tags
+----
+
+- in prefs, tags/name/filter = ..., tags/name/color = ... and then allow
+each filter to use this tag (replace in the AST 'tag = x' with '(expr) = x'.
 
 
 
