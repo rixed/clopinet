@@ -109,7 +109,7 @@ let maketuple name datatypes =
     printf "end\n" ;
     IO.close_out str
 
-let load_top modname fields ?start ?stop ?ip_src ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
+let load_top_two_pass modname fields ?start ?stop ?ip_src ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
 "open "^ modname ^"
 open Batteries
 
@@ -218,8 +218,7 @@ let () =
     load_string
 
 
-(* monopass variant *)
-let load_top_monopass modname fields ?start ?stop ?ip_src ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
+let load_top_single_pass modname fields ?start ?stop ?ip_src ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
 "open "^ modname ^"
 open Batteries
 
@@ -295,6 +294,6 @@ let top () =
         List.sort (fun (_,_,v1) (_,_,v2) -> compare v2 v1)
 
 let () =
-    dyn_top_monopass := top" |>
+    dyn_top := top" |>
     load_string
 

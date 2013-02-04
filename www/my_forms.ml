@@ -254,6 +254,12 @@ module Traffic = struct
         let uniq_name = "traffic_tops_sort"
         let persistant = true
     end
+    module SinglePass = struct
+        module Type = Optional (Boolean)
+        let display_name = "single pass"
+        let uniq_name = "single_pass"
+        let persistant = true
+    end
 
     module Bandwidth = RecordOf (ConsOf (FieldOf (StartField))
                                 (ConsOf (FieldOf (StopField))
@@ -333,7 +339,8 @@ module Traffic = struct
                            (ConsOf (FieldOf (AggrSelector))
                            (ConsOf (FieldOf (SortSelector))
                            (ConsOf (FieldOf (MaxGraphsField))
-                                   (NulType))))))))))))))))))
+                           (ConsOf (FieldOf (SinglePass))
+                                   (NulType)))))))))))))))))))
 
 end
 

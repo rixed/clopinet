@@ -188,11 +188,11 @@ struct
                           form target (Forms.Traffic.Graph.to_edit name getter)) }
 
         let top_chart = function
-            | Some (start, (stop, (_vlan, (_mac_src, (_mac_dst, (_eth_proto, (ip_src, (_ip_dst, (_ip, (_ip_proto, (_port, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, ()))))))))))))))))) ->
+            | Some (start, (stop, (_vlan, (_mac_src, (_mac_dst, (_eth_proto, (ip_src, (_ip_dst, (_ip, (_ip_proto, (_port, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, (single_pass, ())))))))))))))))))) ->
                 let tblname = Forms.Traffic.TblNames.options.(tblname)
                 and start = My_time.to_timeval start
                 and stop  = My_time.to_timeval stop in
-                let datasets = get_top_monopass ~start ~stop ?ip_src ?usr_filter ?max_graphs sort_by group_by aggr_fields dbdir tblname in
+                let datasets = get_top ~start ~stop ?ip_src ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields dbdir tblname in
                 View.table_of_datasets group_by aggr_fields sort_by datasets
             | None -> []
 
