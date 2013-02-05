@@ -95,6 +95,10 @@ let fold_snums tdir hnum aggr_reader f start merge =
             Array.fold_right foldfile files start
     ) with Sys_error _ -> start (* no such directory, may happen in we haven't written anything yet *)
 
+(* Note: since the given [f] may itself fold over several files using parmap to parallelize
+ * the work by forking, then all f must start with a clean result [start ()].
+ * This is not ideal when the merge function is lossy, and one would like to have the
+ * option to use parallel fold only for distant hosts in that case. *)
 let fold_hnums tdir f start merge =
     let res =
         try (

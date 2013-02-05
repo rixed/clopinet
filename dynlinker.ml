@@ -202,16 +202,16 @@ let top () =
             let f = List.assoc fn fields in
             let a = List.assoc an f.aggrs in
             f.datatype ^ ".to_string ("^a.fin ^" "^fn^"_"^an^")") |> String.concat "; ") ^" |] in
-        (Some k_a, v_a, sort_v) :: lst)
+        (Some k_a, v_a, sort_v, sort_v) :: lst)
         result
         "^ (if aggr_fields = [] then "[]" else "
         (let "^ (aggr_fields |> List.map (fun (fn,an) -> "rest_"^fn^"_"^an) |> String.concat ", ") ^" = rest_tv in
             [ None, [| "^ (aggr_fields |> List.map (fun (fn,an) ->
                 let f = List.assoc fn fields in
                 let a = List.assoc an f.aggrs in
-                f.datatype ^ ".to_string ("^a.fin ^" rest_"^fn^"_"^an^")") |> String.concat "; ") ^" |], rest ])
+                f.datatype ^ ".to_string ("^a.fin ^" rest_"^fn^"_"^an^")") |> String.concat "; ") ^" |], rest, rest ])
         ")^" |>
-        List.sort (fun (_,_,v1) (_,_,v2) -> compare v2 v1)
+        List.sort (fun (_,_,v1mi,_) (_,_,v2mi,_) -> compare v2mi v1mi)
 
 let () =
     dyn_top := top" |>
@@ -254,7 +254,7 @@ let top () =
                         let f = List.assoc fn fields in
                         let a = List.assoc an f.aggrs in
                         a.singleton ^" "^ fn) aggr_fields)) ^" in
-                    f (k, y, tv, 0) p (* call update and ignore f for better inlining? *)
+                    f (k, y, tv) p (* call update and ignore f for better inlining? *)
                 ) else p)
             i m
         in
@@ -271,27 +271,26 @@ let top () =
             let f = List.assoc fn fields in
             let a = List.assoc an f.aggrs in
             a.func^" "^fn^"_"^an^"_1 "^fn^"_"^an^"_2") |> String.concat ", ")) ^" in
-    let h, o, n, rv, rtv, _kmin = Plot.heavy_hitters "^ Integer.to_imm max_graphs ^" fold tv_aggr tv_zero in
+    let h, o, _pvs, n, rv, rtv, _kmin = Plot.heavy_hitters "^ Integer.to_imm max_graphs ^" fold tv_aggr tv_zero in
     (* We want to return a (string array option * string array * int) list *)
     Hashtbl.fold
         (fun ("^ (String.concat ", " key_fields) ^") (* h key *)
              (v, ("^ (String.concat ", " (List.map (fun (fn,an) -> fn^"_"^an) aggr_fields)) ^"), v0, n0) (* h value *)
              lst ->
-        let k_a = [| "^ (key_fields |> List.map (fun f -> (List.assoc f fields).datatype ^ ".to_string "^f) |> String.concat "; ") ^" |]
-        and v_a = [| "^ (aggr_fields |> List.map (fun (fn,an) ->
-            let f = List.assoc fn fields in
-            let a = List.assoc an f.aggrs in
-            f.datatype ^ ".to_string ("^a.fin ^" "^fn^"_"^an^")") |> String.concat "; ") ^" |] in
-        (Some k_a, v_a, v) :: lst)
-        h
-        "^ (if aggr_fields = [] then "[]" else "
+            let k_a = [| "^ (key_fields |> List.map (fun f -> (List.assoc f fields).datatype ^".to_string "^f) |> String.concat "; ") ^" |]
+            and v_a = [| "^ (aggr_fields |> List.map (fun (fn,an) ->
+                let f = List.assoc fn fields in
+                let a = List.assoc an f.aggrs in
+                f.datatype ^".to_string ("^a.fin ^" "^fn^"_"^an^")") |> String.concat "; ") ^" |] in
+            (Some k_a, v_a, v, v+n0) :: lst)
+        h"^ (if aggr_fields = [] then "[]" else "
         (let "^ (aggr_fields |> List.map (fun (fn,an) -> "r_"^fn^"_"^an) |> String.concat ", ") ^" = rtv in
             [ None, [| "^ (aggr_fields |> List.map (fun (fn,an) ->
                 let f = List.assoc fn fields in
                 let a = List.assoc an f.aggrs in
-                f.datatype ^ ".to_string ("^a.fin ^" r_"^fn^"_"^an^")") |> String.concat "; ") ^" |], rv ])
+                f.datatype ^".to_string ("^a.fin ^" r_"^fn^"_"^an^")") |> String.concat "; ") ^" |], rv, rv ])
         ")^" |>
-        List.sort (fun (_,_,v1) (_,_,v2) -> compare v2 v1)
+        List.sort (fun (_,_,v1mi,_) (_,_,v2mi,_) -> compare v2mi v1mi)
 
 let () =
     dyn_top := top" |>

@@ -494,12 +494,12 @@ let print_tops tops =
     let print_array a =
         Array.iter (fun s ->
             Printf.printf "%s\t" s) a in
-    List.iter (fun (k, v, s) ->
+    List.iter (fun (k, v, s_mi, s_ma) ->
         (match k with
         | Some k -> print_array k
         | None   -> Printf.printf "\tothers\t") ;
         print_array v ;
-        Printf.printf "\t%d\n" s) tops
+        Printf.printf "\t%s\n" (Datatype.string_of_min_max (float_of_int s_mi) (float_of_int s_ma))) tops
 
 (* Heavy hitters *)
 
@@ -526,29 +526,31 @@ let heavy_hitters max_len fold tv_aggr tv_zero =
      * or by replacing the smaller value.  Update h inplace, returns both h and
      * its new min and new tot_v, to be used in a fold. *)
     (* o: number of past untracked items - always grow but when we got a tracked key.
+     * pvs : number of past tracked items
      * n: number of past items
-     * ki,mi: minimum value in h (ki being the key, mi being the min of v+v0)
+     * k_min: key of the minimum value of v0+v in h
      * h: hash from k to (v: number of ks, tv: user value, aggregated,
      *                    v0: value of o when k entered h (so that to expel k from h
-     *                    o must raise to v0+v), n0: value of n when k entered
+     *                    o must raise above v0+v), n0: value of n when k entered
      *                    the h, so that at the end we know that we had no more
      *                    and no less than v ks in the last n-n0 items)
      *)
-    let update (k, v, tv, not_v) (h, o, n, rest_v, rest_tv, k_min) =
-        let find_min h =
-            Hashtbl.fold (fun k (v, _tv, v0, _n0) (_,mi as mi_l) ->
-                if v+v0 < mi then Some k, v+v0 else mi_l)
-                h (None, max_int) |>
-            fst in
+    let find_min h =
+        Hashtbl.fold (fun k (v, _tv, v0, _n0) (_,mi as mi_l) ->
+            if v+v0 < mi then Some k, v+v0 else mi_l)
+            h (None, max_int) |>
+        fst in
+    fold (fun (k, v, tv) (h, o, pvs, n, rest_v, rest_tv, k_min) -> (* update *)
+        assert (n >= pvs) ;
         try Hashtbl.modify k (fun (v', tv', v0, n0) ->
-                v + v', tv_aggr tv' tv, v0, n0 - not_v) h ;
-            h, o, n+v, rest_v, rest_tv, if k_min = Some k then find_min h else k_min
+                v + v', tv_aggr tv' tv, v0, n0) h ;
+            h, o, pvs+v, n+v, rest_v, rest_tv, if k_min = Some k then find_min h else k_min
         with Not_found ->
             if Hashtbl.length h < max_len then (
                 (* the map is allowed to grow -> o is still 0 at this stage *)
                 assert (o = 0) ;
-                Hashtbl.add h k (v, tv, o, n - not_v) ;
-                h, o, n+v, rest_v, rest_tv,
+                Hashtbl.add h k (v, tv, o, n - pvs) ;
+                h, o, pvs+v, n+v, rest_v, rest_tv,
                 match k_min with
                 | Some k_mi -> let v_min,_,_,_ = Hashtbl.find h k_mi in
                                if v < v_min then Some k else k_min
@@ -558,28 +560,47 @@ let heavy_hitters max_len fold tv_aggr tv_zero =
                 (* the map is not allowed to grow *)
                 if v0_min + v_min >= o + v then (
                     (* no need to track k *)
-                    h, o+v, n+v, rest_v+v, tv_aggr rest_tv tv, k_min
+                    h, o+v, pvs, n+v, rest_v+v, tv_aggr rest_tv tv, k_min
                 ) else (
                     (* k may be more numerous than k_min, replace k_min with k *)
                     Hashtbl.remove h (BatOption.get k_min) ;
-                    Hashtbl.add h k (v, tv, o, n - not_v - v_min (* additional bonus: those k_mins were not ks *)) ;
-                    h, o, n+v, rest_v+v_min, tv_aggr rest_tv tv_min,  find_min h
+                    Hashtbl.add h k (v, tv, o, n - pvs (* additional bonus: amongst previous n items, all currently tracked pvs were not ks *)) ;
+                    h, v0_min + v_min, pvs+v-v_min, n+v, rest_v+v_min, tv_aggr rest_tv tv_min, find_min h
                 )
-            ) in
-    fold update
-        (fun () -> Hashtbl.create max_len, 0, 0, 0, tv_zero, None)
-        (fun (_h1, _o1, n1, _rv1, _rtv1, _kmin1 as h1_etc) (h2, _o2, n2, rv2, rtv2, _kmin2) ->
-            (* Merge the small h2 into the big h1 *)
-            let h1', o1', n1', rv1', rtv1', kmin1' = Hashtbl.fold (fun k2 (v2, tv2, _v02, n02) h1_etc ->
-                let not_k2 = n2 - n02 in (* there were n2-n02 non-k2 before... *)
-                update (k2, v2, tv2, not_k2) h1_etc)
-                h2 h1_etc in
-            (* we already reported the ks and known non-ks, we must now account for the
-             * others (up to n2). Ideally we'd like to add them to n1 but that would make
-             * all n0s wrong. *)
-            assert (n1' <= n1+n2) ;
-            let unknowns = n1+n2 - n1' in
-            (* so we merely offset each k in h1 - faster alternative: add yet another counter to h1_etc *)
-            Hashtbl.map_inplace (fun _k (v, tv, v0, n0) -> (v, tv, v0, n0 + unknowns)) h1' ;
-            h1', o1', n1', rv1' + rv2, tv_aggr rtv1' rtv2, kmin1')
+            ))
+        (fun () -> (* zero *)
+            Hashtbl.create max_len, 0, 0, 0, 0, tv_zero, None)
+        (fun h1_etc (h2, _o2, pvs2, n2, rv2, rtv2, _kmin2) -> (* merge the small h2 into the big h1 *)
+            let h1', o1', pvs1', n1', rv1', rtv1', kmin1' = Hashtbl.fold (fun k2 (v2, tv2, _v02, n02) (h1, o1, pvs1, n1, rv1, rtv1, k_min1) ->
+                assert (n1 >= pvs1) ;
+                try Hashtbl.modify k2 (fun (v', tv', v0, n0) ->
+                        v' + v2, tv_aggr tv' tv2, v0, n0 + n02) h1 ;
+                    (* beware: n is only n1+v2 and not n1+v2+n02 since n02 is the number of k2s
+                     * we might have missed before tracking k2 in h2 and not a number of items
+                     * untracked since last update *)
+                    h1, o1, pvs1+v2, n1+v2, rv1, rtv1, if k_min1 = Some k2 then find_min h1 else k_min1
+                with Not_found ->
+                    if Hashtbl.length h1 < max_len then (
+                        (* the map is allowed to grow -> o1 is still 0 at this stage *)
+                        assert (o1 = 0) ;
+                        Hashtbl.add h1 k2 (v2, tv2, o1, n1 - pvs1 + n02) ;
+                        h1, o1, pvs1+v2, n1+v2, rv1, rtv1,
+                        match k_min1 with
+                        | Some k_mi -> let v_min,_,_,_ = Hashtbl.find h1 k_mi in
+                                       if v2 < v_min then Some k2 else k_min1
+                        | _ -> Some k2
+                    ) else (
+                        let v_min, tv_min, v0_min, _n0_min = Hashtbl.find h1 (BatOption.get k_min1) in
+                        (* the map is not allowed to grow *)
+                        if v0_min + v_min >= o1 + v2 then (
+                            (* no need to track k2 *)
+                            h1, o1+v2, pvs1, n1+v2, rv1+v2, tv_aggr rtv1 tv2, k_min1
+                        ) else (
+                            (* k2s may be more numerous than k_min1, replace k_min1 with k2 *)
+                            Hashtbl.remove h1 (BatOption.get k_min1) ;
+                            Hashtbl.add h1 k2 (v2, tv2, o1, n1 - pvs1 (* additional bonus: amongst previous n1 items, all currently tracked pvs were not ks *)) ;
+                            h1, v0_min + v_min, pvs1+v2-v_min, n1+v2, rv1+v_min, tv_aggr rtv1 tv_min, find_min h1
+                        )
+                    )) h2 h1_etc in
+            h1', o1', pvs1', n1'+n2-pvs2, rv1' + rv2, tv_aggr rtv1' rtv2, kmin1')
 

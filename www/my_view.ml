@@ -107,7 +107,7 @@ let make_report_page page_no title descr chart =
 let table_of_datasets key_fields aggr_fields sort_field datasets =
     let all_rows =
         let lineno = ref 0 in
-        List.map (fun (key, aggrs, sort_v) ->
+        List.map (fun (key, aggrs, sort_v_min, sort_v_max) ->
             let tds_of_arr a =
                 Array.enum a /@
                 (fun k -> td [ cdata k ]) |>
@@ -123,7 +123,7 @@ let table_of_datasets key_fields aggr_fields sort_field datasets =
                (tds_of_key key @
                 tds_of_arr aggrs @
                 [ td ~attrs:["class","sort_by"]
-                     [ cdata (sort_v |> float_of_int |> Datatype.string_of_number) ] ]))
+                     [ cdata (Datatype.string_of_min_max (float_of_int sort_v_min) (float_of_int sort_v_max)) ] ]))
             datasets
     and headers =
         let ths_of l =

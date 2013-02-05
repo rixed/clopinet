@@ -282,7 +282,7 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     Hashtbl.map (fun _k v -> float_of_int v) h
 
 
-type top_fun = unit -> (string array option * string array * int) list
+type top_fun = unit -> (string array option * string array * int * int) list
 let dyn_top : top_fun ref = ref (fun () -> failwith "Cannot specialize top function")
 
 let get_top ?start ?stop ?ip_src ?usr_filter ?(max_graphs=20) ?(single_pass=true) sort_by key_fields aggr_fields dbdir name =
