@@ -41,7 +41,10 @@ let check_ints () =
     assert (of_string "42K" = 43_008) ;
     assert (of_string "42M" = 42_000_000) ;
     assert (of_string "42G" = 42_000_000_000) ;
-    assert_exc Peg.Parse_error of_string "42m"
+    assert_exc Peg.Parse_error of_string "42m" ;
+    (* Non regression tests *)
+    let open UInteger16 in
+    assert (to_string min_int = "-4611686018427387904")
     (* TODO: more int checks *)
 
 let check_inet_addr () =

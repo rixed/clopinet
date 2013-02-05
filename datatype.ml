@@ -320,9 +320,11 @@ module Integer_base = struct
             if i = 0 then write_char_list oc p else
             aux (1+l) (Char.unsafe_chr ((i mod 10) + Char.code '0') :: p) (i/10) in
         if i > 0 then aux 0 [] i
-        else (
+        else if i > min_int then (
             Output.char oc '-' ;
             aux 0 [] (-i)
+        ) else (
+            Output.string oc (string_of_int min_int)
         )
     let read = deser_varint
     let to_imm t = "("^ Int.to_string t ^")"    (* need parenths for negative numbers *)
