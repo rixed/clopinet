@@ -518,6 +518,7 @@ let print_tops tops =
   Merging of two results also make things more complex (we add v+r ks).
   We also compute the total v and tv.
 *)
+(* TODO: produce also total v and tv, and move into 'others' alls ks that do not hit hard enough *)
 let heavy_hitters max_len fold tv_aggr tv_zero =
     assert (max_len > 0) ;
     (* Helper: given a hashtbl h, a total v since begening tot_v,
@@ -549,7 +550,7 @@ let heavy_hitters max_len fold tv_aggr tv_zero =
             if Hashtbl.length h < max_len then (
                 (* the map is allowed to grow -> o is still 0 at this stage *)
                 assert (o = 0) ;
-                Hashtbl.add h k (v, tv, o, n - pvs) ;
+                Hashtbl.add h k (v, tv, o, 0) ;
                 h, o, pvs+v, n+v, rest_v, rest_tv,
                 match k_min with
                 | Some k_mi -> let v_min,_,_,_ = Hashtbl.find h k_mi in
@@ -564,13 +565,18 @@ let heavy_hitters max_len fold tv_aggr tv_zero =
                 ) else (
                     (* k may be more numerous than k_min, replace k_min with k *)
                     Hashtbl.remove h (BatOption.get k_min) ;
-                    Hashtbl.add h k (v, tv, o, n - pvs (* additional bonus: amongst previous n items, all currently tracked pvs were not ks *)) ;
+                    let max_untracked = min (n-pvs) (* all currently tracked ks were not k *)
+                                            (n/max_len) (* or it would be tracked already *) in
+                    Hashtbl.add h k (v, tv, o, max_untracked) ;
                     h, v0_min + v_min, pvs+v-v_min, n+v, rest_v+v_min, tv_aggr rest_tv tv_min, find_min h
                 )
             ))
         (fun () -> (* zero *)
             Hashtbl.create max_len, 0, 0, 0, 0, tv_zero, None)
-        (fun h1_etc (h2, _o2, pvs2, n2, rv2, rtv2, _kmin2) -> (* merge the small h2 into the big h1 *)
+        (fun (_h1, _o1, pvs1, n1, _rv1, _rtv1, _kmin1 as h1_etc) (h2, _o2, pvs2, n2, rv2, rtv2, _kmin2) -> (* merge the small h2 into the big h1 *)
+            (* max number of a k that's not in h1 *)
+            let max_untracked1 = min (n1-pvs1) (n1/max_len)
+            and max_untracked2 = min (n2-pvs2) (n2/max_len) in
             let h1', o1', pvs1', n1', rv1', rtv1', kmin1' = Hashtbl.fold (fun k2 (v2, tv2, _v02, n02) (h1, o1, pvs1, n1, rv1, rtv1, k_min1) ->
                 assert (n1 >= pvs1) ;
                 try Hashtbl.modify k2 (fun (v', tv', v0, n0) ->
@@ -583,7 +589,7 @@ let heavy_hitters max_len fold tv_aggr tv_zero =
                     if Hashtbl.length h1 < max_len then (
                         (* the map is allowed to grow -> o1 is still 0 at this stage *)
                         assert (o1 = 0) ;
-                        Hashtbl.add h1 k2 (v2, tv2, o1, n1 - pvs1 + n02) ;
+                        Hashtbl.add h1 k2 (v2, tv2, o1, max_untracked1 + n02) ;
                         h1, o1, pvs1+v2, n1+v2, rv1, rtv1,
                         match k_min1 with
                         | Some k_mi -> let v_min,_,_,_ = Hashtbl.find h1 k_mi in
@@ -598,9 +604,12 @@ let heavy_hitters max_len fold tv_aggr tv_zero =
                         ) else (
                             (* k2s may be more numerous than k_min1, replace k_min1 with k2 *)
                             Hashtbl.remove h1 (BatOption.get k_min1) ;
-                            Hashtbl.add h1 k2 (v2, tv2, o1, n1 - pvs1 (* additional bonus: amongst previous n1 items, all currently tracked pvs were not ks *)) ;
+                            Hashtbl.add h1 k2 (v2, tv2, o1, max_untracked1 + n02) ;
                             h1, v0_min + v_min, pvs1+v2-v_min, n1+v2, rv1+v_min, tv_aggr rtv1 tv_min, find_min h1
                         )
                     )) h2 h1_etc in
+            (* For all k1 not also in k2, then add max_untracked2 into n01 *)
+            Hashtbl.map_inplace (fun k1 (v1, tv1, o1, n01 as t1) ->
+                if Hashtbl.mem h2 k1 then t1 else v1, tv1, o1, n01 + max_untracked2) h1' ;
             h1', o1', pvs1', n1'+n2-pvs2, rv1' + rv2, tv_aggr rtv1' rtv2, kmin1')
 
