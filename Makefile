@@ -1,5 +1,5 @@
 top_srcdir = .
-PKG_NAME = mlrrd
+PKG_NAME = clopinet
 SOURCES  = \
 	log.ml \
 	prefs.ml \
@@ -50,23 +50,23 @@ SYNTAX=-syntax camlp4o
 
 .PHONY: all loc
 all: $(ARCHIVE) examples www
-#mlrrd.top
+#clopinet.top
 
 include $(top_srcdir)/make.common
 
 opt: $(XARCHIVE)
 
 examples: $(ARCHIVE) $(XARCHIVE) $(EXAMPLES)
-$(EXAMPLES_BYTE): $(ARCHIVE) libmlrrd.a
-$(EXAMPLES_OPT): $(XARCHIVE) libmlrrd.a
+$(EXAMPLES_BYTE): $(ARCHIVE) libclopinet.a
+$(EXAMPLES_OPT): $(XARCHIVE) libclopinet.a
 
 check.byte: $(ARCHIVE)
 check.opt: $(XARCHIVE)
 check-spec: check.byte
 	@./check.byte || echo "custom checks FAILED"
 
-mlrrd.top: $(ARCHIVE) $(CLIB)
-	# for some reason we must give here -ccopt -L. in order for ocamlmktop to find libmlrrd.a
+clopinet.top: $(ARCHIVE) $(CLIB)
+	# for some reason we must give here -ccopt -L. in order for ocamlmktop to find libclopinet.a
 	# passing this through -passopt is not particularly elegant.
 	$(OCAMLMKTOP) -o $@ $(SYNTAX) -package "findlib $(REQUIRES)" -custom -linkpkg -passopt -ccopt -passopt -L. $(ARCHIVE)
 
@@ -94,7 +94,7 @@ traffic.cmx: tuple2.cmx tuple16.cmx tuple3.cmx
 
 clean-spec:
 	$(MAKE) -C www clean
-	rm -f mlrrd.top tuple*.ml
+	rm -f clopinet.top tuple*.ml
 
 dep-spec:
 	$(MAKE) -C www dep

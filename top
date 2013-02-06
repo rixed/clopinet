@@ -1,4 +1,4 @@
 #!/bin/sh
 
-make mlrrd.top
-OCAMLPATH=../ exec rlwrap ./mlrrd.top -rectypes -init mlrrd.init
+make clopinet.top
+OCAMLPATH=../ exec rlwrap ./clopinet.top -rectypes -init clopinet.init

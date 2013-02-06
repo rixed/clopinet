@@ -140,7 +140,7 @@ static void obuf_finalize(value custom)
 }
 
 static struct custom_operations obuf_ops = {
-    .identifier = "mlrrd/obuf",
+    .identifier = "clopinet/obuf",
     .finalize = obuf_finalize,
     .compare = custom_compare_default,
     .compare_ext = custom_compare_ext_default,
@@ -256,7 +256,7 @@ static void ibuf_finalize(value custom)
 }
 
 static struct custom_operations ibuf_ops = {
-    .identifier = "mlrrd/ibuf",
+    .identifier = "clopinet/ibuf",
     .finalize = ibuf_finalize,
     .compare = custom_compare_default,
     .compare_ext = custom_compare_ext_default,

@@ -10,7 +10,7 @@ SOURCES  = \
 	my_forms.ml \
 	index.ml \
 
-REQUIRES = owww mlrrd
+REQUIRES = owww clopinet
 
 all: index.cgi
 

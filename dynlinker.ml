@@ -4,12 +4,12 @@ exception Cannot_compile of string * string
 
 let load_string str =
     let fname =
-        File.with_temporary_out ~prefix:"mlrrd_" ~suffix:".ml" ~mode:[`create;(*`delete_on_exit;*)`text]
+        File.with_temporary_out ~prefix:"clopinet_" ~suffix:".ml" ~mode:[`create;(*`delete_on_exit;*)`text]
             (fun oc fname ->
                 IO.nwrite oc str ;
                 fname) in
     let cmxs = Dynlink.adapt_filename fname in
-    let cmd = Printf.sprintf "PATH=/bin:/usr/bin:/home/rixed/ocalme/bin OCAMLPATH=/home/rixed/share/src /home/rixed/ocalme/bin/ocamlfind ocamlopt -o %s -package mlrrd -S -inline 9 -shared %s" cmxs fname in
+    let cmd = Printf.sprintf "PATH=/bin:/usr/bin:/home/rixed/ocalme/bin OCAMLPATH=/home/rixed/share/src /home/rixed/ocalme/bin/ocamlfind ocamlopt -o %s -package clopinet -S -inline 9 -shared %s" cmxs fname in
     match Unix.system cmd with
     | Unix.WEXITED 0 ->
         (try Dynlink.loadfile cmxs

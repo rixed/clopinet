@@ -1,4 +1,4 @@
-(* CGI script for visualizing mlrrd datas *)
+(* CGI script for visualizing clopinet datas *)
 open Batteries
 module View = My_view
 module Forms = My_forms

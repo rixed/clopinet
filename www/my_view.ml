@@ -194,7 +194,7 @@ let peers_chart ?(is_bytes=false) datasets =
     let get_by_name p =
         List.find_map (fun ((p', _, _) as r) -> if p = p' then Some r else None) peers in
     [ table ~attrs:["class","svg"] [ tr [ td
-        [ svg ~attrs:["class","mlrrd"]
+        [ svg ~attrs:["class","clopinet"]
             [ (* Traffic *)
               g (Hashtbl.fold (fun (p1, p2) v l ->
                  try (
@@ -314,7 +314,7 @@ layout=\"%s\";\n"
            iif the div box actually stick to svg's boundary). *)
         [ table ~attrs:["class","svg"] [ tr
             [ td ~id:"netgraph"
-                [ svg ~attrs:["class","mlrrd"]
+                [ svg ~attrs:["class","clopinet"]
                     [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
                         [ g svg_edges ;
                           g ~attrs:["style","text-anchor:middle; dominant-baseline:central" ;
@@ -519,7 +519,7 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
         ) datasets in
     [ table ~attrs:["class","svg"] [ tr
         [ td ~id:"callflow"
-            [ svg ~attrs:["class","mlrrd"]
+            [ svg ~attrs:["class","clopinet"]
               [ g ~id:"scaler" ~attrs:[ "transform","scale(1)" ]
                   [ g svg_grid ;
                     g svg_flows ;

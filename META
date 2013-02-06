@@ -1,5 +1,5 @@
 description = "Multi-Level Round-Robbin Database"
 version = "1"
 requires = "batteries bitstring bitstring.syntax parmap owww dynlink"
-archive(byte) = "mlrrd.cma"
-archive(native) = "mlrrd.cmxa"
+archive(byte) = "clopinet.cma"
+archive(native) = "clopinet.cmxa"
