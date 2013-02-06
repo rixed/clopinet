@@ -271,7 +271,7 @@ let top () =
             let f = List.assoc fn fields in
             let a = List.assoc an f.aggrs in
             a.func^" "^fn^"_"^an^"_1 "^fn^"_"^an^"_2") |> String.concat ", ")) ^" in
-    let h, o, _pvs, n, rv, rtv, _kmin = Plot.heavy_hitters "^ Integer.to_imm max_graphs ^" fold tv_aggr tv_zero in
+    let h, rv, rtv = Plot.heavy_hitters "^ Integer.to_imm max_graphs ^" fold tv_aggr tv_zero in
     (* We want to return a (string array option * string array * int) list *)
     Hashtbl.fold
         (fun ("^ (String.concat ", " key_fields) ^") (* h key *)
