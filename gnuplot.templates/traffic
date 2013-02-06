@@ -1,9 +1,0 @@
-# vim:filetype=gnuplot
-#set logscale y
-set grid ytics mytics nomxtics noxtics
-set ylabel "Bandwidth (bytes/secs)"
-set title "Bandwidth"
-set xdata time
-set timefmt "%s"
-set format x "%H:%M:%S"
-plot for [i=0:9] 'traf.plot' index i using 1:2 title column(1) with lines

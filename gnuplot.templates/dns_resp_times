@@ -1,6 +1,0 @@
-# vim:filetype=gnuplot
-#set logscale y
-set grid ytics mytics nomxtics noxtics
-set ylabel "response times (s)"
-set title "DNS response times"
-plot '/dev/stdin' using 0:($10/1000000):(($12-sqrt($13/($9-1)))/1000000):($11/1000000):(($12+sqrt($13/($9-1)))/1000000):5 with candlesticks linecolor variable title "avg resp time" whiskerbars 

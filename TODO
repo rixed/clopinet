@@ -20,6 +20,14 @@ Bugs
 
 
 
+Clustering
+----------
+
+- A general purpose clustering view (user choose parameters and then we 
+  display how data is partitionned along these dimentions. Usefull to answer
+  questions such as who is doing what, when, etc...
+
+
 Code specialization
 -------------------
 
@@ -68,7 +76,7 @@ Tables
 - we only ever want to display the top N records (according to some field 
   value). As all datatype admit a comparison operator, then we can get the
   top (or bottom) N according to any field. Also, we'd like to have additional
-  "virtual" fields (like geographic position).
+  "virtual" fields (like geographic position, average packet size, etc).
 - all fields that we do not want to see are aggregated (ie ignored)
 
 - Add a sum line
@@ -77,10 +85,7 @@ Tables
 
 - Can mark a line by clicking on it
 
-
-- An html legend next to the callflow svg, with y mouse coordinate translated
-  into time, and info on selected peer timeline (IP...?) + http link to other
-  infos related to this peer
+- Link to other views when we are on an ip or mac or time...
 
 
 - TCP resptimes
@@ -98,18 +103,22 @@ Traffic Map
 User prefs
 ----------
 
-- (key->value db in regular file) Une config permettant d'associer des 
-  couleurs à des hosts (basé sur mac ou ip), et qu'on utiliserait pour colorer 
-des lignes ou des nodes svg.
+- key->value db in conf, taking precedence over random when looking up a color 
+  for a host/mac/anything.
 
-- Et une config pour nommer des filtres?
-
-- Save under a given name some user defined graphs (such as: last_week_BW)
-
-- LoD time aggregations should be configurable (and lod name as well)
+- LoD time aggregations should be configurable (and lod names as well)
 
 
-- callflow: when mouse if over an arrow display time in legend
+Callflow
+--------
+
+- when mouse if over an arrow display time in legend
+
+- An html legend next to the svg, with y mouse coordinate translated
+  into time, and info on selected peer timeline (IP...?) + http link to other
+  infos related to this peer
+
+
 
 - Add user-agent and referer in web metric
 
@@ -139,7 +148,7 @@ un paramètre (ip src, ip dst, hostname, hostname+url, noms requit...)
 et c'est ça qu'on grapherait dans netgraph.
 
 
-- Aussi pouvoir déclencher / récupérer des pcap?
+- Start/Stop pcaps? Or use regular junkie web gui?
 
 
 - Filters for http method, vlan, etc, should be multiselect or
@@ -225,7 +234,4 @@ distributed querying
 - distrib chart for HTTP should give choice for grouping field (for instance,
   response code, method...)
 
-
-- a tuple from 1hour table (traffic) which is 2 hours long:
-  "2012-12-29 21:00        2012-12-29 23:00        ..."
 
