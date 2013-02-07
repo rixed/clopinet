@@ -35,7 +35,7 @@ let menu () =
                          "DNS", ["resptime"; "top"; "distrib"] ;
                          "Web", ["resptime"; "top"; "distrib"] ;
                          "Reports", report_names ;
-                         "Admin", ["preferences"] ] in
+                         "Config", ["preferences"] ] in
     span ~id:"menu" [
         tag "ul" (List.map (fun (section, links) ->
             tag "li" [ p [ raw section ] ;

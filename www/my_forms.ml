@@ -515,7 +515,7 @@ module Flow = struct
                                        (NulType)))))))))
 end
 
-module Admin = struct
+module Config = struct
     module SVGWidth = struct
         module Type = Optional (Float (NoLimit_float))
         let display_name = "graph width"

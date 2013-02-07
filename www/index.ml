@@ -518,7 +518,7 @@ struct
     let find_chart cat title =
         List.find (fun d -> d.ChartDescr.category = cat && d.ChartDescr.title = title) chart_descrs
 
-    module Admin =
+    module Config =
     struct
         let preferences getter =
             (* fill getter from preferences *)
@@ -528,12 +528,12 @@ struct
                     | Some v -> [v]
                     | None   -> getter name
                 ) else getter name in
-            let prefs_form = form "Admin/preferences/save" (Forms.Admin.Preferences.to_edit "prefs" getter') in
+            let prefs_form = form "Config/preferences/save" (Forms.Config.Preferences.to_edit "prefs" getter') in
             [ h1 "DNS Response Times" ;
               div ~id:"preferences" [ prefs_form ] ]
 
         let save_preferences getter =
-            (match display_errs Forms.Admin.Preferences.from "prefs" getter with
+            (match display_errs Forms.Config.Preferences.from "prefs" getter with
             | Some (svg_width, (svg_height, (resolve_ip, (resolve_mac, (ncores, ()))))) ->
                 (* Save as much as possible in cookies as base64 string (not marshalled) *)
                 let save_param n v to_string =
@@ -603,10 +603,10 @@ struct
                 main
             | ["Reports"; name] ->
                 build name
-            | ["Admin"; "preferences"] ->
-                Admin.preferences
-            | ["Admin"; "preferences"; "save"] ->
-                Admin.save_preferences
+            | ["Config"; "preferences"] ->
+                Config.preferences
+            | ["Config"; "preferences"; "save"] ->
+                Config.save_preferences
             | [cat; title] ->
                 let descr = find_chart cat title in
                 ChartDescr.filtered_chart descr
