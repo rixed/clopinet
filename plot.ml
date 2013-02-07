@@ -391,21 +391,21 @@ struct
      * you can reuse the same fold function than the one for pass1) *)
     let pass2 result fold tv_aggr tv_zero n =
         let zeroed = Hashtbl.map (fun _k _v -> 0, tv_zero) result in
-        let result, rest, tv_rest = fold
-            (fun (k, v, tv) (m, rest, tv_rest) ->
+        let result, rest, tv_rest, sum_v, sum_tv = fold
+            (fun (k, v, tv) (m, rest, tv_rest, sum_v, sum_tv) ->
                 try Hashtbl.modify k (fun (v', tv') ->
                     v + v', tv_aggr tv tv') m ;
-                    m, rest, tv_rest
+                    m, rest, tv_rest, sum_v + v, tv_aggr sum_tv tv
                 with Not_found ->
-                    m, v + rest, tv_aggr tv tv_rest)
-            (fun () -> Hashtbl.copy zeroed, 0, tv_zero)
-            (fun (m1, rest1, tv_rest1) (m2, rest2, tv_rest2) ->
+                    m, v + rest, tv_aggr tv tv_rest, sum_v + v, tv_aggr sum_tv tv)
+            (fun () -> Hashtbl.copy zeroed, 0, tv_zero, 0, tv_zero)
+            (fun (m1, rest1, tv_rest1, sum_v1, sum_tv1) (m2, rest2, tv_rest2, sum_v2, sum_tv2) ->
                 (* Merge the small m2 into the big m1 *)
                 Hashtbl.iter (fun k2 (v2, tv2) ->
                     Hashtbl.modify k2 (fun (v', tv') ->
                         v' + v2, tv_aggr tv' tv2) m1 (* we *must* have k already in m1 ! *))
                     m2 ;
-                m1, rest1 + rest2, tv_aggr tv_rest1 tv_rest2) in
+                m1, rest1 + rest2, tv_aggr tv_rest1 tv_rest2, sum_v1+sum_v2, tv_aggr sum_tv1 sum_tv2) in
         (* Final touch: move insignificant keys from result to rest *)
         let tot_v = Hashtbl.fold (fun _k (v, _tv) p -> v + p) result rest in
         let new_rest = ref rest
@@ -418,14 +418,14 @@ struct
                 new_tv_rest := tv_aggr !new_tv_rest tv ;
                 false
             )) result in
-        new_result, !new_rest, !new_tv_rest
+        new_result, !new_rest, !new_tv_rest, sum_v, sum_tv
 
     (* Same as pass2, but with no additional value *)
     let pass2' result fold n =
         let fold' f i m = fold (fun (k, v) p ->
             f (k, v, ()) p) i m
         and fake_aggr () () = () in
-        let new_result, new_rest, () = pass2 result fold' fake_aggr () n in
+        let new_result, new_rest, (), _sum_v, () = pass2 result fold' fake_aggr () n in
         Hashtbl.map (fun _k (v, ()) -> v) new_result, new_rest
 end
 
@@ -490,7 +490,7 @@ let grid n start stop =
 
 (* Ascii Art *)
 
-let print_tops tops =
+let print_tops (tbl, sum_v, sum_tv) =
     let print_array a =
         Array.iter (fun s ->
             Printf.printf "%s\t" s) a in
@@ -499,7 +499,10 @@ let print_tops tops =
         | Some k -> print_array k
         | None   -> Printf.printf "\tothers\t") ;
         print_array v ;
-        Printf.printf "\t%s\n" (Datatype.string_of_min_max (float_of_int s_mi) (float_of_int s_ma))) tops
+        Printf.printf "\t%s\n" (Datatype.string_of_min_max (float_of_int s_mi) (float_of_int s_ma))) tbl ;
+    Printf.printf "\ttotal\t" ;
+    print_array sum_tv ;
+    Printf.printf "\t%d\n" sum_v
 
 (* Heavy hitters *)
 
@@ -541,40 +544,46 @@ let heavy_hitters max_len fold tv_aggr tv_zero =
             if v+v0 < mi then Some k, v+v0 else mi_l)
             h (None, max_int) |>
         fst in
-    let h, _o, _pvs, n, rv, rtv, _kmin =
-        fold (fun (k, v, tv) (h, o, pvs, n, rest_v, rest_tv, k_min) -> (* update *)
+    let h, _o, _pvs, n, rv, rtv, _kmin, sum_v, sum_tv =
+        fold (fun (k, v, tv) (h, o, pvs, n, rest_v, rest_tv, k_min, sum_v, sum_tv) -> (* update *)
             assert (n >= pvs) ;
             try Hashtbl.modify k (fun (v', tv', v0, n0) ->
                     v + v', tv_aggr tv' tv, v0, n0) h ;
-                h, o, pvs+v, n+v, rest_v, rest_tv, if k_min = Some k then find_min h else k_min
+                h, o, pvs+v, n+v, rest_v, rest_tv,
+                (if k_min = Some k then find_min h else k_min),
+                sum_v + v, tv_aggr sum_tv tv
             with Not_found ->
                 if Hashtbl.length h < max_len then (
                     (* the map is allowed to grow -> o is still 0 at this stage *)
                     assert (o = 0) ;
                     Hashtbl.add h k (v, tv, o, 0) ;
                     h, o, pvs+v, n+v, rest_v, rest_tv,
-                    match k_min with
+                    (match k_min with
                     | Some k_mi -> let v_min,_,_,_ = Hashtbl.find h k_mi in
                                    if v < v_min then Some k else k_min
-                    | _ -> Some k
+                    | _ -> Some k),
+                    sum_v + v, tv_aggr sum_tv tv
                 ) else (
                     let v_min, tv_min, v0_min, _n0_min = Hashtbl.find h (BatOption.get k_min) in
                     (* the map is not allowed to grow *)
                     if v0_min + v_min >= o + v then (
                         (* no need to track k *)
-                        h, o+v, pvs, n+v, rest_v+v, tv_aggr rest_tv tv, k_min
+                        h, o+v, pvs, n+v, rest_v+v, tv_aggr rest_tv tv, k_min,
+                        sum_v + v, tv_aggr sum_tv tv
                     ) else (
                         (* k may be more numerous than k_min, replace k_min with k *)
                         Hashtbl.remove h (BatOption.get k_min) ;
                         let max_untracked = min (n-pvs) (* all currently tracked ks were not k *)
                                                 (n/max_len) (* or it would be tracked already *) in
                         Hashtbl.add h k (v, tv, o, max_untracked) ;
-                        h, v0_min + v_min, pvs+v-v_min, n+v, rest_v+v_min, tv_aggr rest_tv tv_min, find_min h
+                        h, v0_min + v_min, pvs+v-v_min, n+v, rest_v+v_min, tv_aggr rest_tv tv_min, find_min h,
+                        sum_v + v, tv_aggr sum_tv tv
                     )
                 ))
             (fun () -> (* zero *)
-                Hashtbl.create max_len, 0, 0, 0, 0, tv_zero, None)
-            (fun (_h1, _o1, pvs1, n1, _rv1, _rtv1, _kmin1 as h1_etc) (h2, _o2, pvs2, n2, rv2, rtv2, _kmin2) -> (* merge the small h2 into the big h1 *)
+                Hashtbl.create max_len, 0, 0, 0, 0, tv_zero, None, 0, tv_zero)
+            (fun (h1, o1, pvs1, n1, rv1, rtv1, kmin1, sum_v1, sum_tv1)
+                 (h2, _o2, pvs2, n2, rv2, rtv2, _kmin2, sum_v2, sum_tv2) -> (* merge the small h2 into the big h1 *)
                 (* max number of a k that's not in h1 *)
                 let max_untracked1 = min (n1-pvs1) (n1/max_len)
                 and max_untracked2 = min (n2-pvs2) (n2/max_len) in
@@ -608,11 +617,12 @@ let heavy_hitters max_len fold tv_aggr tv_zero =
                                 Hashtbl.add h1 k2 (v2, tv2, o1, max_untracked1 + n02) ;
                                 h1, v0_min + v_min, pvs1+v2-v_min, n1+v2, rv1+v_min, tv_aggr rtv1 tv_min, find_min h1
                             )
-                        )) h2 h1_etc in
+                        )) h2 (h1, o1, pvs1, n1, rv1, rtv1, kmin1) in
                 (* For all k1 not also in k2, then add max_untracked2 into n01 *)
                 Hashtbl.map_inplace (fun k1 (v1, tv1, o1, n01 as t1) ->
                     if Hashtbl.mem h2 k1 then t1 else v1, tv1, o1, n01 + max_untracked2) h1' ;
-                h1', o1', pvs1', n1'+n2-pvs2, rv1' + rv2, tv_aggr rtv1' rtv2, kmin1') in
+                h1', o1', pvs1', n1'+n2-pvs2, rv1' + rv2, tv_aggr rtv1' rtv2, kmin1',
+                sum_v1 + sum_v2, tv_aggr sum_tv1 sum_tv2) in
         (* Move from h to rest all keys wich values are known to be below n/max_len *)
         let more_v = ref 0 and more_tv = ref tv_zero and min_v = n / max_len in
         Hashtbl.filter_inplace (fun (v, tv, _v0, _n0) ->
@@ -621,5 +631,5 @@ let heavy_hitters max_len fold tv_aggr tv_zero =
                 more_tv := tv_aggr !more_tv tv ;
                 false
             ) else true) h ;
-        h, rv + !more_v, tv_aggr rtv !more_tv
+        h, rv + !more_v, tv_aggr rtv !more_tv, sum_v, sum_tv
 

@@ -167,7 +167,7 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?stat
                 f (srv, nb_queries, [avg]) p)
             i m
     and aggr_rts prev_rts rts = List.rev_append rts prev_rts in
-    let result, _rest_count, rest_rts = Plot.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in
+    let result, _rest_count, rest_rts, _sum_v, _sum_tv = Plot.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in
     Plot.distributions_of_response_times prec result rest_rts InetAddr.to_string
 
 (* Lod1: degraded client, rounded query_date (to 1min), stripped url, distribution of resptimes *)

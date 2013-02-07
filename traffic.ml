@@ -95,22 +95,22 @@ struct
     let aggr_sum_int = { zero = "0"       ; singleton = "identity" ; func = "(+)" ; fin = "identity" }
     let aggr_avg_int = { zero = "(0,0)"   ; singleton = "(fun v -> 1,v)" ; func = "(fun (c1,s1) (c2,s2) -> c1+c2, s1+s2)" ; fin = "(fun (c,s) -> if c <> 0 then s/c else 0)" }
     let aggrs_int = [ "max", aggr_max_int ; "min", aggr_min_int ; "sum", aggr_sum_int ; "avg", aggr_avg_int ]
-    let fields = [ "start",     { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp" } ;
-                   "stop",      { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp" } ;
-                   "count",     { aggrs = aggrs_int ;      sortable = "identity" ; keyable = false ; datatype = "Datatype.UInteger" } ;
-                   "vlan",      { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.VLan" } ;
-                   "mac_src",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr" } ;
-                   "mac_dst",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr" } ;
-                   "mac_proto", { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" } ;
-                   "mac_pld",   { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger" } ;
-                   "mtu",       { aggrs = ["max", aggr_max_int] ; sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" } ;
-                   "ip_src",    { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.InetAddr" } ;
-                   "ip_dst",    { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.InetAddr" }  ;
-                   "ip_proto",  { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger8" } ;
-                   "ip_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger" } ;
-                   "port_src",  { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" } ;
-                   "port_dst",  { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" } ;
-                   "l4_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger" } ]
+    let fields = [ "start",     { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp"  ; display = "Datatype.Timestamp.to_string" } ;
+                   "stop",      { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp"  ; display = "Datatype.Timestamp.to_string" } ;
+                   "count",     { aggrs = aggrs_int ;      sortable = "identity" ; keyable = false ; datatype = "Datatype.UInteger"   ; display = "Datatype.string_of_inumber" } ;
+                   "vlan",      { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.VLan"       ; display = "Datatype.VLan.to_string" } ;
+                   "mac_src",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr"    ; display = "Datatype.EthAddr.to_string" } ;
+                   "mac_dst",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr"    ; display = "Datatype.EthAddr.to_string" } ;
+                   "mac_proto", { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
+                   "mac_pld",   { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger"   ; display = "Datatype.string_of_inumber" } ;
+                   "mtu",       { aggrs = ["max", aggr_max_int] ; sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
+                   "ip_src",    { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.InetAddr"  ; display = "Datatype.InetAddr.to_string" } ;
+                   "ip_dst",    { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.InetAddr"  ; display = "Datatype.InetAddr.to_string" }  ;
+                   "ip_proto",  { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger8" ; display = "Datatype.string_of_inumber" } ;
+                   "ip_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger"  ; display = "Datatype.string_of_inumber" } ;
+                   "port_src",  { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
+                   "port_dst",  { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
+                   "l4_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger"   ; display = "Datatype.string_of_inumber" } ]
 
     (* This is just a way for our dynamically loaded code to reach us *)
     let filter_ = ref (fun (_ : t) -> true)
@@ -248,7 +248,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
             f (key, y, tv) p)
             i m in
     let tv_aggr a1 a2 = Plot.merge_y_array nb_steps a1 a2 in
-    let vols, _rest_t, rest_vols =
+    let vols, _rest_t, rest_vols, _sum_v, _sum_vols =
         Plot.FindSignificant.pass2 interm fold2 tv_aggr Plot.Empty max_graphs in
     let label_of_key (mac_proto, ip) = label_of_ip_key mac_proto ip in
     (* returns a (string * float array) list *)
@@ -282,7 +282,7 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     Hashtbl.map (fun _k v -> float_of_int v) h
 
 
-type top_fun = unit -> (string array option * string array * int * int) list
+type top_fun = unit -> ((string array option * string array * int * int) list) * int * string array
 let dyn_top : top_fun ref = ref (fun () -> failwith "Cannot specialize top function")
 
 let get_top ?start ?stop ?ip_src ?usr_filter ?(max_graphs=20) ?(single_pass=true) sort_by key_fields aggr_fields dbdir name =

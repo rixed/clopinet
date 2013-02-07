@@ -296,11 +296,12 @@ let string_of_number v =
         let s = string_of_float v in
         if s = "0" then s else s ^ submultiples.(e)
     )
+let string_of_inumber = float_of_int %> string_of_number
 let string_of_min_max mi ma =
     if mi = ma then string_of_number mi else
-(*    let err = (ma -. mi)/.2. in
-    string_of_number (mi+.err) ^" +/- "^ string_of_number err*)
-    "["^ string_of_number mi ^":"^ string_of_number ma ^"]"
+    let err = (ma -. mi)/.2. in
+    string_of_number (mi+.err) ^" &plusmn;"^ string_of_number err
+    (*"["^ string_of_number mi ^":"^ string_of_number ma ^"]"*)
 
 
 let numeric_suffix_int =

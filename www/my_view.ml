@@ -48,7 +48,7 @@ let make_app_page content =
                  menu () ;
                  msgs () ;
                  div ~cls:"page" content ]
-    and head = [ title "MlRRD" ;
+    and head = [ title "ClopiNet" ;
                  tag "link" ~attrs:[ "rel", "shortcut icon" ;
                                      "href", "static/img/favicon.svg" ;
                                      "type", "image/svg+xml" ] [] ;
@@ -104,27 +104,35 @@ let make_report_page page_no title descr chart =
       (match descr with None -> span [] | Some txt -> h3 txt) ;
       div ~attrs:["class","report_page"] chart ]
 
-let table_of_datasets key_fields aggr_fields sort_field datasets =
+let table_of_datasets key_fields aggr_fields sort_field (tbl, sum_v, sum_tv) =
+    let tds_of_arr a =
+        Array.enum a /@
+        (fun k -> td [ raw k ]) |>
+        List.of_enum in
+    let tds_of_key = function
+        | None -> [ td ~attrs:[ "colspan", List.length key_fields |> string_of_int ;
+                                "class","rest" ]
+                       [ cdata "others" ] ]
+        | Some ks -> tds_of_arr ks in
     let all_rows =
         let lineno = ref 0 in
         List.map (fun (key, aggrs, sort_v_min, sort_v_max) ->
-            let tds_of_arr a =
-                Array.enum a /@
-                (fun k -> td [ cdata k ]) |>
-                List.of_enum in
-            let tds_of_key = function
-                | None -> [ td ~attrs:["colspan", List.length key_fields |> string_of_int ;
-                                       "class","rest" ]
-                               [ cdata "others" ] ]
-                | Some ks -> tds_of_arr ks in
             let style = if !lineno land 1 = 0 then "even" else "odd" in
             incr lineno ;
             tr ~attrs:["class",style]
                (tds_of_key key @
                 tds_of_arr aggrs @
                 [ td ~attrs:["class","sort_by"]
-                     [ cdata (Datatype.string_of_min_max (float_of_int sort_v_min) (float_of_int sort_v_max)) ] ]))
-            datasets
+                     [ raw (Datatype.string_of_min_max (float_of_int sort_v_min) (float_of_int sort_v_max)) ] ]))
+            tbl @
+        [ let style = if !lineno land 1 = 0 then "even" else "odd" in
+          tr ~attrs:["class",style]
+            ([ td ~attrs:[ "colspan", List.length key_fields |> string_of_int ;
+                           "class","rest" ]
+                  [ cdata "total" ] ] @
+             tds_of_arr sum_tv @
+             [ td ~attrs:["class","sort_by"]
+                  [ raw (Datatype.string_of_number (float_of_int sum_v)) ] ]) ]
     and headers =
         let ths_of l =
             List.map (fun k -> th [ cdata k ]) l in

@@ -1,12 +1,6 @@
 TODO stack
 ----------
 
-- Make two pass algo output error margins as well, and result table display 
-them, then have hitters produce same output, and let the user choose it's
-scanning method (single or two passes)
-
-
-
 Bugs
 ----
 
