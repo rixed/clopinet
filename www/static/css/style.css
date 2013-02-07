@@ -213,6 +213,15 @@ table.tops td.rest {
     font-style: italic;
     background-color: #d4d5d6;
 }
+table.tops th.total {
+    font-weight: bold;
+    font-style: italic;
+    background-color: #c4c5c6;
+    text-align: right;
+}
+table.tops td.total {
+    background-color: #c4c5c6;
+}
 table.tops td.sort_by {
     background-color: #d4d5d6;
 }

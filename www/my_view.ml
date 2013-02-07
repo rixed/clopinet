@@ -125,10 +125,9 @@ let table_of_datasets key_fields aggr_fields sort_field (tbl, sum_v, sum_tv) =
                 [ td ~attrs:["class","sort_by"]
                      [ raw (Datatype.string_of_min_max (float_of_int sort_v_min) (float_of_int sort_v_max)) ] ]))
             tbl @
-        [ let style = if !lineno land 1 = 0 then "even" else "odd" in
-          tr ~attrs:["class",style]
-            ([ td ~attrs:[ "colspan", List.length key_fields |> string_of_int ;
-                           "class","rest" ]
+        [ tr ~attrs:["class","total"]
+            ([ th ~attrs:[ "colspan", List.length key_fields |> string_of_int ;
+                           "class","total" ]
                   [ cdata "total" ] ] @
              tds_of_arr sum_tv @
              [ td ~attrs:["class","sort_by"]
