@@ -9,7 +9,11 @@ let load_string str =
                 IO.nwrite oc str ;
                 fname) in
     let cmxs = Dynlink.adapt_filename fname in
-    let cmd = Printf.sprintf "PATH=/bin:/usr/bin:/home/rixed/ocalme/bin OCAMLPATH=/home/rixed/share/src /home/rixed/ocalme/bin/ocamlfind ocamlopt -o %s -package clopinet -S -inline 9 -shared %s" cmxs fname in
+    let cmd = Printf.sprintf "OCAMLPATH=%s PATH=%s %s ocamlopt -o %s -package clopinet -inline 9 -shared %s"
+        (Prefs.get_string "compiler/ocamlpath" "")
+        (Prefs.get_string "compiler/path" "")
+        (Prefs.get_string "compiler/ocamlfind" "ocamlfind")
+        cmxs fname in
     match Unix.system cmd with
     | Unix.WEXITED 0 ->
         (try Dynlink.loadfile cmxs

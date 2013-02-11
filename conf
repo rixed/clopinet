@@ -1,4 +1,12 @@
 #
+# Path to compiler
+#
+
+compiler/ocamlpath = /home/rixed/share/src
+compiler/path = /usr/bin:/home/rixed/ocalme/bin
+compiler/ocamlfind = /home/rixed/ocalme/bin/ocamlfind
+
+#
 # Printers
 #
 
