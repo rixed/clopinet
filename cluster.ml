@@ -51,7 +51,14 @@ struct
         and max' = V.max n.max k in
         let surf = V.surface min' max'
         and cnt = n.count + c in
-        surf / cnt
+        surf (*/ cnt*)
+
+    let scarcity_node n m =
+        let min' = V.min n.min m.min
+        and max' = V.max n.max m.max in
+        let surf = V.surface min' max'
+        and cnt = n.count + m.count in
+        surf (*/ cnt*)
 
     (* returns true if n' was actually merged (note: n' MUST BE A LEAF) *)
     let try_merge t n n' =
@@ -60,9 +67,9 @@ struct
         and max' = V.max n.max n'.max in
         let surf = V.surface min' max'
         and cnt = n.count + n'.count in
-        let s = surf / cnt in
+        let s = surf (*/ cnt*) in
         if s <= t.max_scarcity then ( (* do merge *)
-            Printf.printf "Merging %d points ([%s:%s], scarcity %d) within %d points ([%s:%s], scarcity %d), new scarcity: %d\n" n'.count (V.to_string n'.min) (V.to_string n'.max) (V.surface n'.min n'.max / n'.count) n.count (V.to_string n.min) (V.to_string n.max) (V.surface n.min n.max / n.count) s ;
+            Printf.printf "Merging %d points ([%s:%s], scarcity %d) within %d points ([%s:%s], scarcity %d), new scarcity: %d\n" n'.count (V.to_string n'.min) (V.to_string n'.max) (V.surface n'.min n'.max (*/ n'.count*)) n.count (V.to_string n.min) (V.to_string n.max) (V.surface n.min n.max (*/ n.count*)) s ;
             n.count <- cnt ;
             n.aggr <- A.add n.aggr n'.aggr ;
             n.min <- min' ; n.max <- max' ;
@@ -73,6 +80,46 @@ struct
             false
         )
 
+    (* add node m in t, increasing t size as needed. *)
+    let add_node t m =
+        (* Loop from n to m.center (following straight path).
+         * At the end, add a new leaf node or merge into best.
+         * returns diff in node numbers (ie 0 or 1). *)
+        let rec aux n m min_scarcity best =
+            let q = V.quadrant n.center n.center n.center m.center in
+            assert (q < nb_children) ;
+            let s = scarcity_node n m in
+            let min_scarcity, best =
+                if s < min_scarcity then s, n else min_scarcity, best in
+            match n.children.(q) with
+            | None ->
+                if min_scarcity <= t.max_scarcity then (
+                    (* merge into best *)
+                    Printf.printf "Merging node with %d points within %d points ([%s:%s], scarcity %d)\n" m.count best.count (V.to_string best.min) (V.to_string best.max) min_scarcity ;
+                    best.count <- best.count + m.count ;
+                    best.aggr <- A.add best.aggr m.aggr ;
+                    best.min <- V.min best.min m.min ;
+                    best.max <- V.max best.max m.max ;
+                    0
+                ) else (
+                    (* new node *)
+                    Printf.printf "New leaf for node with %d points\n" m.count ;
+                    n.children.(q) <- Some m ;
+                    1
+                )
+            | Some n' ->
+                aux n' m min_scarcity best
+         in
+
+        let add_root t m = match t.root with
+            | None ->
+                t.root <- Some m ;
+                1
+            | Some n ->
+                aux n m max_int n in
+        let diff = add_root t m in
+        t.nb_nodes <- t.nb_nodes + diff
+
     (* add k, c, a in t, increasing t size as needed. *)
     let add t k c a =
         let make_node k c a =
@@ -80,6 +127,7 @@ struct
               count = c ; aggr = a ;
               children = Array.create nb_children None } in
 
+        (* TODO: use add_node and drop -1 special value from quadrant *)
         (* Loop from n to k (following straight path), stopping whenever k is within n own region.
          * At the end, add a new node or merge into best. returns diff in node numbers (ie 0 or 1). *)
         let rec aux n k c a min_scarcity best =
@@ -137,24 +185,29 @@ struct
 
     (* compact t as much as permitted by max_scarcity *)
     let blur t =
+        (* TODO: add a sequence number in nodes and use it to avoid testing both n in m and m in n (beware of root) *)
         let diff = ref 0 in
-        let iter_leaves f t =
-            iter (fun p q n -> if is_leaf n then f p q n) t in
-        let blur_leaf p q n =
+        let blur_one p q n =
             if p = None then () else
             let p = Option.get p and q = Option.get q in
             (* try to merge n anywhere *)
             try iter (fun _p _q n' ->
                     if n != n' then (
                         if try_merge t n' n then (
-                            p.children.(q) <- None ;
                             decr diff ;
+                            p.children.(q) <- None ;
+                            for q'=0 to nb_children-1 do match n.children.(q') with
+                                | None -> ()
+                                | Some m ->
+                                    decr diff ;
+                                    add_node t m
+                            done ;
                             raise Exit
                         )
                     )
                 ) t
             with Exit -> () in
-        iter_leaves blur_leaf t ;
+        iter blur_one t ;
         t.nb_nodes <- t.nb_nodes + !diff
 
 

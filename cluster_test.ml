@@ -8,7 +8,8 @@ struct
     let map f (x1,y1) (x2,y2) = f x1 x2, f y1 y2
     let min = map min
     let max = map max
-    let surface (x1,y1) (x2,y2) = succ (abs (x1-x2)) * succ (abs (y1-y2))
+    let square x = x * x
+    let surface (x1,y1) (x2,y2) = square (x1-x2) + square (y1-y2)
     let quadrant (xc,yc) (x1,y1) (x2,y2) (x,y) =
         if x >= x1 && x <= x2 && y >= y1 && y <= y2 then -1 else
         if x < xc then (
@@ -60,7 +61,6 @@ let draw_node p _q n =
     let open C in
     let x0, y0 = n.min and x1, y1 = n.max and xc, yc = n.center in
     let w = x1-x0+1 and h = y1-y0+1 in
-    Printf.printf "Drawing node (%d,%d) (%d,%d), v = %d\n" x0 y0 x1 y1 n.count ;
     set_color red ;
     draw_rect x0 y0 w h ;
     set_color green ;
@@ -83,7 +83,8 @@ let display d added c =
     ignore (read_key ())
 
 
-let test seed nb_clusters cluster_size max_scarcity max_size =
+let test seed nb_clusters cluster_size max_scarcity max_size max_work_size =
+    let max_work_size = Option.default (1 lsl Vector_2D.dimension * max_size) max_work_size in
     Random.init seed ;
     open_graph "" ;
     resize_window 1024 768 ;
@@ -95,33 +96,38 @@ let test seed nb_clusters cluster_size max_scarcity max_size =
     (* clusterize this dataset *)
     let c = { C.empty () with C.max_scarcity = max_scarcity } in
     let blur_once c =
-        if c.C.min_next_scarcity < max_int && c.C.min_next_scarcity > c.C.max_scarcity then (
-            c.C.max_scarcity <- c.C.min_next_scarcity ;
-            c.C.min_next_scarcity <- max_int
-        ) else ( (* we have no idea how to increase max_scarcity... *)
-            c.C.max_scarcity <- c.C.max_scarcity + 1 (* FIXME: look for best match? *)
-        ) ;
-        Printf.printf "max scarcity is now %d\n" c.C.max_scarcity ;
+        let n1 = c.C.nb_nodes in
         C.blur c ;
-        display d added c in
+        if c.C.nb_nodes >= n1 then (
+            if c.C.min_next_scarcity < max_int && c.C.min_next_scarcity > c.C.max_scarcity then (
+                c.C.max_scarcity <- c.C.min_next_scarcity ;
+                c.C.min_next_scarcity <- max_int
+            ) else ( (* we have no idea how to increase max_scarcity... *)
+                c.C.max_scarcity <- c.C.max_scarcity + 1 (* FIXME: look for best match? *)
+            ) ;
+            C.blur c
+        ) ;
+        display d added c
+    in
     Array.iteri (fun i v ->
         C.add c v 1 () ;
         added.(i) <- true ;
         Printf.printf "Added one point\n" ;
-        if c.C.nb_nodes > 2*max_size then blur_once c
+        if c.C.nb_nodes > max_work_size then blur_once c
     ) d ;
     while c.C.nb_nodes > max_size do blur_once c done ;
     display d added c
 
 let () =
     let seed = ref 0 and nb_clusters = ref 3 and cluster_size = ref 30
-    and max_scarcity = ref 0 and max_size = ref 6 in
+    and max_scarcity = ref 0 and max_size = ref 6 and max_work_size = ref None in
     Arg.(parse [
         "-seed", Set_int seed, "seed for random" ;
         "-nb-clusters", Set_int nb_clusters, "how many clusters in dataset" ;
         "-cluster-size", Set_int cluster_size, "how many points per cluster" ;
         "-max-scarcity", Set_int max_scarcity, "max scarcity" ;
-        "-max-size", Set_int max_size, "max final size" ]
+        "-max-size", Set_int max_size, "max final size" ;
+        "-max-work-size", Int (fun n -> max_work_size := Some n), "max work size" ]
         (fun x -> raise (Bad x))
         "Test stream clustering") ;
-    test !seed !nb_clusters !cluster_size !max_scarcity !max_size
+    test !seed !nb_clusters !cluster_size !max_scarcity !max_size !max_work_size
