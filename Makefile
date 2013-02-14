@@ -3,6 +3,7 @@ PKG_NAME = clopinet
 SOURCES  = \
 	log.ml \
 	prefs.ml \
+	cluster.ml \
 	serial.ml \
 	geoip.ml \
 	output.ml \
@@ -41,11 +42,12 @@ LIBS = -cclib -lpcap -cclib -lGeoIP
 EXAMPLES_BYTE = \
 	dns_exe.byte web_exe.byte tcp_exe.byte \
 	traffic_exe.byte flow_exe.byte runtest.byte \
+	cluster_test.byte
 
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
 
-REQUIRES = batteries bitstring bitstring.syntax parmap dynlink
+REQUIRES = batteries bitstring bitstring.syntax parmap dynlink graphics
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc

@@ -1,5 +1,5 @@
 description = "Multi-Level Round-Robbin Database"
 version = "1"
-requires = "batteries bitstring bitstring.syntax parmap owww dynlink"
+requires = "batteries bitstring bitstring.syntax parmap owww dynlink graphics"
 archive(byte) = "clopinet.cma"
 archive(native) = "clopinet.cmxa"
