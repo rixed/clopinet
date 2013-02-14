@@ -1,6 +1,8 @@
 open Batteries
 open Graphics
 
+let debug = ref false
+
 module Vector_2D : Cluster.VECTOR with type t = int * int =
 struct
     type t = int * int
@@ -77,7 +79,7 @@ let display d added c =
     (* display result *)
     draw_dataset d added ;
     (* and the cluster, blured to more or less max_scarcity *)
-    Printf.printf "Result tree have %d nodes, max scarcity = %d.\n%!" c.C.nb_nodes c.C.max_scarcity ;
+    if !debug then Printf.printf "Result tree have %d nodes, max scarcity = %d.\n%!" c.C.nb_nodes c.C.max_scarcity ;
     C.iter draw_node c ;
     (* pause *)
     ignore (read_key ())
@@ -91,7 +93,7 @@ let test seed nb_clusters cluster_size max_scarcity max_size max_work_size =
     let w = min (size_x ()) (size_y ()) in
     let d = make_dataset w nb_clusters cluster_size in
     let added = Array.(make (length d) false) in
-    Printf.printf "%d points in dataset\n" (Array.length d) ;
+    if !debug then Printf.printf "%d points in dataset\n" (Array.length d) ;
 
     (* clusterize this dataset *)
     let c = { C.empty () with C.max_scarcity = max_scarcity } in
@@ -107,12 +109,12 @@ let test seed nb_clusters cluster_size max_scarcity max_size max_work_size =
             ) ;
             C.blur c
         ) ;
-        display d added c
+        if !debug then display d added c
     in
     Array.iteri (fun i v ->
         C.add c v 1 () ;
         added.(i) <- true ;
-        Printf.printf "Added one point\n" ;
+        if !debug then Printf.printf "Added one point\n" ;
         if c.C.nb_nodes > max_work_size then blur_once c
     ) d ;
     while c.C.nb_nodes > max_size do blur_once c done ;
@@ -127,7 +129,8 @@ let () =
         "-cluster-size", Set_int cluster_size, "how many points per cluster" ;
         "-max-scarcity", Set_int max_scarcity, "max scarcity" ;
         "-max-size", Set_int max_size, "max final size" ;
-        "-max-work-size", Int (fun n -> max_work_size := Some n), "max work size" ]
+        "-max-work-size", Int (fun n -> max_work_size := Some n), "max work size" ;
+        "-debug", Set debug, "debug" ]
         (fun x -> raise (Bad x))
         "Test stream clustering") ;
     test !seed !nb_clusters !cluster_size !max_scarcity !max_size !max_work_size
