@@ -41,6 +41,9 @@ struct
     
     let nb_children = 1 lsl V.dimension
 
+    let empty () =
+        { nb_nodes = 0 ; max_scarcity = 0 ; min_next_scarcity = max_int ; root = None }
+
     let scarcity n m =
         let min' = V.min n.min m.min
         and max' = V.max n.max m.max in
@@ -159,6 +162,5 @@ struct
             with Exit -> () in
         iter blur_one t ;
         t.nb_nodes <- t.nb_nodes + !diff
-
 
 end
