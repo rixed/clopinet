@@ -31,7 +31,8 @@ struct
                   mutable max : V.t ;
                   mutable count : int ;
                   mutable aggr : A.t ;
-                  children : node option array (* of size 2^V.dimension *)}
+                  children : node option array (* of size 2^V.dimension *) ;
+                  id : int }
 
     and tree = { mutable nb_nodes : int ;
                  mutable max_scarcity : int ; (* no node should be more scarce than this - we relax this slowly to meet size requirement *)
@@ -107,12 +108,16 @@ struct
         let diff = add_root t m in
         t.nb_nodes <- t.nb_nodes + diff
 
+    let seq = ref 0
+
     (* add k, c, a in t, increasing t size as needed. *)
     let add t k c a =
         let make_node k c a =
+            incr seq ;
             { center = k ; min = k ; max = k ;
               count = c ; aggr = a ;
-              children = Array.create nb_children None } in
+              children = Array.create nb_children None ;
+              id = !seq } in
 
         add_node t (make_node k c a)
 
@@ -131,14 +136,13 @@ struct
 
     (* compact t as much as permitted by max_scarcity *)
     let blur t =
-        (* TODO: add a sequence number in nodes and use it to avoid testing both n in m and m in n (beware of root) *)
         let diff = ref 0 in
         let blur_one p q n =
             if p = None then () else
             let p = Option.get p and q = Option.get q in
             (* try to merge n anywhere *)
-            try iter (fun _p _q n' ->
-                    if n != n' then (
+            try iter (fun p' _q n' ->
+                    if p' = None || n.id < n'.id then (
                         if try_merge t n' n then (
                             decr diff ;
                             p.children.(q) <- None ;
