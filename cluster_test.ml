@@ -12,8 +12,7 @@ struct
     let max = map max
     let square x = x * x
     let surface (x1,y1) (x2,y2) = square (x1-x2) + square (y1-y2)
-    let quadrant (xc,yc) (x1,y1) (x2,y2) (x,y) =
-        if x >= x1 && x <= x2 && y >= y1 && y <= y2 then -1 else
+    let quadrant (xc,yc) (x,y) =
         if x < xc then (
             if y < yc then 3 else 0
         ) else (
