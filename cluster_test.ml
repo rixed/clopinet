@@ -39,23 +39,30 @@ let rand_point (xc, yc) r =
 let make_cluster c r =
     Enum.from (fun () -> rand_point c r)
 
+let random_cluster w np =
+    let cluster_r = 10 + Random.int (w/10) in
+    let c = rand_point (w/2,w/2) (w/2 - cluster_r)
+    and n = 5 + Random.int (np*2) in
+    Enum.take n (make_cluster c cluster_r)
+
 (* Build a dataset with [nc] clusters of approximately [np] points each, centered at [c], in [0;w]^2 *)
 let make_dataset w nc np =
     let rec aux nc =
         if nc = 0 then Enum.empty () else
-        let cluster_r = 10 + Random.int (w/10) in
-        let c = rand_point (w/2,w/2) (w/2 - cluster_r) and n = 5 + Random.int (np*2) in
-        Enum.append (Enum.take n (make_cluster c cluster_r)) (aux (pred nc)) in
+        Enum.append (random_cluster w np) (aux (pred nc)) in
     aux nc |> Random.shuffle
 
 let draw_point (x,y) =
     draw_circle x y 2
 
+let random_len = ref 0
+
 (* Draw the given dataset *)
 let draw_dataset d added =
-    let grey = rgb 200 200 200 in
     Array.iteri (fun i v ->
-        set_color (if added.(i) then black else grey) ;
+        let color = if i >= !random_len then magenta else black in
+        let color = if added.(i) then color else color lor 0xe0e0e0 in
+        set_color color ;
         draw_point v) d
 
 let draw_node p _q n =
@@ -90,7 +97,9 @@ let test seed nb_clusters cluster_size max_scarcity max_size max_work_size =
     open_graph "" ;
     resize_window 1024 768 ;
     let w = min (size_x ()) (size_y ()) in
-    let d = make_dataset w nb_clusters cluster_size in
+    let d = make_dataset w (nb_clusters-1) cluster_size in
+    random_len := Array.length d ;
+    let d = Array.append d (random_cluster w cluster_size |> Array.of_enum) in
     let added = Array.(make (length d) false) in
     if !debug then Printf.printf "%d points in dataset\n" (Array.length d) ;
 

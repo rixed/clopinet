@@ -23,9 +23,6 @@ Packaging
 Clustering
 ----------
 
-- make test dataset less random by adding another cluster at the end, 
-  unshuffled
-
 - instead of a max_scarcity, usr a max_scarcity_degradation, which is an 
   acceptable ratio of density we are ok to loose -> should help to keep
   dense clouds
