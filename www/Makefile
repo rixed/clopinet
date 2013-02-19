@@ -10,7 +10,8 @@ SOURCES  = \
 	my_forms.ml \
 	index.ml \
 
-REQUIRES = owww clopinet
+REQUIRES = owww batteries bitstring bitstring.syntax dynlink parmap
+EXTRALIBS = $(top_srcdir)/clopinet.cma
 
 all: index.cgi
 
@@ -21,7 +22,7 @@ index.cgi: index.opt
 
 # for some reason the same rules from make.common reverse the elemtns of %^ (!??)
 index.opt: $(XOBJECTS)
-	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES) $(PKG_NAME)" $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $^
+	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" -ccopt -L$(top_srcdir) clopinet.cmxa $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $^
 
 .PHONY: httpd
 httpd:

@@ -16,12 +16,25 @@ Bugs
 Packaging
 ---------
 
-Get rid of bitstring dependancy
+- Get rid of bitstring dependancy
 
 
 
 Clustering
 ----------
+
+- make test dataset less random by adding another cluster at the end, 
+  unshuffled
+
+- instead of a max_scarcity, usr a max_scarcity_degradation, which is an 
+  acceptable ratio of density we are ok to loose -> should help to keep
+  dense clouds
+
+- faster addition of point using ntree neightbors only
+
+- max_scarcity should be reset to max_int after a serie of compactions
+
+- do we need max_scarcity at all?
 
 - A general purpose clustering view (user choose parameters and then we 
   display how data is partitionned along these dimentions. Usefull to answer

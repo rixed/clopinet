@@ -2,7 +2,7 @@ top_srcdir = .
 PKG_NAME = clopinet
 SOURCES  = \
 	log.ml \
-	prefs.ml \
+	prefs.mli prefs.ml \
 	cluster.ml \
 	serial.ml \
 	geoip.ml \
@@ -25,11 +25,11 @@ SOURCES  = \
 	tuple16.ml \
 	distribution.ml \
 	aggregator.ml \
-	dbfile.ml \
-	table.ml \
+	dbfile.mli dbfile.ml \
+	table.mli table.ml \
 	plot.ml \
 	subnet.ml \
-    metric.ml \
+	metric.ml \
 	traffic.ml \
 	tcp.ml \
 	web.ml \
@@ -47,7 +47,7 @@ EXAMPLES_BYTE = \
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
 
-REQUIRES = batteries bitstring bitstring.syntax parmap dynlink graphics
+REQUIRES = batteries bitstring bitstring.syntax dynlink graphics parmap
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc

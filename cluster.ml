@@ -163,4 +163,7 @@ struct
         iter blur_one t ;
         t.nb_nodes <- t.nb_nodes + !diff
 
+    (* TODO: a blur_fast, which compares every leaves with all its ancestors, then every leaf^ with all its ancestor, etc,
+     * in order to reduce overall complexity from n^2 to n*log(n) (n = nb clusters) - other blur should be used at the
+     * end and maybe once in a while. *)
 end

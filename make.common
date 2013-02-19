@@ -1,21 +1,23 @@
 # vim:filetype=make
-OCAMLC     = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlc
-OCAMLOPT   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlopt
+OCAMLC     = ocamlfind ocamlc
+OCAMLOPT   = ocamlfind ocamlopt
 OCAMLLEX   = ocamllex
 OCAMLYACC  = ocamlyacc
-OCAMLDEP   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldep
-OCAMLDOC   = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamldoc -html -colorize-code -all-params
-OCAMLMKTOP = OCAMLPATH=$(top_srcdir)/.. ocamlfind ocamlmktop -g
+OCAMLDEP   = ocamlfind ocamldep
+OCAMLDOC   = ocamlfind ocamldoc -html -colorize-code -all-params
+OCAMLMKTOP = ocamlfind ocamlmktop -g
 QTEST      = qtest
-override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -inline 9 -S
-override OCAMLFLAGS    += $(INCS) -w Ael -g -annot
+override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -I $(top_srcdir) -inline 9 -S
+override OCAMLFLAGS    += $(INCS) -w Ael -g -annot -I $(top_srcdir)
 CAMLINCLUDE = $(shell ocamlfind printconf stdlib)
-override CPPFLAGS      += -I $(CAMLINCLUDE) -I . -D_GNU_SOURCE
+override CPPFLAGS      += -I $(CAMLINCLUDE) -I $(top_srcdir) -D_GNU_SOURCE
 override CFLAGS        += -O2 -std=c99 -W -Wall
 
 .PHONY: opt clean clean-spec install uninstall reinstall doc clear dep dep-spec
 
-OBJECTS  = $(SOURCES:.ml=.cmo)
+SOURCES_ML = $(filter %.ml, $(SOURCES))
+SOURCES_MLI = $(filter %.mli, $(SOURCES))
+OBJECTS  = $(SOURCES_ML:.ml=.cmo)
 XOBJECTS = $(OBJECTS:.cmo=.cmx)
 ifdef PKG_NAME
 ARCHIVE  = $(PKG_NAME).cma
@@ -24,9 +26,9 @@ CLIBNAME = $(PKG_NAME)
 CLIB     = lib$(CLIBNAME).a
 $(CLIB): $(C_SOURCES:.c=.o)
 	$(AR) rcs $@ $^
-$(ARCHIVE): $(OBJECTS) $(CLIB)
+$(ARCHIVE): $(SOURCES_MLI:.mli=.cmi) $(OBJECTS) $(CLIB)
 	$(OCAMLC)   -a -o $@ $(SYNTAX) -package "$(REQUIRES)" -custom -linkpkg $(OCAMLFLAGS) $(OBJECTS) -cclib -l$(CLIBNAME) $(LIBS)
-$(XARCHIVE): $(XOBJECTS) $(CLIB)
+$(XARCHIVE): $(SOURCES_MLI:.mli=.cmi) $(XOBJECTS) $(CLIB)
 	$(OCAMLOPT) -a -o $@ $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) $(XOBJECTS) -cclib -l$(CLIBNAME) $(LIBS)
 install: $(ARCHIVE) $(XARCHIVE)
 	if test -f "$(XARCHIVE)" ; then extra="$(XARCHIVE) "`basename "$(XARCHIVE)" .cmxa`.a ; fi ; \
@@ -39,11 +41,11 @@ endif
 # Common rules
 .SUFFIXES: .mll .mly .ml .mli .cmo .cmi .cmx .cmxs .opt .byte
 
-.cmo.byte:
-	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES) $(PKG_NAME)" $(EXTRALIBS) -linkpkg $(OCAMLFLAGS) $^
+.cmo.byte: $(ARCHIVE)
+	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES)" -ccopt -L$(top_srcdir) $(ARCHIVE) $(EXTRALIBS) -linkpkg $(OCAMLFLAGS) $^
 
-.cmx.opt:
-	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES) $(PKG_NAME)" $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $^
+.cmx.opt: $(XARCHIVE)
+	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" -ccopt -L$(top_srcdir) $(XARCHIVE) $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $^
 
 .ml.cmo:
 	$(OCAMLC) $(SYNTAX) -package "$(REQUIRES)" $(OCAMLFLAGS) -c $<
@@ -69,15 +71,15 @@ endif
 # Tests with qtest
 
 all_tests.byte: all_tests.cmo $(ARCHIVE)
-	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES) $(PKG_NAME) QTest2Lib" $(EXTRALIBS) -linkpkg $(OCAMLFLAGS) $<
+	$(OCAMLC)   -o $@ $(SYNTAX) -package "$(REQUIRES) QTest2Lib" -ccopt -L$(top_srcdir) $(ARCHIVE) $(EXTRALIBS) -linkpkg $(OCAMLFLAGS) $<
 
-all_tests.cmo: all_tests.ml $(OBJECTS)
+all_tests.cmo: all_tests.ml $(SOURCES_MLI:.mli=.cmi) $(OBJECTS)
 	$(OCAMLC) $(SYNTAX) -package "$(REQUIRES) QTest2Lib" $(OCAMLFLAGS) -c -impl $<
 
 all_tests.opt: all_tests.cmx $(XARCHIVE)
-	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES) $(PKG_NAME) QTest2Lib" $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $<
+	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES) QTest2Lib" -ccopt -L$(top_srcdir) $(XARCHIVE) $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $<
 
-all_tests.cmx: all_tests.ml $(XOBJECTS)
+all_tests.cmx: all_tests.ml $(SOURCES_MLI:.mli=.cmi) $(XOBJECTS)
 	$(OCAMLOPT) $(SYNTAX) -package "$(REQUIRES) QTest2Lib" $(OCAMLOPTFLAGS) -c -impl $<
 
 all_tests.ml: $(SOURCES)
@@ -93,7 +95,7 @@ clean: clean-spec
 
 # Dependencies
 .depend:
-	$(OCAMLDEP) $(SYNTAX) -package "$(REQUIRES)" -I .. *.ml *.mli > $@
+	$(OCAMLDEP) $(SYNTAX) -package "$(REQUIRES)" *.ml *.mli > $@
 ifdef C_SOURCES
 	$(CC) -M $(CPPFLAGS) $(C_SOURCES) >> $@
 endif
