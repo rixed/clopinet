@@ -23,7 +23,9 @@ Packaging
 Clustering
 ----------
 
-- instead of a max_scarcity, usr a max_scarcity_degradation, which is an 
+- add noise into test dataset
+
+- instead of a max_scarcity, use a max_scarcity_degradation, which is an 
   acceptable ratio of density we are ok to loose -> should help to keep
   dense clouds
 
