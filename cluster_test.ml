@@ -50,7 +50,7 @@ let make_dataset w nc np =
     let rec aux nc =
         if nc = 0 then Enum.empty () else
         Enum.append (random_cluster w np) (aux (pred nc)) in
-    aux nc |> Random.shuffle
+    aux nc |> Array.of_enum
 
 let draw_point (x,y) =
     draw_circle x y 2
@@ -91,13 +91,19 @@ let display d added c =
     ignore (read_key ())
 
 
-let test seed nb_clusters cluster_size max_scarcity max_size max_work_size =
+let test seed nb_clusters cluster_size max_scarcity max_size max_work_size noise =
     let max_work_size = Option.default (1 lsl Vector_2D.dimension * max_size) max_work_size in
     Random.init seed ;
     open_graph "" ;
     resize_window 1024 768 ;
     let w = min (size_x ()) (size_y ()) in
     let d = make_dataset w (nb_clusters-1) cluster_size in
+    let d = if noise = 0. then d else (
+        let n = Array.init ((float_of_int (cluster_size*nb_clusters) *. noise) |> int_of_float)
+                           (fun _ -> Random.int (size_x ()), Random.int (size_y ())) in
+        Array.append n d
+    ) in
+    let d = Array.enum d |> Random.shuffle in
     random_len := Array.length d ;
     let d = Array.append d (random_cluster w cluster_size |> Array.of_enum) in
     let added = Array.(make (length d) false) in
@@ -130,7 +136,8 @@ let test seed nb_clusters cluster_size max_scarcity max_size max_work_size =
 
 let () =
     let seed = ref 0 and nb_clusters = ref 3 and cluster_size = ref 30
-    and max_scarcity = ref 0 and max_size = ref 6 and max_work_size = ref None in
+    and max_scarcity = ref 0 and max_size = ref 6 and max_work_size = ref None
+    and noise = ref 0. in
     Arg.(parse [
         "-seed", Set_int seed, "seed for random" ;
         "-nb-clusters", Set_int nb_clusters, "how many clusters in dataset" ;
@@ -138,7 +145,8 @@ let () =
         "-max-scarcity", Set_int max_scarcity, "max scarcity" ;
         "-max-size", Set_int max_size, "max final size" ;
         "-max-work-size", Int (fun n -> max_work_size := Some n), "max work size" ;
+        "-noise", Set_float noise, "add noise" ;
         "-debug", Set debug, "debug" ]
         (fun x -> raise (Bad x))
         "Test stream clustering") ;
-    test !seed !nb_clusters !cluster_size !max_scarcity !max_size !max_work_size
+    test !seed !nb_clusters !cluster_size !max_scarcity !max_size !max_work_size !noise

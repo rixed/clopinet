@@ -23,7 +23,7 @@ Packaging
 Clustering
 ----------
 
-- add noise into test dataset
+- rewrite clustering so that we can easily change the 'evaluation' function
 
 - instead of a max_scarcity, use a max_scarcity_degradation, which is an 
   acceptable ratio of density we are ok to loose -> should help to keep
