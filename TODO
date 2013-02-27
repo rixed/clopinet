@@ -1,11 +1,21 @@
 TODO stack
 ----------
 
+Roadmap for 0.1
+---------------
+
+- build a daily repport on eneide and have it sent via email
+
+
 Bugs
 ----
 
-- svg_plot_explorer does not work from within a report since it blindly uses 
-  window.location.search
+- parse error with this usr filter: "( ip_src==-.1.2.3)" -> spaces around
+  '(' are not handled properly *when we have Traffic.fields*.
+
+- svg_explore_plot does not work from within a report since it blindly uses 
+  window.location.search. It should take as argument the url to target for 
+zooming.
 
 - netgraph does not display when macs and/or ip are resolved?
 

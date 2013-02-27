@@ -41,18 +41,22 @@ LIBS = -cclib -lpcap -cclib -lGeoIP
 
 EXAMPLES_BYTE = \
 	dns_exe.byte web_exe.byte tcp_exe.byte \
-	traffic_exe.byte flow_exe.byte runtest.byte \
-	cluster_test.byte
+	traffic_exe.byte flow_exe.byte runtest.byte
+
+REQUIRES = batteries bitstring bitstring.syntax dynlink parmap
+
+ifneq (@have_graphics@,no)
+EXAMPLES_BYTE += cluster_test.byte
+REQUIRES += graphics
+endif
 
 EXAMPLES_OPT = $(EXAMPLES_BYTE:.byte=.opt)
 EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
 
-REQUIRES = batteries bitstring bitstring.syntax dynlink graphics parmap
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc
 all: $(ARCHIVE) examples www
-#clopinet.top
 
 include $(top_srcdir)/make.common
 

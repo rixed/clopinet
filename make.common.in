@@ -1,15 +1,13 @@
 # vim:filetype=make
-OCAMLC     = ocamlfind ocamlc
-OCAMLOPT   = ocamlfind ocamlopt
-OCAMLLEX   = ocamllex
-OCAMLYACC  = ocamlyacc
-OCAMLDEP   = ocamlfind ocamldep
-OCAMLDOC   = ocamlfind ocamldoc -html -colorize-code -all-params
-OCAMLMKTOP = ocamlfind ocamlmktop -g
+OCAMLC     = @OCAMLFIND@ ocamlc
+OCAMLOPT   = @OCAMLFIND@ ocamlopt
+OCAMLDEP   = @OCAMLFIND@ ocamldep
+OCAMLDOC   = @OCAMLFIND@ ocamldoc -html -colorize-code -all-params
+OCAMLMKTOP = @OCAMLFIND@ ocamlmktop -g
 QTEST      = qtest
 override OCAMLOPTFLAGS += $(INCS) -w Ael -g -annot -I $(top_srcdir) -inline 9 -S
 override OCAMLFLAGS    += $(INCS) -w Ael -g -annot -I $(top_srcdir)
-CAMLINCLUDE = $(shell ocamlfind printconf stdlib)
+CAMLINCLUDE = $(shell @OCAMLFIND@ printconf stdlib)
 override CPPFLAGS      += -I $(CAMLINCLUDE) -I $(top_srcdir) -D_GNU_SOURCE
 override CFLAGS        += -O2 -std=c99 -W -Wall
 
@@ -32,9 +30,9 @@ $(XARCHIVE): $(SOURCES_MLI:.mli=.cmi) $(XOBJECTS) $(CLIB)
 	$(OCAMLOPT) -a -o $@ $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) $(XOBJECTS) -cclib -l$(CLIBNAME) $(LIBS)
 install: $(ARCHIVE) $(XARCHIVE)
 	if test -f "$(XARCHIVE)" ; then extra="$(XARCHIVE) "`basename "$(XARCHIVE)" .cmxa`.a ; fi ; \
-	ocamlfind install "$(PKG_NAME)" *.cmi "$(ARCHIVE)" META $(CLIB) $$extra
+	@OCAMLFIND@ install "$(PKG_NAME)" *.cmi "$(ARCHIVE)" META $(CLIB) $$extra
 uninstall:
-	ocamlfind remove $(PKG_NAME)
+	@OCAMLFIND@ remove $(PKG_NAME)
 reinstall: uninstall install
 endif
 

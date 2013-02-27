@@ -3,8 +3,8 @@
 #
 
 compiler/ocamlpath = /home/rixed/share/src
-compiler/path = /usr/bin:/home/rixed/ocalme/bin
-compiler/ocamlfind = /home/rixed/ocalme/bin/ocamlfind
+compiler/path = /home/rixed/.opam/clopinet/bin:/usr/bin
+compiler/ocamlfind = ocamlfind
 
 #
 # Printers
