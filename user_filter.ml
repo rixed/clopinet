@@ -29,6 +29,8 @@ and expr = Eq of expr * expr
          | Lt of expr * expr
          | Ge of expr * expr
          | Le of expr * expr
+         | Add of expr * expr
+         (* TODO: Sub, with timestamp-timestamp -> interval *)
          | StartsWith of expr * expr
          | Contains of expr * expr
          | ToFloat of expr (* added to promote the int into a float on operations that require it *)
@@ -47,7 +49,7 @@ let string_of_value = function
     | Timestamp v -> Timestamp.to_string v
     | VLan v      -> VLan.to_string v
 
-(* FIXME: add <> or != for Not Eq *)
+(* This function if supposed to print back in user filter form (not OCaml code) *)
 let rec string_of_expr = function
     | Not e -> Printf.sprintf "! (%s)" (string_of_expr e)
     | Eq (e1, e2) -> Printf.sprintf "(%s) == (%s)" (string_of_expr e1) (string_of_expr e2)
@@ -57,6 +59,7 @@ let rec string_of_expr = function
     | Lt (e1, e2) -> Printf.sprintf "(%s) < (%s)" (string_of_expr e1) (string_of_expr e2)
     | Ge (e1, e2) -> Printf.sprintf "(%s) >= (%s)" (string_of_expr e1) (string_of_expr e2)
     | Le (e1, e2) -> Printf.sprintf "(%s) <= (%s)" (string_of_expr e1) (string_of_expr e2)
+    | Add (e1, e2) -> Printf.sprintf "(%s) + (%s)" (string_of_expr e1) (string_of_expr e2)
     | ToFloat e -> string_of_expr e
     | StartsWith (e1, e2) -> Printf.sprintf "%s starts with %s" (string_of_expr e1) (string_of_expr e2)
     | Contains (e1, e2) -> Printf.sprintf "%s contains %s" (string_of_expr e1) (string_of_expr e2)
@@ -135,6 +138,7 @@ let spaced p =
  *)
 
 let eq_op = spaced (string "==")
+let neq_op = spaced (either [string "!="; string "<>"])
 let not_op = spaced (either [ign (istring "not"); ign (item '!')])
 let or_op = spaced (either [istring "or" ; string "||"])
 let and_op = spaced (either [istring "and" ; string "&&"])
@@ -142,6 +146,7 @@ let gt_op = spaced (string ">")
 let lt_op = spaced (string "<")
 let ge_op = spaced (string ">=")
 let le_op = spaced (string "<=")
+let add_op = spaced (string "+")
 let starts_with_op = spaced (istring "starts with")
 let contains_op = spaced (istring "contains")
 
@@ -153,6 +158,8 @@ let rec term_1 bs = (* highest priority *)
 and term_2 bs =
     either [ (not_op ++ term_1) >>: (fun (_op,e) -> Not e) ;
              (term_1 ++ eq_op ++ term_1) >>: (fun ((e1,_op),e2) -> Eq (e1,e2)) ;
+             (term_1 ++ neq_op ++ term_1) >>: (fun ((e1,_op),e2) -> Not (Eq (e1,e2))) ;
+             (term_1 ++ add_op ++ term_1) >>: (fun ((e1,_op),e2) -> Add (e1,e2)) ;
              (* Le/Ge before Lt/Gt since operators share beginning of name *)
              (term_1 ++ ge_op ++ term_1) >>: (fun ((e1,_op),e2) -> Ge (e1,e2)) ;
              (term_1 ++ le_op ++ term_1) >>: (fun ((e1,_op),e2) -> Le (e1,e2)) ;
@@ -170,12 +177,14 @@ and term_3 bs =
 (*$T term_3
   term_3 (String.to_list "true==false") = \
     Peg.Res (Eq (Value (Bool true), Value (Bool false)), [])
-  term_3 (String.to_list "true == false") = \
-    Peg.Res (Eq (Value (Bool true), Value (Bool false)), [])
+  term_3 (String.to_list "true + false") = \
+    Peg.Res (Add (Value (Bool true), Value (Bool false)), [])
   term_3 (String.to_list "false starts with true") = \
     Peg.Res (StartsWith (Value (Bool false), Value (Bool true)), [])
   term_3 (String.to_list "true>=false") = \
     Peg.Res (Ge (Value (Bool true), Value (Bool false)), [])
+  term_3 (String.to_list "true != false") = term_3 (String.to_list "true  <> false")
+  term_3 (String.to_list "true != false") = term_3 (String.to_list "not (true==false)")
  *)
 
 let expr = term_3 ++ eof >>: fst
@@ -194,6 +203,7 @@ let expr = term_3 ++ eof >>: fst
     Peg.Res (Or (Eq (Value (Integer 1), Value (Integer 2)), Value (Bool true)), [])
   expr (String.to_list "(10.0.0.1==10.0.0.2) || true") = \
     Peg.Res (Or (Eq (Value (InetAddr (Datatype.InetAddr.of_string "10.0.0.1")), Value (InetAddr (Datatype.InetAddr.of_string "10.0.0.2"))), Value (Bool true)), [])
+  match expr (String.to_list "30s") with Peg.Res (Value (Interval _), []) -> true | _ -> false
 *)
 
 (** {2 Type checking} *)
@@ -233,6 +243,18 @@ let rec type_of_expr = function
     | ToFloat e ->
         check TInteger e ;
         TFloat
+    | Add (e1,e2) as e ->
+        (* for timestamp and interval *)
+        match type_of_expr e1 with
+        | TInteger   -> check TInteger e2 ; TInteger
+        | TFloat     -> check TFloat e2 ; TFloat
+        | TInterval  ->
+            let t2 = type_of_expr e2 in
+            if t2 = TInterval then TInterval
+            else if t2 = TTimestamp then TTimestamp
+            else raise (Type_error (e2, t2, TInterval))
+        | TTimestamp -> check TInterval e2 ; TTimestamp
+        | x -> raise (Type_error (e, x, TInteger))
 and check t e =
     let t' = type_of_expr e in
     if t' <> t then (
@@ -262,10 +284,11 @@ let rec promote_to_float x = match x with
     | Not e -> Not (promote_to_float e)
     | And (e1, e2) -> And (promote_to_float e1, promote_to_float e2)
     | Or (e1, e2) -> Or (promote_to_float e1, promote_to_float e2)
-    | Gt (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
-    | Lt (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
-    | Ge (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
-    | Le (e1, e2) -> let e1', e2' = may_promote e1 e2 in Eq (e1', e2')
+    | Gt (e1, e2) -> let e1', e2' = may_promote e1 e2 in Gt (e1', e2')
+    | Lt (e1, e2) -> let e1', e2' = may_promote e1 e2 in Lt (e1', e2')
+    | Ge (e1, e2) -> let e1', e2' = may_promote e1 e2 in Ge (e1', e2')
+    | Le (e1, e2) -> let e1', e2' = may_promote e1 e2 in Le (e1', e2')
+    | Add (e1, e2) -> let e1', e2' = may_promote e1 e2 in Add (e1', e2')
     | StartsWith (e1, e2) -> StartsWith (promote_to_float e1, promote_to_float e2)
     | Contains (e1, e2) -> Contains (promote_to_float e1, promote_to_float e2)
     | ToFloat _ | Value _ | Field _ -> x
@@ -286,6 +309,10 @@ let type_of_string str =
   type_of_string "(666 > 42) && true" = TBool
   type_of_string "\"glop glop\" starts with \"glop\"" = TBool
   type_of_string "1 == 1.0 || 1.2 <= 2" = TBool
+  type_of_string "2013-12-11" = TTimestamp
+  type_of_string "2013-12-11 09:45" = TTimestamp
+  type_of_string "30s" = TInterval
+  type_of_string "2013-12-11 09:45 +30s" = TTimestamp
  *)
 
 (* {2 Convertion into an OCaml string} *)
@@ -300,6 +327,17 @@ let rec ocaml_of_expr = function
     | Ge (e1, e2) -> "("^ ocaml_of_expr e1 ^" >= "^ ocaml_of_expr e2 ^")"
     | Lt (e1, e2) -> "("^ ocaml_of_expr e1 ^" < "^ ocaml_of_expr e2 ^")"
     | Le (e1, e2) -> "("^ ocaml_of_expr e1 ^" <= "^ ocaml_of_expr e2 ^")"
+    | Add (e1, e2) ->
+        (match type_of_expr e1 with
+        | TInteger   -> "("^ ocaml_of_expr e1 ^" + "^ ocaml_of_expr e2 ^")"
+        | TFloat     -> "("^ ocaml_of_expr e1 ^" +. "^ ocaml_of_expr e2 ^")"
+        | TTimestamp -> "(DataType.Timestamp.add_interval "^ ocaml_of_expr e1 ^" "^ ocaml_of_expr e2 ^")"
+        | TInterval  ->
+            (match type_of_expr e2 with
+            | TInterval  -> "(DataType.Interval.add "^ ocaml_of_expr e1 ^" "^ ocaml_of_expr e2 ^")"
+            | TTimestamp -> "(DataType.Timestamp.add_interval "^ ocaml_of_expr e2 ^" "^ ocaml_of_expr e1 ^")"
+            | _          -> assert false (* type checker was there *))
+        | _ -> assert false (* type checker was there *))
     | ToFloat v -> "(float_of_int "^ ocaml_of_expr v ^")"
     | StartsWith (s1, s2) -> "(String.starts_with "^ ocaml_of_expr s1 ^" "^ ocaml_of_expr s2 ^")"
     | Contains (s1, s2) -> "(String.exists "^ ocaml_of_expr s2 ^" "^ ocaml_of_expr s1 ^")"

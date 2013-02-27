@@ -19,7 +19,8 @@ sig
     val write_txt : Output.t -> t -> unit
     val read      : ibuf -> t
     val to_imm    : t -> string
-    (* picky is when you are not sure the value may be of the correct type (false by default) *)
+    (* picky is when you are not sure the value may be of the correct type (false by default);
+     * useful when the value is surrounded by other text, like in a more complex expression *)
     val parzer    : ?picky:bool -> (t, char) Peg.parzer
 end
 
@@ -902,7 +903,7 @@ module Interval_base = struct
                  Float.parzer ~picky:true >>: fun secs -> normalize { zero with secs } ]
 
     (*$T parzer
-      let open Datatype.Interval in parzer (String.to_list "1year -2 months") = \
+      parzer (String.to_list "1year -2 months") = \
         Peg.Res ({ zero with years = 1. ; months = -2. }, [])
      *)
 
@@ -1071,7 +1072,7 @@ module Timestamp = struct
             function (((h,_),m),s) -> match s with
                 | None       -> h,m,0.
                 | Some (_,s) -> h,m,s in
-        let abs =
+        let date_time =
             either [
                 (* classical date format *)
                 date ++ optional (several blank ++ time) >>:
@@ -1086,23 +1087,19 @@ module Timestamp = struct
                 (fun (((s,_),us),_) ->
                     Int64.add (Int64.mul s 1000L)
                               (Int64.of_int ((499 + us) / 1000))) ;
-                UInteger64.parzer ++ string "s" >>:
-                (fun (s,_) -> Int64.mul s 1000L) ]
+                UInteger64.parzer ++ item 's' ++ check (either [ eof ; no alphanum ]) >>:
+                (fun ((s,_),_) -> Int64.mul s 1000L) ]
         and unix_ts = Float.parzer >>: fun ts -> Int64.of_float (1000.*.ts) in
-        either ((abs ++ optional (any blank ++ Interval.parzer ~picky:true) >>:
-                    (fun (ts,i_opt) -> match i_opt with
-                        | None -> ts
-                        | Some (_, i) -> add_interval ts i)) ::
-                 junkie ::
-                 if not picky then [unix_ts] else [])
+        (* We can't accept junkie format (ressembling time interval) nor mere unix timestamp when picky *)
+        if picky then date_time else either [ date_time ; junkie ; unix_ts ]
 
     (*$T parzer
-      parzer (String.to_list "now -56 days") <> Peg.Fail
       parzer (String.to_list "now") <> Peg.Fail
       parzer (String.to_list "1976-01-28 15:07") = Peg.Res (191686020000L, [])
       parzer (String.to_list "1976-01-28 15:07:30") = Peg.Res (191686050000L, [])
-      parzer (String.to_list "1976-01-28 15:07 +30secs") = Peg.Res (191686050000L, [])
+      parzer (String.to_list "1976-01-28 15:07:30.1") = Peg.Res (191686050100L, [])
       parzer (String.to_list "1323766040s 992799us") = Peg.Res (1323766040993L, [])
+      parzer ~picky:true (String.to_list "30s") = Peg.Fail
      *)
 
     (* copied from Datatype_of *)
@@ -1114,7 +1111,6 @@ module Timestamp = struct
 
     (*$T of_string
       ignore (of_string "now") ; true
-      ignore (of_string "now-24h") ; true
      *)
 
     (*$>*)

@@ -23,3 +23,5 @@ conf-check.old
 /configure
 /config.status
 autom4te.cache
+www/.htaccess
+www/.apache-pwd

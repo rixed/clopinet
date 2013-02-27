@@ -252,12 +252,18 @@ let (>>=) = bind (* as usual *)
 
 (* unconditionally returns something - usefull for bind *)
 let return res bs = Res (res, bs)
-(* fails unconditionally *)
-let fail _ = Fail
-
 (*$T return
   return `glop [ 1; 2 ] = Res (`glop, [1; 2])
  *)
+
+(* fails unconditionally *)
+let fail _ = Fail
+
+(* invert the result of p - useful with check *)
+let no p bs =
+    match p bs with
+    | Fail -> Res ((), [])
+    | Res _ -> Fail
 
 (* Use the results of the first parser as the input elements of the second.
    Return the results of p2.

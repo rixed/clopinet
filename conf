@@ -70,21 +70,22 @@ db/base_dir = /home/rixed/share/src/clopinet/test.db
 # browser or nicely printed given a specialized CSS).
 
 report/daily/0/title = Yesterdays Bandwidth
-report/daily/0/descr = everything starts with a BW chart
+report/daily/0/descr = Everything starts with a BW chart...
 report/daily/0/chart = Traffic/bandwidth
-report/daily/0/start = 2011-12-13 09:45
-report/daily/0/stop  = 2011-12-13 10:00
-report/daily/0/tstep = 1min
-report/daily/0/vol-table = 1min
+report/daily/0/start = -25h
+report/daily/0/stop  = now
+report/daily/0/tstep = 20 mins
+report/daily/0/vol-table = 10mins
 report/daily/0/Y = volume
 report/daily/0/groupby = port
 
 report/daily/1/title = Yesterdays Peers
-report/daily/1/descr = how nice
+report/daily/1/descr = Host we receive data from / sent data to
 report/daily/1/chart = Traffic/peers
-report/daily/1/start = 2011-12-13 09:45
-report/daily/1/stop  = 2011-12-13 10:00
+report/daily/1/start = -25h
+report/daily/1/stop  = now
 report/daily/1/vol-table = 10mins
+report/daily/1/usr-filter = (ip.src == eneide.happyleptic.org) or (ip.dst == eneide.happyleptic.org)
 report/daily/1/groupby = ip
 report/daily/1/Y = volume
 report/daily/1/series = 500

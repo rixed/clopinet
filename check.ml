@@ -70,17 +70,12 @@ let check_mac () =
 let check_timestamp () =
     let open Timestamp in
     assert_exc Peg.Parse_error of_string "" ;
+    assert (of_string "2012-10-25 11:23:02.3" = 1351156982300L) ;
     assert (of_string "2012-10-25 11:23:02" = 1351156982000L) ;
     assert (of_string "2012-10-25 11:23" = 1351156980000L) ;
     assert (of_string "2012-10-25" = 1351116000000L) ;
     assert (to_string 1351156980000L = "2012-10-25 11:23") ;
     assert_exc Peg.Parse_error of_string "2012-10-25 11:23:02 glop" ;
-    (* check time+interval format *)
-    assert (of_string "2012-10-25 +2months" = of_string "2012-12-25") ;
-    assert (of_string "2012-10-25 -3 w -4 d" = of_string "2012-09-30") ;
-    assert (of_string "2012-10-25 -3w-4d " = of_string "2012-09-30") ;
-    assert (compare (of_string "now-1d") (of_string "now +2 w") = -1) ;
-    assert (compare (of_string "now-1min") (of_string "now -1 min") = 0) ;
     (* when no units nor sign are given, it's a timestamp *)
     assert (compare (of_string "1323765999.42") (of_string "2011-12-13 09:46:39.42") = 0) ;
     (* parser must handle junkie's format *)
@@ -193,12 +188,14 @@ let check_prefs () =
 
 let check_expressions () =
     let open User_filter in
-    let open Peg in
     let inet s = Value (InetAddr (Datatype.InetAddr.of_string s)) in
     assert (expression TBool [] "( 10.0.0.2 == 10.0.0.1) || true" =
         Or (Eq (inet "10.0.0.2", inet "10.0.0.1"), Value (Bool true))) ;
     assert (expression TBool Traffic.Traffic.filter_fields "( 10.0.0.2 == 10.0.0.1 ) || true" =
-        Or (Eq (inet "10.0.0.2", inet "10.0.0.1"), Value (Bool true)))
+        Or (Eq (inet "10.0.0.2", inet "10.0.0.1"), Value (Bool true))) ;
+    (* check time+interval format *)
+    assert (match expression TTimestamp [] "2012-10-25 +2months" with Add (Value (Timestamp _), Value (Interval _)) -> true | _ -> false) ;
+    assert (match expression TTimestamp [] "now+1d" with Add (Value (Timestamp _), Value (Interval _)) -> true | _ -> false)
 
 let ok = ref true
 let check name f =
