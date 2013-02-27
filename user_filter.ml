@@ -30,7 +30,7 @@ and expr = Eq of expr * expr
          | Ge of expr * expr
          | Le of expr * expr
          | Add of expr * expr
-         (* TODO: Sub, with timestamp-timestamp -> interval *)
+         | Sub of expr * expr
          | StartsWith of expr * expr
          | Contains of expr * expr
          | ToFloat of expr (* added to promote the int into a float on operations that require it *)
@@ -60,6 +60,7 @@ let rec string_of_expr = function
     | Ge (e1, e2) -> Printf.sprintf "(%s) >= (%s)" (string_of_expr e1) (string_of_expr e2)
     | Le (e1, e2) -> Printf.sprintf "(%s) <= (%s)" (string_of_expr e1) (string_of_expr e2)
     | Add (e1, e2) -> Printf.sprintf "(%s) + (%s)" (string_of_expr e1) (string_of_expr e2)
+    | Sub (e1, e2) -> Printf.sprintf "(%s) - (%s)" (string_of_expr e1) (string_of_expr e2)
     | ToFloat e -> string_of_expr e
     | StartsWith (e1, e2) -> Printf.sprintf "%s starts with %s" (string_of_expr e1) (string_of_expr e2)
     | Contains (e1, e2) -> Printf.sprintf "%s contains %s" (string_of_expr e1) (string_of_expr e2)
@@ -147,6 +148,7 @@ let lt_op = spaced (string "<")
 let ge_op = spaced (string ">=")
 let le_op = spaced (string "<=")
 let add_op = spaced (string "+")
+let sub_op = spaced (string "-")
 let starts_with_op = spaced (istring "starts with")
 let contains_op = spaced (istring "contains")
 
@@ -160,6 +162,7 @@ and term_2 bs =
              (term_1 ++ eq_op ++ term_1) >>: (fun ((e1,_op),e2) -> Eq (e1,e2)) ;
              (term_1 ++ neq_op ++ term_1) >>: (fun ((e1,_op),e2) -> Not (Eq (e1,e2))) ;
              (term_1 ++ add_op ++ term_1) >>: (fun ((e1,_op),e2) -> Add (e1,e2)) ;
+             (term_1 ++ sub_op ++ term_1) >>: (fun ((e1,_op),e2) -> Sub (e1,e2)) ;
              (* Le/Ge before Lt/Gt since operators share beginning of name *)
              (term_1 ++ ge_op ++ term_1) >>: (fun ((e1,_op),e2) -> Ge (e1,e2)) ;
              (term_1 ++ le_op ++ term_1) >>: (fun ((e1,_op),e2) -> Le (e1,e2)) ;
@@ -244,8 +247,7 @@ let rec type_of_expr = function
         check TInteger e ;
         TFloat
     | Add (e1,e2) as e ->
-        (* for timestamp and interval *)
-        match type_of_expr e1 with
+        (match type_of_expr e1 with
         | TInteger   -> check TInteger e2 ; TInteger
         | TFloat     -> check TFloat e2 ; TFloat
         | TInterval  ->
@@ -254,7 +256,18 @@ let rec type_of_expr = function
             else if t2 = TTimestamp then TTimestamp
             else raise (Type_error (e2, t2, TInterval))
         | TTimestamp -> check TInterval e2 ; TTimestamp
-        | x -> raise (Type_error (e, x, TInteger))
+        | x -> raise (Type_error (e, x, TInteger)))
+    | Sub (e1,e2) as e ->
+        (match type_of_expr e1 with
+        | TInteger   -> check TInteger e2 ; TInteger
+        | TFloat     -> check TFloat e2 ; TFloat
+        | TInterval  -> check TInterval e2 ; TInterval
+        | TTimestamp ->
+            let t2 = type_of_expr e2 in
+            if t2 = TInterval then TTimestamp
+            else if t2 = TTimestamp then TInterval
+            else raise (Type_error (e2, t2, TInterval))
+        | x -> raise (Type_error (e, x, TInteger)))
 and check t e =
     let t' = type_of_expr e in
     if t' <> t then (
@@ -289,6 +302,7 @@ let rec promote_to_float x = match x with
     | Ge (e1, e2) -> let e1', e2' = may_promote e1 e2 in Ge (e1', e2')
     | Le (e1, e2) -> let e1', e2' = may_promote e1 e2 in Le (e1', e2')
     | Add (e1, e2) -> let e1', e2' = may_promote e1 e2 in Add (e1', e2')
+    | Sub (e1, e2) -> let e1', e2' = may_promote e1 e2 in Sub (e1', e2')
     | StartsWith (e1, e2) -> StartsWith (promote_to_float e1, promote_to_float e2)
     | Contains (e1, e2) -> Contains (promote_to_float e1, promote_to_float e2)
     | ToFloat _ | Value _ | Field _ -> x
@@ -336,6 +350,17 @@ let rec ocaml_of_expr = function
             (match type_of_expr e2 with
             | TInterval  -> "(DataType.Interval.add "^ ocaml_of_expr e1 ^" "^ ocaml_of_expr e2 ^")"
             | TTimestamp -> "(DataType.Timestamp.add_interval "^ ocaml_of_expr e2 ^" "^ ocaml_of_expr e1 ^")"
+            | _          -> assert false (* type checker was there *))
+        | _ -> assert false (* type checker was there *))
+    | Sub (e1, e2) ->
+        (match type_of_expr e1 with
+        | TInteger   -> "("^ ocaml_of_expr e1 ^" - "^ ocaml_of_expr e2 ^")"
+        | TFloat     -> "("^ ocaml_of_expr e1 ^" -. "^ ocaml_of_expr e2 ^")"
+        | TInterval  -> "(DataType.Interval.sub "^ ocaml_of_expr e1 ^" "^ ocaml_of_expr e2 ^")"
+        | TTimestamp ->
+            (match type_of_expr e2 with
+            | TInterval  -> "(DataType.Timestamp.sub_interval "^ ocaml_of_expr e1 ^" "^ ocaml_of_expr e2 ^")"
+            | TTimestamp -> "(DataType.Timestamp.sub_to_interval "^ ocaml_of_expr e1 ^" "^ ocaml_of_expr e2 ^")"
             | _          -> assert false (* type checker was there *))
         | _ -> assert false (* type checker was there *))
     | ToFloat v -> "(float_of_int "^ ocaml_of_expr v ^")"

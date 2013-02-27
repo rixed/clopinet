@@ -923,6 +923,7 @@ module Interval : sig
     val to_secs : t -> float
     val of_secs : float -> t
     val add     : t -> t -> t
+    val inverse : t -> t
     end =
 struct
     include Interval_base
@@ -944,6 +945,12 @@ struct
     let to_secs t = to_ms_float t /. 1_000.
     let of_secs secs = { zero with secs }
     let add = Interval_base.add
+    let inverse t =
+        { years = -. t.years ; months = -. t.months ;
+          weeks = -. t.weeks ; days   = -. t.days ;
+          hours = -. t.hours ; mins   = -. t.mins ;
+          secs  = -. t.secs  ; msecs  = -. t.msecs }
+
 end
 
 (**
@@ -1012,6 +1019,10 @@ module Timestamp = struct
                        (milliseconds t |> Int64.to_float) *. 0.001 +.
                        i.secs +.
                        (i.msecs *. 0.001))
+
+    let sub_interval t i =
+        let open Interval in
+        add_interval t (inverse i)
 
     let sub_to_interval (t1 : t) (t2 : t) =
         let ds = to_unixfloat t2 -. to_unixfloat t1 in
