@@ -191,6 +191,15 @@ let check_prefs () =
     overwrite_single "not_defined = 42" ;
     assert (get_int "not_defined" 0 = 42)
 
+let check_expressions () =
+    let open User_filter in
+    let open Peg in
+    let inet s = Value (InetAddr (Datatype.InetAddr.of_string s)) in
+    assert (expression TBool [] "( 10.0.0.2 == 10.0.0.1) || true" =
+        Or (Eq (inet "10.0.0.2", inet "10.0.0.1"), Value (Bool true))) ;
+    assert (expression TBool Traffic.Traffic.filter_fields "( 10.0.0.2 == 10.0.0.1 ) || true" =
+        Or (Eq (inet "10.0.0.2", inet "10.0.0.1"), Value (Bool true)))
+
 let ok = ref true
 let check name f =
     try f () ;
@@ -214,4 +223,5 @@ let () =
     check "serial" check_serial ;
     check "disp_numbers" check_disp_numbers ;
     check "prefs" check_prefs ;
+    check "expressions" check_expressions ;
     exit (if !ok then 0 else 1)

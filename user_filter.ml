@@ -47,6 +47,7 @@ let string_of_value = function
     | Timestamp v -> Timestamp.to_string v
     | VLan v      -> VLan.to_string v
 
+(* FIXME: add <> or != for Not Eq *)
 let rec string_of_expr = function
     | Not e -> Printf.sprintf "! (%s)" (string_of_expr e)
     | Eq (e1, e2) -> Printf.sprintf "(%s) == (%s)" (string_of_expr e1) (string_of_expr e2)
@@ -118,7 +119,20 @@ let field_name =
             fail)
 
 let spaced p =
-    none (any blank) ++ some p ++ none (any blank) >>: (fun ((_, v), _) -> v)
+    any blank ++ p ++ any blank >>: (fun ((_, v), _) -> v)
+
+(*$T spaced
+  spaced (Peg.item 'a') (String.to_list "  a  ") = Peg.Res ('a', [])
+  spaced (Peg.item 'a') (String.to_list " a ") = Peg.Res ('a', [])
+  spaced (Peg.item 'a') (String.to_list " a") = Peg.Res ('a', [])
+  spaced (Peg.item 'a') (String.to_list "a ") = Peg.Res ('a', [])
+  spaced (Peg.item 'a') (String.to_list "a") = Peg.Res ('a', [])
+  spaced (Peg.item 'a') (String.to_list "b") = Peg.Fail
+  spaced (Peg.item 'a') (String.to_list " b") = Peg.Fail
+  spaced (Peg.item 'a') (String.to_list "b ") = Peg.Fail
+  spaced (Peg.item 'a') (String.to_list " b ") = Peg.Fail
+  spaced (Peg.item 'a') (String.to_list "  b  ") = Peg.Fail
+ *)
 
 let eq_op = spaced (string "==")
 let not_op = spaced (either [ign (istring "not"); ign (item '!')])
@@ -132,7 +146,7 @@ let starts_with_op = spaced (istring "starts with")
 let contains_op = spaced (istring "contains")
 
 let rec term_1 bs = (* highest priority *)
-    either [ (item '(' ++ term_3 ++ item ')') >>: (fun ((_,e),_) -> e) ;
+    either [ (spaced (item '(') ++ term_3 ++ spaced (item ')')) >>: (fun ((_,e),_) -> e) ;
              value >>: (fun v -> Value v) ;
              field_name >>: (fun n -> Field n) ] bs
 
@@ -176,7 +190,11 @@ let expr = term_3 ++ eof >>: fst
     Peg.Res (Eq (Eq (Value (Bool true), Value (Bool false)), Value (Bool false)), [])
   expr (String.to_list "true == false || false == true") = \
     Peg.Res (Or (Eq (Value (Bool true), Value (Bool false)), Eq (Value (Bool false), Value (Bool true))), [])
- *)
+  expr (String.to_list "(1 == 2) || true") = \
+    Peg.Res (Or (Eq (Value (Integer 1), Value (Integer 2)), Value (Bool true)), [])
+  expr (String.to_list "(10.0.0.1==10.0.0.2) || true") = \
+    Peg.Res (Or (Eq (Value (InetAddr (Datatype.InetAddr.of_string "10.0.0.1")), Value (InetAddr (Datatype.InetAddr.of_string "10.0.0.2"))), Value (Bool true)), [])
+*)
 
 (** {2 Type checking} *)
 

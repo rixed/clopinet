@@ -572,12 +572,16 @@ module InetAddr_base = struct
 
     let parzer ?(picky=false) =
         let open Peg in
+        let not_ip c =
+            not (Char.is_letter c) &&
+            not (Char.is_digit c) &&
+            c <> '.' && c <> ':' in
         let p =
             either [ dotted_ip_addr ;
                      hostname >>= fun s ->
                                     try return Unix.((gethostbyname s).h_addr_list.(0))
                                     with _ -> fail ] in
-        if picky then p ++ check (either [ eof ; ign blank ]) >>: fst
+        if picky then p ++ check (either [ eof ; ign (cond not_ip) ]) >>: fst
         else p
 
     (*$T parzer
@@ -634,8 +638,8 @@ module Cidr_base = struct
         | Peg.Res (_, []) -> true \
         | _ -> false
       match parzer (String.to_list "192.168.1.10/-2") with \
-        | Peg.Fail -> true \
-        | _ -> false
+        | Peg.Res (_, []) -> false \
+        | _ -> true
      *)
 
     (*$>*)
