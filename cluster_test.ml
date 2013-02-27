@@ -3,6 +3,9 @@ open Graphics
 
 let debug = ref false
 
+let eps = ref 5 (*ref (20. ** 2.)*)
+let alpha = ref 1.2
+
 module Vector_2D : Cluster.VECTOR with type t = int * int =
 struct
     type t = int * int
@@ -11,7 +14,13 @@ struct
     let min = map min
     let max = map max
     let square x = x * x
-    let surface (x1,y1) (x2,y2) = square (x1-x2) + square (y1-y2)
+    let surface (x1,y1) (x2,y2) = (x2-x1 + !eps)*(y2-y1 + !eps) (*square (x2-x1) + square (y2-y1)*)
+    let eval mi ma c =
+        let c = float_of_int c
+        and s = surface mi ma |> float_of_int in
+        (*~-. ((s +. !eps) /. (c ** !alpha))*)
+        c -. s
+        (*~-. (s +. !eps) /. (c ** !alpha)*)
     let quadrant (xc,yc) (x,y) =
         if x < xc then (
             if y < yc then 3 else 0
@@ -84,14 +93,14 @@ let display d added c =
     clear_graph () ;
     (* display result *)
     draw_dataset d added ;
-    (* and the cluster, blured to more or less max_scarcity *)
-    if !debug then Printf.printf "Result tree have %d nodes, max scarcity = %d.\n%!" c.C.nb_nodes c.C.max_scarcity ;
+    (* and the cluster, blured to more or less max_degr *)
+    if !debug then Printf.printf "*** Result tree have %d nodes, max degr = %g ***\n%!" c.C.nb_nodes c.C.max_degr ;
     C.iter draw_node c ;
     (* pause *)
     ignore (read_key ())
 
 
-let test seed nb_clusters cluster_size max_scarcity max_size max_work_size noise =
+let test seed nb_clusters cluster_size max_degr max_size max_work_size noise =
     let max_work_size = Option.default (1 lsl Vector_2D.dimension * max_size) max_work_size in
     Random.init seed ;
     open_graph "" ;
@@ -110,19 +119,9 @@ let test seed nb_clusters cluster_size max_scarcity max_size max_work_size noise
     if !debug then Printf.printf "%d points in dataset\n" (Array.length d) ;
 
     (* clusterize this dataset *)
-    let c = { C.empty () with C.max_scarcity = max_scarcity } in
+    let c = { C.empty () with C.max_degr = max_degr } in
     let blur_once c =
-        let n1 = c.C.nb_nodes in
         C.blur c ;
-        if c.C.nb_nodes >= n1 then (
-            if c.C.min_next_scarcity < max_int && c.C.min_next_scarcity > c.C.max_scarcity then (
-                c.C.max_scarcity <- c.C.min_next_scarcity ;
-                c.C.min_next_scarcity <- max_int
-            ) else ( (* we have no idea how to increase max_scarcity... *)
-                c.C.max_scarcity <- c.C.max_scarcity + 1 (* FIXME: look for best match? *)
-            ) ;
-            C.blur c
-        ) ;
         if !debug then display d added c
     in
     Array.iteri (fun i v ->
@@ -136,17 +135,17 @@ let test seed nb_clusters cluster_size max_scarcity max_size max_work_size noise
 
 let () =
     let seed = ref 0 and nb_clusters = ref 3 and cluster_size = ref 30
-    and max_scarcity = ref 0 and max_size = ref 6 and max_work_size = ref None
+    and max_degr = ref min_float and max_size = ref 6 and max_work_size = ref None
     and noise = ref 0. in
     Arg.(parse [
         "-seed", Set_int seed, "seed for random" ;
         "-nb-clusters", Set_int nb_clusters, "how many clusters in dataset" ;
         "-cluster-size", Set_int cluster_size, "how many points per cluster" ;
-        "-max-scarcity", Set_int max_scarcity, "max scarcity" ;
+        "-max-degr", Set_float max_degr, "max degr" ;
         "-max-size", Set_int max_size, "max final size" ;
         "-max-work-size", Int (fun n -> max_work_size := Some n), "max work size" ;
         "-noise", Set_float noise, "add noise" ;
         "-debug", Set debug, "debug" ]
         (fun x -> raise (Bad x))
         "Test stream clustering") ;
-    test !seed !nb_clusters !cluster_size !max_scarcity !max_size !max_work_size !noise
+    test !seed !nb_clusters !cluster_size !max_degr !max_size !max_work_size !noise
