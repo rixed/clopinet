@@ -1,5 +1,4 @@
 open Batteries
-open Datatype
 
 let sort_pt (x1, _) (x2, _) = compare x1 x2
 

@@ -91,6 +91,7 @@ let get_bool name default =
     get_bool_option name |>
     Option.default default
 
+(* Conf file shoudl probably stay read only
 let filter_file fname f =
     let tmpfile = fname ^ (Random.int 99999 |> string_of_int) ^ ".tmp" in
     ignore_exceptions Unix.unlink tmpfile ;
@@ -99,4 +100,4 @@ let filter_file fname f =
     ignore_exceptions Unix.unlink backup ;
     Unix.rename fname backup ;
     Unix.rename tmpfile fname
-
+*)

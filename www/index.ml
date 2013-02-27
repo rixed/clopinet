@@ -217,7 +217,7 @@ struct
 
         let map_chart_descr =
             { ChartDescr.category = "Traffic" ;
-              ChartDescr.title = "map" ;
+              ChartDescr.title = "World Map" ;
               ChartDescr.to_html = (fun name getter ->
                           display_errs Forms.Traffic.Map.from name getter |> map_chart) ;
               ChartDescr.filter = (fun target name getter ->

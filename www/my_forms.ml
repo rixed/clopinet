@@ -143,7 +143,7 @@ module GroupByGraphField = struct
     module Type = Enum (struct let name = "key"
                                let options = [| "mac+ip";"ip";"mac" |] end)
     let display_name = "show"
-    let uniq_name = "show_in_network"
+    let uniq_name = "show-in-network"
     let persistant = false
 end
 module GroupByTopField = struct
@@ -217,7 +217,7 @@ module Traffic = struct
     module MinTraffic = struct
         module Type = Optional (InputOfDatatype (UInteger))
         let display_name = "volume min"
-        let uniq_name = "volume_min"
+        let uniq_name = "volume-min"
         let persistant = false
     end
     module LayoutType = struct
@@ -233,31 +233,31 @@ module Traffic = struct
     module UsrFilter = struct
         module Type = Optional (Filter_expr.Make (Traffic.Traffic))
         let display_name = "free filter"
-        let uniq_name = "usr_filter"
+        let uniq_name = "usr-filter"
         let persistant = true
     end
     module KeySelector = struct
         module Type = Selector.MakeKey (Traffic.Traffic)
         let display_name = "key"
-        let uniq_name = "traffic_tops_key"
+        let uniq_name = "traffic-tops-key"
         let persistant = true
     end
     module AggrSelector = struct
         module Type = Selector.MakeAggr (Traffic.Traffic)
         let display_name = "fields"
-        let uniq_name = "traffic_tops_fields"
+        let uniq_name = "traffic-tops-fields"
         let persistant = true
     end
     module SortSelector = struct
         module Type = Selector.MakeSort (Traffic.Traffic)
         let display_name = "sort by"
-        let uniq_name = "traffic_tops_sort"
+        let uniq_name = "traffic-tops-sort"
         let persistant = true
     end
     module SinglePass = struct
         module Type = Optional (Boolean)
         let display_name = "single pass"
-        let uniq_name = "single_pass"
+        let uniq_name = "single-pass"
         let persistant = true
     end
 
