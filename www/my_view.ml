@@ -11,10 +11,10 @@ include View
 let msgs = ref []
 
 let add_msg_with_class c txt =
-    msgs := (p ~attrs:["class",c] [cdata txt]) :: !msgs
+    msgs := (div ~attrs:["class",c] txt) :: !msgs
 let add_msg = add_msg_with_class "ok"
 let add_err = add_msg_with_class "nok"
-let add_exc exc = add_err (Printexc.to_string exc ^"<br/>\n"^ Printexc.get_backtrace ())
+let add_exc exc = add_err [ cdata (Printexc.to_string exc) ; tag "br" [] ; pre [raw (Printexc.get_backtrace ())] ]
 
 let chart_head = [
     tag "script" ~attrs:["type","text/javascript" ; "src","static/js/graph.js"] []

@@ -155,10 +155,10 @@ div#notifs p {
     padding: 0.5em 1em 0.5em 2em;
     font-weight: bold;
 }
-p.ok {
+.ok {
     background-color: #6e8;
 }
-p.nok {
+.nok {
     background-color: #e68;
 }
 

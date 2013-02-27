@@ -63,7 +63,7 @@ struct
 
     let display_errs (f : 'a -> 'b -> 'c) (p1 : 'a) (p2 : 'b) : 'c option =
         try Some (f p1 p2)
-        with InputError str -> View.add_err str ; None
+        with InputError str -> View.add_err [cdata str] ; None
            | exc -> View.add_exc exc ; None
 
     module ChartDescr =
@@ -544,7 +544,7 @@ struct
                 save_param "gui/svg/width" svg_width string_of_float ;
                 save_param "gui/svg/height" svg_height string_of_float ;
                 save_param "db/#cores" ncores string_of_int ;
-                View.add_msg "Saved"
+                View.add_msg [cdata "Saved"]
             | None -> ()) ;
             preferences getter
     end
