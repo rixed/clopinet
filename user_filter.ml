@@ -31,6 +31,8 @@ and expr = Eq of expr * expr
          | Le of expr * expr
          | Add of expr * expr
          | Sub of expr * expr
+         | Mul of expr * expr
+         | Div of expr * expr
          | StartsWith of expr * expr
          | Contains of expr * expr
          | ToFloat of expr (* added to promote the int into a float on operations that require it *)
@@ -61,6 +63,8 @@ let rec string_of_expr = function
     | Le (e1, e2) -> Printf.sprintf "(%s) <= (%s)" (string_of_expr e1) (string_of_expr e2)
     | Add (e1, e2) -> Printf.sprintf "(%s) + (%s)" (string_of_expr e1) (string_of_expr e2)
     | Sub (e1, e2) -> Printf.sprintf "(%s) - (%s)" (string_of_expr e1) (string_of_expr e2)
+    | Mul (e1, e2) -> Printf.sprintf "(%s) * (%s)" (string_of_expr e1) (string_of_expr e2)
+    | Div (e1, e2) -> Printf.sprintf "(%s) / (%s)" (string_of_expr e1) (string_of_expr e2)
     | ToFloat e -> string_of_expr e
     | StartsWith (e1, e2) -> Printf.sprintf "%s starts with %s" (string_of_expr e1) (string_of_expr e2)
     | Contains (e1, e2) -> Printf.sprintf "%s contains %s" (string_of_expr e1) (string_of_expr e2)
@@ -149,48 +153,58 @@ let ge_op = spaced (string ">=")
 let le_op = spaced (string "<=")
 let add_op = spaced (string "+")
 let sub_op = spaced (string "-")
+let mul_op = spaced (string "*")
+let div_op = spaced (string "/")
 let starts_with_op = spaced (istring "starts with")
 let contains_op = spaced (istring "contains")
 
-let rec term_1 bs = (* highest priority *)
-    either [ (spaced (item '(') ++ term_3 ++ spaced (item ')')) >>: (fun ((_,e),_) -> e) ;
+let rec term_high bs = (* highest priority *)
+    either [ (spaced (item '(') ++ term_low ++ spaced (item ')')) >>: (fun ((_,e),_) -> e) ;
              value >>: (fun v -> Value v) ;
              field_name >>: (fun n -> Field n) ] bs
 
-and term_2 bs =
-    either [ (not_op ++ term_1) >>: (fun (_op,e) -> Not e) ;
-             (term_1 ++ eq_op ++ term_1) >>: (fun ((e1,_op),e2) -> Eq (e1,e2)) ;
-             (term_1 ++ neq_op ++ term_1) >>: (fun ((e1,_op),e2) -> Not (Eq (e1,e2))) ;
-             (term_1 ++ add_op ++ term_1) >>: (fun ((e1,_op),e2) -> Add (e1,e2)) ;
-             (term_1 ++ sub_op ++ term_1) >>: (fun ((e1,_op),e2) -> Sub (e1,e2)) ;
+and term_muls bs =
+    either [ (term_high ++ mul_op ++ term_high) >>: (fun ((e1,_op),e2) -> Mul (e1,e2)) ;
+             (term_high ++ div_op ++ term_high) >>: (fun ((e1,_op),e2) -> Div (e1,e2)) ;
+             (term_high ++ starts_with_op ++ term_high) >>: (fun ((e1,_op),e2) -> StartsWith (e1,e2)) ;
+             (term_high ++ contains_op ++ term_high) >>: (fun ((e1,_op),e2) -> Contains (e1,e2)) ;
+             term_high ] bs
+
+and term_adds bs =
+    either [ (term_muls ++ add_op ++ term_muls) >>: (fun ((e1,_op),e2) -> Add (e1,e2)) ;
+             (term_muls ++ sub_op ++ term_muls) >>: (fun ((e1,_op),e2) -> Sub (e1,e2)) ;
+             term_muls ] bs
+
+and term_log bs =
+    either [ (not_op ++ term_adds) >>: (fun (_op,e) -> Not e) ;
+             (term_adds ++ eq_op ++ term_adds) >>: (fun ((e1,_op),e2) -> Eq (e1,e2)) ;
+             (term_adds ++ neq_op ++ term_adds) >>: (fun ((e1,_op),e2) -> Not (Eq (e1,e2))) ;
              (* Le/Ge before Lt/Gt since operators share beginning of name *)
-             (term_1 ++ ge_op ++ term_1) >>: (fun ((e1,_op),e2) -> Ge (e1,e2)) ;
-             (term_1 ++ le_op ++ term_1) >>: (fun ((e1,_op),e2) -> Le (e1,e2)) ;
-             (term_1 ++ gt_op ++ term_1) >>: (fun ((e1,_op),e2) -> Gt (e1,e2)) ;
-             (term_1 ++ lt_op ++ term_1) >>: (fun ((e1,_op),e2) -> Lt (e1,e2)) ;
-             (term_1 ++ starts_with_op ++ term_1) >>: (fun ((e1,_op),e2) -> StartsWith (e1,e2)) ;
-             (term_1 ++ contains_op ++ term_1) >>: (fun ((e1,_op),e2) -> Contains (e1,e2)) ;
-             term_1 ] bs
+             (term_adds ++ ge_op ++ term_adds) >>: (fun ((e1,_op),e2) -> Ge (e1,e2)) ;
+             (term_adds ++ le_op ++ term_adds) >>: (fun ((e1,_op),e2) -> Le (e1,e2)) ;
+             (term_adds ++ gt_op ++ term_adds) >>: (fun ((e1,_op),e2) -> Gt (e1,e2)) ;
+             (term_adds ++ lt_op ++ term_adds) >>: (fun ((e1,_op),e2) -> Lt (e1,e2)) ;
+             term_adds ] bs
 
-and term_3 bs =
-    either [ (term_2 ++ or_op ++ term_2) >>: (fun ((e1,_op),e2) -> Or (e1,e2)) ;
-             (term_2 ++ and_op ++ term_2) >>: (fun ((e1,_op),e2) -> And (e1,e2)) ;
-             term_2 ] bs
+and term_low bs =
+    either [ (term_log ++ or_op ++ term_log) >>: (fun ((e1,_op),e2) -> Or (e1,e2)) ;
+             (term_log ++ and_op ++ term_log) >>: (fun ((e1,_op),e2) -> And (e1,e2)) ;
+             term_log ] bs
 
-(*$T term_3
-  term_3 (String.to_list "true==false") = \
+(*$T term_low
+  term_low (String.to_list "true==false") = \
     Peg.Res (Eq (Value (Bool true), Value (Bool false)), [])
-  term_3 (String.to_list "true + false") = \
+  term_low (String.to_list "true + false") = \
     Peg.Res (Add (Value (Bool true), Value (Bool false)), [])
-  term_3 (String.to_list "false starts with true") = \
+  term_low (String.to_list "false starts with true") = \
     Peg.Res (StartsWith (Value (Bool false), Value (Bool true)), [])
-  term_3 (String.to_list "true>=false") = \
+  term_low (String.to_list "true>=false") = \
     Peg.Res (Ge (Value (Bool true), Value (Bool false)), [])
-  term_3 (String.to_list "true != false") = term_3 (String.to_list "true  <> false")
-  term_3 (String.to_list "true != false") = term_3 (String.to_list "not (true==false)")
+  term_low (String.to_list "true != false") = term_low (String.to_list "true  <> false")
+  term_low (String.to_list "true != false") = term_low (String.to_list "not (true==false)")
  *)
 
-let expr = term_3 ++ eof >>: fst
+let expr = term_low ++ eof >>: fst
 
 (*$T expr
   expr (String.to_list "true") = Peg.Res (Value (Bool true), [])
@@ -268,6 +282,10 @@ let rec type_of_expr = function
             else if t2 = TTimestamp then TInterval
             else raise (Type_error (e2, t2, TInterval))
         | x -> raise (Type_error (e, x, TInteger)))
+    | Mul (e1,e2) | Div (e1,e2) as e ->
+        (match type_of_expr e1 with
+        | TInteger | TFloat as t -> check t e2 ; t
+        | x -> raise (Type_error (e, x, TInteger)))
 and check t e =
     let t' = type_of_expr e in
     if t' <> t then (
@@ -303,6 +321,8 @@ let rec promote_to_float x = match x with
     | Le (e1, e2) -> let e1', e2' = may_promote e1 e2 in Le (e1', e2')
     | Add (e1, e2) -> let e1', e2' = may_promote e1 e2 in Add (e1', e2')
     | Sub (e1, e2) -> let e1', e2' = may_promote e1 e2 in Sub (e1', e2')
+    | Mul (e1, e2) -> let e1', e2' = may_promote e1 e2 in Mul (e1', e2')
+    | Div (e1, e2) -> let e1', e2' = may_promote e1 e2 in Div (e1', e2')
     | StartsWith (e1, e2) -> StartsWith (promote_to_float e1, promote_to_float e2)
     | Contains (e1, e2) -> Contains (promote_to_float e1, promote_to_float e2)
     | ToFloat _ | Value _ | Field _ -> x
@@ -363,6 +383,16 @@ let rec ocaml_of_expr = function
             | TTimestamp -> "(DataType.Timestamp.sub_to_interval "^ ocaml_of_expr e1 ^" "^ ocaml_of_expr e2 ^")"
             | _          -> assert false (* type checker was there *))
         | _ -> assert false (* type checker was there *))
+    | Mul (e1, e2) ->
+        (match type_of_expr e1 with
+        | TInteger -> "("^ ocaml_of_expr e1 ^" * "^ ocaml_of_expr e2 ^")"
+        | TFloat   -> "("^ ocaml_of_expr e1 ^" *. "^ ocaml_of_expr e2 ^")"
+        | _ -> assert false (* type checked *))
+    | Div (e1, e2) ->
+        (match type_of_expr e1 with
+        | TInteger -> "("^ ocaml_of_expr e1 ^" / "^ ocaml_of_expr e2 ^")"
+        | TFloat   -> "("^ ocaml_of_expr e1 ^" /. "^ ocaml_of_expr e2 ^")"
+        | _ -> assert false (* type checked *))
     | ToFloat v -> "(float_of_int "^ ocaml_of_expr v ^")"
     | StartsWith (s1, s2) -> "(String.starts_with "^ ocaml_of_expr s1 ^" "^ ocaml_of_expr s2 ^")"
     | Contains (s1, s2) -> "(String.exists "^ ocaml_of_expr s2 ^" "^ ocaml_of_expr s1 ^")"

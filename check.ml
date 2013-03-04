@@ -195,7 +195,10 @@ let check_expressions () =
         Or (Eq (inet "10.0.0.2", inet "10.0.0.1"), Value (Bool true))) ;
     (* check time+interval format *)
     assert (match expression TTimestamp [] "2012-10-25 +2months" with Add (Value (Timestamp _), Value (Interval _)) -> true | _ -> false) ;
-    assert (match expression TTimestamp [] "now+1d" with Add (Value (Timestamp _), Value (Interval _)) -> true | _ -> false)
+    assert (match expression TTimestamp [] "now+1d" with Add (Value (Timestamp _), Value (Interval _)) -> true | _ -> false) ;
+    assert (match expression TInteger [] "(1 + 2) + 3" with Add (Add (Value (Integer 1), Value (Integer 2)), Value (Integer 3)) -> true | _ -> false) ;
+    assert (match expression TInteger [] "1 * 2 + 3" with Add (Mul (Value (Integer 1), Value (Integer 2)), Value (Integer 3)) -> true | _ -> false) ;
+    assert (match expression TInteger [] "1 + 2 * 3" with Add (Value (Integer 1), Mul (Value (Integer 2), Value (Integer 3))) -> true | _ -> false)
 
 let ok = ref true
 let check name f =
