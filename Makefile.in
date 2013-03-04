@@ -9,6 +9,8 @@ SOURCES  = \
 	output.ml \
 	peg.ml \
 	datatype.ml \
+	least63.ml \
+	uLeast63.ml \
 	user_filter.ml \
 	dynlinker.ml \
 	tuple2.ml \
@@ -58,6 +60,24 @@ SYNTAX=-syntax camlp4o
 .PHONY: all loc
 all: $(ARCHIVE) examples www
 
+least63.ml:
+ifeq (@OCAML_WORD_SIZE@,64)
+#	Regular ints are good enough
+	@echo 'include Datatype.Integer' >> $@
+else
+#	Must use boxed Int64 then
+	@echo 'include Datatype.Integer64' >> $@
+endif
+
+uLeast63.ml:
+ifeq (@OCAML_WORD_SIZE@,64)
+#	Regular ints are good enough
+	@echo 'include Datatype.UInteger' >> $@
+else
+#	Must use boxed Int64 then
+	@echo 'include Datatype.UInteger64' >> $@
+endif
+
 include $(top_srcdir)/make.common
 
 opt: $(XARCHIVE)
@@ -100,7 +120,7 @@ traffic.cmx: tuple2.cmx tuple16.cmx tuple3.cmx
 
 clean-spec:
 	$(MAKE) -C www clean
-	rm -f clopinet.top tuple*.ml
+	rm -f clopinet.top tuple*.ml least63.ml uLeast64.ml
 
 dep-spec:
 	$(MAKE) -C www dep

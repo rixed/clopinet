@@ -16,22 +16,22 @@ let lods = [| "1min"; "10mins"; "1hour" |];
 module Traffic =
 struct
     include Altern1 (Tuple16.Make (Timestamp) (Timestamp)        (* start, stop *)
-                                  (UInteger)                     (* packet count *)
+                                  (ULeast63)                     (* packet count *)
                                   (VLan) (EthAddr) (EthAddr)     (* Eth vlan, source, dest *)
                                   (UInteger16)                   (* Eth proto *)
-                                  (UInteger)                     (* Eth payload *)
+                                  (ULeast63)                     (* Eth payload *)
                                   (UInteger16)                   (* Eth MTU *)
                                   (InetAddr) (InetAddr)          (* IP source, dest *)
                                   (UInteger8)                    (* IP proto *)
-                                  (UInteger)                     (* IP payload *)
+                                  (ULeast63)                     (* IP payload *)
                                   (UInteger16) (UInteger16)      (* Port source, dest *)
-                                  (UInteger)                     (* L4 payload *))
+                                  (ULeast63)                     (* L4 payload *))
     (* We'd rather have an inlined reader: *)
     let read ic =
         let tuple16_read ic =
             let t0 = Timestamp.read ic in
             let t1 = Timestamp.read ic in
-            let t2 = UInteger.read ic in
+            let t2 = ULeast63.read ic in
             let t3 =
                 let o = Serial.deser8 ic in
                 if o <> 0 then (
@@ -41,15 +41,15 @@ struct
             let t4 = EthAddr.read ic in
             let t5 = EthAddr.read ic in
             let t6 = UInteger16.read ic in
-            let t7 = UInteger.read ic in
+            let t7 = ULeast63.read ic in
             let t8 = UInteger16.read ic in
             let t9 = InetAddr.read ic in
             let t10 = InetAddr.read ic in
             let t11 = UInteger8.read ic in
-            let t12 = UInteger.read ic in
+            let t12 = ULeast63.read ic in
             let t13 = UInteger16.read ic in
             let t14 = UInteger16.read ic in
-            let t15 = UInteger.read ic in
+            let t15 = ULeast63.read ic in
             t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15 in
         let v = Serial.deser8 ic in
         if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
@@ -97,20 +97,20 @@ struct
     let aggrs_int = [ "max", aggr_max_int ; "min", aggr_min_int ; "sum", aggr_sum_int ; "avg", aggr_avg_int ]
     let fields = [ "start",     { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp"  ; display = "Datatype.Timestamp.to_string" } ;
                    "stop",      { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp"  ; display = "Datatype.Timestamp.to_string" } ;
-                   "count",     { aggrs = aggrs_int ;      sortable = "identity" ; keyable = false ; datatype = "Datatype.UInteger"   ; display = "Datatype.string_of_inumber" } ;
+                   "count",     { aggrs = aggrs_int ;      sortable = "identity" ; keyable = false ; datatype = "Datatype.ULeast63"   ; display = "Datatype.string_of_inumber" } ;
                    "vlan",      { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.VLan"       ; display = "Datatype.VLan.to_string" } ;
                    "mac_src",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr"    ; display = "Datatype.EthAddr.to_string" } ;
                    "mac_dst",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr"    ; display = "Datatype.EthAddr.to_string" } ;
                    "mac_proto", { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
-                   "mac_pld",   { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger"   ; display = "Datatype.string_of_inumber" } ;
+                   "mac_pld",   { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.ULeast63"   ; display = "Datatype.string_of_inumber" } ;
                    "mtu",       { aggrs = ["max", aggr_max_int] ; sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
                    "ip_src",    { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.InetAddr"  ; display = "Datatype.InetAddr.to_string" } ;
                    "ip_dst",    { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.InetAddr"  ; display = "Datatype.InetAddr.to_string" }  ;
                    "ip_proto",  { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger8" ; display = "Datatype.string_of_inumber" } ;
-                   "ip_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger"  ; display = "Datatype.string_of_inumber" } ;
+                   "ip_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.ULeast63"  ; display = "Datatype.string_of_inumber" } ;
                    "port_src",  { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
                    "port_dst",  { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
-                   "l4_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger"   ; display = "Datatype.string_of_inumber" } ]
+                   "l4_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.ULeast63"   ; display = "Datatype.string_of_inumber" } ]
 
     (* This is just a way for our dynamically loaded code to reach us *)
     let filter_ = ref (fun (_ : t) -> true)

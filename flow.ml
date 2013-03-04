@@ -19,8 +19,8 @@ struct
                                   (UInteger8)                    (* IP proto *)
                                   (UInteger16) (UInteger16)      (* Port source, dest *)
                                   (Timestamp) (Timestamp)        (* start, stop *)
-                                  (UInteger)                     (* packet count *)
-                                  (UInteger)                     (* L4 payload *))
+                                  (ULeast63)                     (* packet count *)
+                                  (ULeast63)                     (* L4 payload *))
     (* We'd rather have an inlined reader: *)
     let read ic =
         let tuple12_read ic =
@@ -39,8 +39,8 @@ struct
             let t7 = UInteger16.read ic in
             let t8 = Timestamp.read ic in
             let t9 = Timestamp.read ic in
-            let t10 = UInteger.read ic in
-            let t11 = UInteger.read ic in
+            let t10 = ULeast63.read ic in
+            let t11 = ULeast63.read ic in
             t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11 in
         let v = Serial.deser8 ic in
         if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;

@@ -24,5 +24,7 @@ if test -z "$have_graphics" ; then
   AC_WARN([Graphics library not found.])
 fi
 
+AC_CHECK_OCAML_WORD_SIZE
+
 AC_CONFIG_FILES([Makefile make.common])
 AC_OUTPUT

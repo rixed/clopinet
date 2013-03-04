@@ -15,6 +15,8 @@
 *.cgi
 *.log
 tuple*.ml
+least63.ml
+uLeast63.ml
 nohup.out
 all_tests.ml
 conf-check.old

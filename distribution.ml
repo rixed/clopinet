@@ -7,9 +7,9 @@ open Datatype
    See Aggregator.distr for an aggregation function.
  *)
 
-include Tuple5.Make (Integer) (Float) (Float) (Float) (Float)
+include Tuple5.Make (Least63) (Float) (Float) (Float) (Float)
 
-let zero = 0, 0., 0., 0., 0.
+let zero = Least63.zero, 0., 0., 0., 0.
 
 (* Compute the avg and standard deviation using the well known recurrence formulas (where
  * the standard deviation sigma = sqrt(v/(n-1)) *)
