@@ -21,7 +21,7 @@ let overwrite_many h =
 let overwrite_single s =
     insert_into overwrite_h s
 
-let base = ref "./conf"
+let base = ref (try Sys.getenv "CLOPINET_CONFFILE" with Not_found -> "./conf")
 let last_read = ref 0.
 let cache = Hashtbl.create 11
 

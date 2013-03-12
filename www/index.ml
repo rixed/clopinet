@@ -570,13 +570,13 @@ struct
                 match Prefs.get_option n with
                 | Some x -> [x]
                 | None -> []) }
-        
+
         let get_report name =
             Enum.unfold 0 (fun page_no ->
                 Log.info "try to fetch page %d..." page_no ;
                 try Some (get_report_page name page_no, succ page_no)
                 with Invalid_argument _ -> None)
-        
+
         let chart_descr_of_page page =
             List.find (fun d -> d.ChartDescr.category ^"/"^ d.ChartDescr.title = page.chart) chart_descrs
 
@@ -619,7 +619,7 @@ struct
 
 end
 
-let _ =
+let cgi_entry_point () =
     (* Get preferences from the session *)
     let get_from_cookie name =
         try let s = List.assoc name !Dispatch.current_cookies in
@@ -627,4 +627,30 @@ let _ =
         with Not_found -> None in
     Prefs.set_overwrite_function get_from_cookie ;
     Dispatch.run (fun name getter -> Ctrl.Report.get_page name getter |> View.make_app_page)
+
+let cli_entry_point () =
+    let action = ref "main"
+    and h = Hashtbl.create 11 in
+    Arg.(parse
+        [ "-action", Set_string action, "what page to render" ;
+          "-c", String Prefs.overwrite_single, "overwrite conf" ]
+        (fun s ->
+            try let n, v = String.split ~by:"=" s in
+                Hashtbl.add h n v
+            with Not_found -> raise (Bad s))
+        ("Render an HTML page: "^Sys.argv.(0)^" param1=value1 param2=value2...")) ;
+    let action = String.nsplit ~by:"/" !action
+    and getter = Hashtbl.find_all h in
+    Ctrl.Report.get_page action getter |>
+    View.make_app_page_for_email |>
+    List.iter (Html.print stdout)
+
+let _ =
+    let is_envvar_set s =
+        try ignore (Sys.getenv s) ; true
+        with Not_found -> false in
+    if is_envvar_set "REQUEST_METHOD" then
+        cgi_entry_point ()
+    else
+        cli_entry_point ()
 

@@ -1,6 +1,6 @@
 open Batteries
 
-let max_file_size = Prefs.get_int "db/max_file_size" 10_000_000
+let max_file_size = Prefs.get_int "db/max_file_size" 10_000_000 (* TODO: make this a function so that max file size can change in runtime? *)
 let max_hash_size = Prefs.get_int "db/max_hash_size" 1009
 
 (* READING

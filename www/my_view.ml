@@ -44,11 +44,17 @@ let menu () =
 
 (* add the menu *)
 let make_app_page content =
+    let base_path =
+        let s = try Cgi.this_url ()
+                with Failure _ -> "http://github.com/rixed/clopinet/www/index.ml" in
+        try String.rindex s '/' |> String.left s |> (fun s -> s ^ "/")
+        with Not_found -> s in
     let body = [ header () ;
                  menu () ;
                  msgs () ;
                  div ~cls:"page" content ]
     and head = [ title "ClopiNet" ;
+                 tag "base" ~attrs:[ "href", Prefs.get_string "gui/basehref" base_path ] [] ;
                  tag "link" ~attrs:[ "rel", "shortcut icon" ;
                                      "href", "static/img/favicon.svg" ;
                                      "type", "image/svg+xml" ] [] ;
@@ -61,6 +67,9 @@ let make_app_page content =
                  chart_head
     in
     [ html head body ]
+
+let make_app_page_for_email content =
+    make_app_page (content @ [ p [ tag "a" ~attrs:["href","#"] [ cdata "View in browser" ] ] ])
 
 let make_filter title form =
     [ h1 title ;

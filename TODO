@@ -4,14 +4,15 @@ TODO stack
 Roadmap for 0.1
 ---------------
 
+- Make an external resource inliner in owww (for images, css and JS)
+  (or easier: add a inline flag to My_view)
 - build a daily repport on eneide and have it sent via email
+
+- make appending accumulators configured by conffile
 
 
 Bugs
 ----
-
-- parse error with this usr filter: "( ip_src==-.1.2.3)" -> spaces around
-  '(' are not handled properly *when we have Traffic.fields*.
 
 - svg_explore_plot does not work from within a report since it blindly uses 
   window.location.search. It should take as argument the url to target for 
@@ -26,8 +27,10 @@ zooming.
 Packaging
 ---------
 
-- Get rid of bitstring dependancy
-
+- Get rid of bitstring dependancy.
+  It's currently used only by fold_ips to efficiently interates over an ip 
+range. Replacing it may prove more complex than getting rid of fold_ips 
+altogether.
 
 
 Clustering
@@ -68,9 +71,8 @@ User_filter
   or convert guided filters into free query, then admit an operator in
 from of guided filter values ?
 
+- Alias for field names (for instance, accept ip.src as ip_src)
 
-
-- code metrics to measure time spent in fold, group by...
 
 
 - base 10 for choosing timestamps is not the best. See:

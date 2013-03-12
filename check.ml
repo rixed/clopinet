@@ -198,7 +198,8 @@ let check_expressions () =
     assert (match expression TTimestamp [] "now+1d" with Add (Value (Timestamp _), Value (Interval _)) -> true | _ -> false) ;
     assert (match expression TInteger [] "(1 + 2) + 3" with Add (Add (Value (Integer 1), Value (Integer 2)), Value (Integer 3)) -> true | _ -> false) ;
     assert (match expression TInteger [] "1 * 2 + 3" with Add (Mul (Value (Integer 1), Value (Integer 2)), Value (Integer 3)) -> true | _ -> false) ;
-    assert (match expression TInteger [] "1 + 2 * 3" with Add (Value (Integer 1), Mul (Value (Integer 2), Value (Integer 3))) -> true | _ -> false)
+    assert (match expression TInteger [] "1 + 2 * 3" with Add (Value (Integer 1), Mul (Value (Integer 2), Value (Integer 3))) -> true | _ -> false) ;
+    assert (expression TBool Traffic.Traffic.filter_fields "ip_src == 213.251.171.101" = Eq (Field "ip_src", inet "213.251.171.101"))
 
 let ok = ref true
 let check name f =

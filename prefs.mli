@@ -11,8 +11,8 @@ val overwrite_single : string -> unit
 (** Add a single conf line in overwrite values *)
 
 val set_base : string -> unit
-(** Set default directory to read conf files from (or default file
- * if you want a unique conf file). Default is ["./conf"].
+(** Set configuration file path. Default is taken from envvar CLOPINET_CONFFILE,
+ * or ["./conf"] if unset.
  * These files will be used as the last resort source of values. *)
 
 val get_option : string -> string option
