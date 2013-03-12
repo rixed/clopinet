@@ -103,8 +103,9 @@ maketuple.opt: maketuple.cmx
 # Dependancies on tuples can't be guessed by ocamldep
 TUPLES=tuple1.ml tuple2.ml tuple3.ml tuple4.ml tuple5.ml tuple6.ml tuple7.ml tuple8.ml tuple9.ml tuple10.ml tuple11.ml tuple12.ml tuple13.ml tuple14.ml tuple15.ml tuple16.ml
 $(TUPLES): maketuple.opt
-$(TUPLES:.ml=.cmo): peg.cmo datatype.cmo
-$(TUPLES:.ml=.cmx): peg.cmx datatype.cmx
+$(TUPLES:.ml=.cmo) least63.cmo uLeast63.cmo: peg.cmo datatype.cmo
+$(TUPLES:.ml=.cmi) least63.cmi uLeast63.cmi: peg.cmi datatype.cmi
+$(TUPLES:.ml=.cmx) least63.cmx uLeast63.cmx: peg.cmx datatype.cmx
 
 tuple%.ml: maketuple.opt
 	@n=$$(echo $@ | sed -e 's/^tuple\([0-9]*\).ml$$/\1/') ;\

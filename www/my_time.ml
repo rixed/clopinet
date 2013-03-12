@@ -1,5 +1,4 @@
 (* Absolute or relative (to now) timestamp *)
-open Batteries
 open Input.Ops
 module Timestamp = Datatype.Timestamp
 module Interval = Datatype.Interval

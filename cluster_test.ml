@@ -13,7 +13,7 @@ struct
     let map f (x1,y1) (x2,y2) = f x1 x2, f y1 y2
     let min = map min
     let max = map max
-    let square x = x * x
+    (*let square x = x * x*)
     let surface (x1,y1) (x2,y2) = (x2-x1 + !eps)*(y2-y1 + !eps) (*square (x2-x1) + square (y2-y1)*)
     let eval mi ma c =
         let c = float_of_int c
