@@ -2,20 +2,46 @@ open Batteries
 let (|?) = Option.(|?)
 
 (* All parsers are stateless *)
-
+type error = string * int (* msg and where we failed (length of what was left to parse) *)
 type ('a, 'b) parzer_result = Res of 'a * 'b list | Fail
 type ('a, 'b) parzer = 'b list (* tokens to add *) -> ('a, 'b) parzer_result
+let min_error = ref None
+let reset_parse_error () = min_error := None
+let failure (msg, rest) =
+    let left = List.length rest in
+    (match !min_error with
+    | Some (_, min_left) when min_left < left -> ()
+    | _ ->
+        min_error := Some (msg, left)) ;
+    Fail
 
-exception Parse_error   (* used here and there *)
+exception Parse_error of error
+let parse_error () =
+    match !min_error with
+    | None -> raise (Parse_error ("unknown error", 0))
+    | Some err ->
+        raise (Parse_error err)
+
+let string_of_error ?input (msg, len) =
+    let abbrev l s =
+        if String.length s < l+3 then s else String.sub s 0 l ^"..." in
+    let where = match len with
+        | 0 -> "end of input"
+        | l -> (match input with None -> "char -"^ string_of_int l
+                               | Some s -> "'"^ abbrev 7 (String.right s l) ^"'") in
+    msg ^" at "^ where
+
+let () = Printexc.register_printer (function Parse_error e -> Some (string_of_error e) | _ -> None)
 
 (* Matchs the end of input *)
 let eof = function
     | [] -> Res ((), [])
-    | _ -> Fail
+    | rest -> failure ("EOF expected", rest)
 
+(* Swallow everything left *)
 let all bs = Res (bs, [])
 
-(* Fail if p fail, but consume nothing it p match *)
+(* Fail like p or consume nothing it p match *)
 let check p bs =
     match p bs with
     | Fail -> Fail
@@ -50,9 +76,9 @@ let upto delim_orig bs =
   upto [0;0] [1;2;0;3;0;0;4;5] = Res ([1;2;0;3;0;0], [4;5])
  *)
 
-let cond c = function
+let cond ?errmsg c = function
     | b::bs when c b -> Res (b, bs)
-    | _ -> Fail
+    | rest -> match errmsg with None -> Fail | Some m -> failure (m, rest)
 
 let item i = cond ((=) i)
 
@@ -72,7 +98,7 @@ let regex re_str bs =
                 | Invalid_argument _ -> prev in
         Res (List.rev (aux [] 0), [])
     ) else (
-        Fail
+        failure ("Cannot find regular expression "^re_str, bs)
     )
 
 let take n bs =
@@ -145,7 +171,7 @@ let rec either ps bs =
     match ps with
     | p::ps' ->
         (match p bs with
-        | (Res _) as x -> x
+        | Res _ as x -> x
         | Fail -> either ps' bs)
     | [] -> Fail
 
@@ -176,7 +202,10 @@ let repeat ?min ?max ?sep p bs =
             Res (List.rev res, bs)
         | _ -> Fail) in
     let rec aux nb_match res bs =
-        match p bs with
+        if bs = [] then (
+            (* avoid trigering an error at end of input *)
+            out nb_match res bs
+        ) else match p bs with
         | Res (res', rem) ->
             let nb_match' = succ nb_match in
             if max = Some nb_match' then (
@@ -257,7 +286,7 @@ let return res bs = Res (res, bs)
  *)
 
 (* fails unconditionally *)
-let fail _ = Fail
+let fail msg rest = failure ("Failure: "^msg, rest)
 
 (* invert the result of p - useful with check *)
 let no p bs =
@@ -339,7 +368,7 @@ let i2c i =
 *)
 
 let digit base =
-    map (cond (fun c ->
+    map (cond ~errmsg:"Number expected" (fun c ->
             (c >= '0' && c <= '9' && c < (char_of_int (int_of_char '0' + base))) ||
             (base > 10 && (
                 (c >= 'a' && c < (char_of_int (int_of_char 'a' + (base - 10)))) ||
@@ -381,7 +410,10 @@ struct
                  decimal_number ]
 
     let in_range min max n =
-        if N.compare n min >= 0 && N.compare n max <= 0 then return n else fail
+        if N.compare n min >= 0 && N.compare n max <= 0 then
+            return n
+        else
+            fail (Printf.sprintf "Integer not in [%s:%s]" (N.to_string min) (N.to_string max))
 
     let number_in_range min max = decimal_number >>= in_range min max
 

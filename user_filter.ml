@@ -123,8 +123,7 @@ let field_name =
         try let _p = List.assoc w !fields in
             return w
         with Not_found ->
-            Log.info "%s is not a field name" w ;
-            fail)
+            fail ("Unknown field '"^w^"'"))
 
 let spaced p =
     any blank ++ p ++ any blank >>: (fun ((_, v), _) -> v)
@@ -421,9 +420,11 @@ let () =
 
 let expression expected_t fields' str =
     fields := fields' ;
+    reset_parse_error () ;
     match expr (String.to_list str) with
-    | Res (e, []) ->
+    | Res (e, rest) ->
+        assert (rest = []) ;
         let e = promote_to_float e in
         check expected_t e ; e
-    | _ -> raise Parse_error
+    | Fail -> parse_error ()
 

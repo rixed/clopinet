@@ -41,7 +41,7 @@ let check_ints () =
     assert (of_string "42K" = 43_008) ;
     assert (of_string "42M" = 42_000_000) ;
     assert (of_string "42G" = 42_000_000_000) ;
-    assert_exc Peg.Parse_error of_string "42m" ;
+    assert_exc (Peg.Parse_error ("EOF expected", 1)) of_string "42m" ;
     (* Non regression tests *)
     let open UInteger16 in
     assert (to_string min_int = "-4611686018427387904")
@@ -69,13 +69,14 @@ let check_mac () =
 
 let check_timestamp () =
     let open Timestamp in
-    assert_exc Peg.Parse_error of_string "" ;
+    assert_exc (Peg.Parse_error ("unknown error", 0)) of_string "" ;
     assert (of_string "2012-10-25 11:23:02.3" = 1351156982300L) ;
     assert (of_string "2012-10-25 11:23:02" = 1351156982000L) ;
     assert (of_string "2012-10-25 11:23" = 1351156980000L) ;
     assert (of_string "2012-10-25" = 1351116000000L) ;
     assert (to_string 1351156980000L = "2012-10-25 11:23") ;
-    assert_exc Peg.Parse_error of_string "2012-10-25 11:23:02 glop" ;
+    assert_exc (Peg.Parse_error ("EOF expected", 5)) of_string "2012-10-25 11:23:02 glop" ;
+    assert_exc (Peg.Parse_error ("Failure: Integer not in [0:23]", 3)) of_string "2012-10-25 70:23" ;
     (* when no units nor sign are given, it's a timestamp *)
     assert (compare (of_string "1323765999.42") (of_string "2011-12-13 09:46:39.42") = 0) ;
     (* parser must handle junkie's format *)
@@ -189,6 +190,8 @@ let check_prefs () =
 let check_expressions () =
     let open User_filter in
     let inet s = Value (InetAddr (Datatype.InetAddr.of_string s)) in
+    assert_exc (Peg.Parse_error ("Failure: Unknown field 'prout'", 0)) (expression TBool ["wizz", TInteger]) "1 == prout" ;
+    assert_exc (Peg.Parse_error ("Failure: Unknown field 'prout'", 5)) (expression TBool ["wizz", TInteger]) "prout == 1" ;
     assert (expression TBool [] "( 10.0.0.2 == 10.0.0.1) || true" =
         Or (Eq (inet "10.0.0.2", inet "10.0.0.1"), Value (Bool true))) ;
     assert (expression TBool Traffic.Traffic.filter_fields "( 10.0.0.2 == 10.0.0.1 ) || true" =

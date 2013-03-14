@@ -4,7 +4,7 @@ TODO stack
 Roadmap for 0.1
 ---------------
 
-- Make an external resource inliner in owww (for images, css and JS)
+- Make a preferably external resource inliner in owww (for images, css and JS)
   (or easier: add a inline flag to My_view)
 - build a daily repport on eneide and have it sent via email
 

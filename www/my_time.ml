@@ -23,5 +23,7 @@ let from name getter =
         | [] | [""] -> missing_field ()
         | s::_ ->
             try Abs (Timestamp.of_string s)
-            with _ -> try Rel (Interval.of_string s)
-            with _ -> input_error "Can not parse as date nor time"
+            with Peg.Parse_error (_,l1 as e1) ->
+                try Rel (Interval.of_string s)
+                with Peg.Parse_error (_,l2 as e2) ->
+                    input_error (Peg.string_of_error ~input:s (if l1<l2 then e1 else e2))

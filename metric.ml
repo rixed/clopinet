@@ -74,10 +74,11 @@ let load fname parzer append flush =
         String.to_list /@
         Peg.(parzer ++ eof) |>
         Enum.iter (function
-            | Peg.Res ((v,_), []) ->
+            | Peg.Res ((v,_), rest) ->
+                assert (rest = []) ;
                 append v ;
                 incr lineno
-            | _ -> raise Peg.Parse_error)
+            | Peg.Fail -> Peg.parse_error ())
     with e ->
         Printf.fprintf stderr "Error at line %d\n" !lineno ;
         flush () ;

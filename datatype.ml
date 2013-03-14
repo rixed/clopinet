@@ -37,9 +37,10 @@ module Datatype_of (B : DATATYPE_BASE) =
 struct
     let of_string str : B.t =
         let open Peg in
+        reset_parse_error () ;
         match (B.parzer ++ eof) (String.to_list str) with
         | Res ((v,_), _) -> v
-        | Fail -> raise Parse_error
+        | Fail -> parse_error ()
     let to_string (t : B.t) =
         let buf = Buffer.create 32 in
         B.write_txt (Output.of_buffer buf) t ;
@@ -120,7 +121,7 @@ end
 module Bool : DATATYPE with type t = bool =
 struct
     include Bool_base
-    include Datatype_of(Bool_base)
+    include Datatype_of (Bool_base)
 end
 
 module Void_base = struct
@@ -140,7 +141,7 @@ end
 module Void : DATATYPE with type t = unit =
 struct
     include Void_base
-    include Datatype_of(Void_base)
+    include Datatype_of (Void_base)
 end
 
 module Text_base = struct
@@ -581,7 +582,7 @@ module InetAddr_base = struct
             either [ dotted_ip_addr ;
                      hostname >>= fun s ->
                                     try return Unix.((gethostbyname s).h_addr_list.(0))
-                                    with _ -> fail ] in
+                                    with _ -> fail ("Cannot resolve '"^s^"'") ] in
         if picky then p ++ check (either [ eof ; ign (cond not_ip) ]) >>: fst
         else p
 
@@ -893,7 +894,7 @@ module Interval_base = struct
                 | "m" | "min" | "mins" ->    return { zero with mins = n }
                 | "s" | "sec" | "secs" ->    return { zero with secs = n }
                 | "ms" | "msec" | "msecs" -> return { zero with msecs = n }
-                | _ -> fail in
+                | _ -> fail ("Unknown interval unit '"^u^"'") in
         let rec p bs =
             (part ++ any blank ++ optional p >>: function
                 | (i, _), None -> normalize i
@@ -1078,7 +1079,10 @@ module Timestamp = struct
             function ((((y,_),m),_),d) -> y,m,d
         and time =
             let sep = either [ item ':' ; item '-' ] in
-            let sec = Float.parzer >>= fun s -> if s < 0. || s > 60. then fail else return s in
+            let sec = Float.parzer >>= fun s -> if s < 0. || s > 60. then
+                fail "seconds should be between 0 and 60"
+            else
+                return s in
             number_in_range 0 23 ++ sep ++ number_in_range 0 59 ++ optional (sep ++ sec) >>:
             function (((h,_),m),s) -> match s with
                 | None       -> h,m,0.
@@ -1105,7 +1109,7 @@ module Timestamp = struct
         if picky then date_time else either [ date_time ; junkie ; unix_ts ]
 
     (*$T parzer
-      parzer (String.to_list "now") <> Peg.Fail
+      parzer (String.to_list "now") = Peg.Fail |> not
       parzer (String.to_list "1976-01-28 15:07") = Peg.Res (191686020000L, [])
       parzer (String.to_list "1976-01-28 15:07:30") = Peg.Res (191686050000L, [])
       parzer (String.to_list "1976-01-28 15:07:30.1") = Peg.Res (191686050100L, [])
@@ -1116,9 +1120,10 @@ module Timestamp = struct
     (* copied from Datatype_of *)
     let of_string str : t =
         let open Peg in
+        reset_parse_error () ;
         match (parzer ++ eof) (String.to_list str) with
         | Res ((v,_), _) -> v
-        | Fail -> raise Parse_error
+        | Fail -> parse_error ()
 
     (*$T of_string
       ignore (of_string "now") ; true

@@ -14,6 +14,7 @@ let load_string str =
         (Prefs.get_string "compiler/path" "")
         (Prefs.get_string "compiler/ocamlfind" "ocamlfind")
         cmxs fname in
+    Log.info "Running: %s" cmd ;
     match Unix.system cmd with
     | Unix.WEXITED 0 ->
         (try Dynlink.loadfile cmxs
