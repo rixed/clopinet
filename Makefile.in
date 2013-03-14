@@ -58,7 +58,7 @@ EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc
-all: $(ARCHIVE) examples www
+all: $(XARCHIVE) examples www
 
 least63.ml:
 ifeq (@OCAML_WORD_SIZE@,64)
@@ -82,7 +82,7 @@ include $(top_srcdir)/make.common
 
 opt: $(XARCHIVE)
 
-examples: $(ARCHIVE) $(XARCHIVE) $(EXAMPLES)
+examples: $(XARCHIVE) $(EXAMPLES_OPT)
 $(EXAMPLES_BYTE): $(ARCHIVE) libclopinet.a
 $(EXAMPLES_OPT): $(XARCHIVE) libclopinet.a
 
@@ -112,12 +112,16 @@ tuple%.ml: maketuple.opt
 	 echo "Building Tuple functor for N=$$n" ;\
 	 ./maketuple.opt $$n > $@
 
-distribution.cmo: tuple5.cmo
+# As dependancies are computed before some source files are build, we have to specify a few by hand
+
+distribution.cmo: tuple5.cmo least63.cmo
+flow.cmo: least63.cmo uLeast63.cmo
 metric.cmo: tuple2.cmo
-traffic.cmo: tuple2.cmo tuple16.cmo tuple3.cmo
-distribution.cmx: tuple5.cmx
+traffic.cmo: tuple2.cmo tuple16.cmo tuple3.cmo least63.cmo uLeast63.cmo
+distribution.cmx: tuple5.cmx least63.cmx
+flow.cmx: least63.cmx uLeast63.cmx
 metric.cmx: tuple2.cmx
-traffic.cmx: tuple2.cmx tuple16.cmx tuple3.cmx
+traffic.cmx: tuple2.cmx tuple16.cmx tuple3.cmx least63.cmx uLeast63.cmx
 
 clean-spec:
 	$(MAKE) -C www clean
