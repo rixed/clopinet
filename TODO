@@ -4,11 +4,12 @@ TODO stack
 Roadmap for 0.1
 ---------------
 
-- Make a preferably external resource inliner in owww (for images, css and JS)
-  (or easier: add a inline flag to My_view)
-- build a daily repport on eneide and have it sent via email
-
 - make appending accumulators configured by conffile
+
+- a program to purge old files according to conf file (beware that each 
+  dbtable has its own ageing)
+
+- "View in browser" link should direct to proper action
 
 
 Bugs

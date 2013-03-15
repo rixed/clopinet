@@ -25,6 +25,9 @@ compiler/ocamlfind = ocamlfind
 ## gui/svg/width = 1000
 ## gui/svg/height = 800
 
+# For inlining generated HTML, the path to the www directory
+## gui/inliner/wwwdir = www
+
 #
 # GeoIP
 #

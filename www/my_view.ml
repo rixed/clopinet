@@ -69,7 +69,9 @@ let make_app_page content =
     [ html head body ]
 
 let make_app_page_for_email content =
-    make_app_page (content @ [ p [ tag "a" ~attrs:["href","#"] [ cdata "View in browser" ] ] ])
+    let wwwdir = Prefs.get_string "gui/inliner/wwwdir" "www" in
+    make_app_page (content @ [ p [ tag "a" ~attrs:["href","#"] [ cdata "View in browser" ] ] ]) |>
+    Inliner.filter wwwdir
 
 let make_filter title form =
     [ h1 title ;
