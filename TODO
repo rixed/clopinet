@@ -6,9 +6,6 @@ Roadmap for 0.1
 
 - make appending accumulators configured by conffile
 
-- a program to purge old files according to conf file (beware that each 
-  dbtable has its own ageing)
-
 - "View in browser" link should direct to proper action
 
 

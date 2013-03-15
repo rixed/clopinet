@@ -17,7 +17,8 @@ let main =
                                                       ?qname:!qname ?error:!error ?tx_min:!tx_min
                                                       !dbdir tbname
                                                       (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump content of this table" ;
-        "-dbck",  Unit (fun () -> Metric.dbck !dbdir lods Dns.read Dns.meta_read), "scan the DB and try to repair it" ;
+        "-dbck", Unit (fun () -> Metric.dbck !dbdir lods Dns.read Dns.meta_read), "scan the DB and try to repair it" ;
+        "-purge", Unit (fun () -> Metric.purge !dbdir lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-rt-min", String (fun s -> rt_min := Some (Float.of_string s)), "limit queries to resptimes greater than this" ;

@@ -26,7 +26,7 @@ compiler/ocamlfind = ocamlfind
 ## gui/svg/height = 800
 
 # For inlining generated HTML, the path to the www directory
-## gui/inliner/wwwdir = www
+# gui/inliner/wwwdir = www
 
 #
 # GeoIP
@@ -55,6 +55,31 @@ db/base_dir = /home/rixed/share/src/clopinet/test.db
 # Max hash size (better if prime) (needs restart)
 # Delete your database if you change this
 ## db/max_hash_size = 1009
+
+# Number of days to keep datafiles once full
+# (will not purge anything if not defined)
+
+db/max_days/traffic/1hour = 370
+db/max_days/traffic/10mins = 32
+db/max_days/traffic/1min = 8
+
+db/max_days/dns/1hour = 370
+db/max_days/dns/10mins = 32
+db/max_days/dns/1min = 15
+db/max_days/dns/queries = 4
+
+db/max_days/web/1hour = 370
+db/max_days/web/10mins = 32
+db/max_days/web/1min = 15
+db/max_days/web/queries = 4
+
+db/max_days/tcp/1hour = 370
+db/max_days/tcp/10mins = 32
+db/max_days/tcp/1min = 15
+db/max_days/tcp/sockets = 4
+
+db/max_days/flow/flows = 8
+
 
 # How many cores to scan database
 # Increase only if you have many!

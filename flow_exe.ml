@@ -28,7 +28,8 @@ let main =
                                                                  (Timestamp.to_string start)
                                                                  (Timestamp.to_string stop)))),
                                                          "dump this meta file" ;
-        "-dbck",  Unit (fun () -> Metric.dbck !dbdir lods Flow.read Flow.meta_read), "scan the DB and try to repair it" ;
+        "-dbck", Unit (fun () -> Metric.dbck !dbdir lods Flow.read Flow.meta_read), "scan the DB and try to repair it" ;
+        "-purge", Unit (fun () -> Metric.purge !dbdir lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-vlan", String (fun s -> vlan := Some (VLan.of_string s)), "limit queries to this VLAN" ;

@@ -15,7 +15,8 @@ let main =
                                                       ?client:!client ?server:!server ?peer:!peer
                                                       !dbdir tbname
                                                       (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
-        "-dbck",  Unit (fun () -> Metric.dbck !dbdir lods Tcp.read Tcp.meta_read), "scan the DB and try to repair it" ;
+        "-dbck", Unit (fun () -> Metric.dbck !dbdir lods Tcp.read Tcp.meta_read), "scan the DB and try to repair it" ;
+        "-purge", Unit (fun () -> Metric.purge !dbdir lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-client", String (fun s -> client := Some (Cidr.of_string s)), "limit to these clients" ;

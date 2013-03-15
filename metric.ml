@@ -139,6 +139,35 @@ let dbck dbdir lods read meta_read =
         Table.iter_hnums tdir (ck_hnum tdir) in
     Array.iter ck_lod lods
 
+(* Functions related to purge old dbfiles *)
+
+let purge dbdir lods =
+    let name = Filename.basename dbdir in
+    let purge_file max_age tdir hnum snum _meta =
+        (* Never delete the last snum which is still written to *)
+        if snum > 0 then (
+            let open Unix in
+            let fname = Dbfile.path tdir hnum (pred snum) in
+            let last_write_age = time () -. (stat fname).st_mtime |> int_of_float in
+            let last_write_age = last_write_age / 86400 in (* in days *)
+            if last_write_age > max_age then (
+                Printf.printf "Deleting %s\n" fname ;
+                unlink fname ;
+                ignore_exceptions unlink (fname ^".meta")
+            )
+        )in
+    let purge_hnum max_age tdir hnum =
+        Table.iter_snums tdir hnum (fun _ -> None) (purge_file max_age tdir hnum) in
+    let purge_lod lod =
+        let pname = "db/max_days/"^name^"/"^lod in
+        match Prefs.get_int_option pname with
+        | None ->
+            Printf.printf "%s unset, skipping\n" pname
+        | Some max_age ->
+            let tdir = table_name dbdir lod in
+            Table.iter_hnums tdir (purge_hnum max_age tdir) in
+    Array.iter purge_lod lods
+
 (* Fields models for templates *)
 
 type aggr_function = { zero : string ; singleton : string ; func : string ; fin : string }
