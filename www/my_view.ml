@@ -38,7 +38,7 @@ let menu () =
                          "Config", ["preferences"] ] in
     span ~id:"menu" [
         tag "ul" (List.map (fun (section, links) ->
-            tag "li" [ p [ raw section ] ;
+            tag "li" [ p [ tag "a" ~attrs:["href","?action="^section^"/help"] [ cdata section ] ] ;
                        tag "ul" (List.map (html_of_entry section) links) ])
             menu_entries) ]
 

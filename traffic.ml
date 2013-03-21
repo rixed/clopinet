@@ -95,22 +95,119 @@ struct
     let aggr_sum_int = { zero = "0"       ; singleton = "identity" ; func = "(+)" ; fin = "identity" }
     let aggr_avg_int = { zero = "(0,0)"   ; singleton = "(fun v -> 1,v)" ; func = "(fun (c1,s1) (c2,s2) -> c1+c2, s1+s2)" ; fin = "(fun (c,s) -> if c <> 0 then s/c else 0)" }
     let aggrs_int = [ "max", aggr_max_int ; "min", aggr_min_int ; "sum", aggr_sum_int ; "avg", aggr_avg_int ]
-    let fields = [ "start",     { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp"  ; display = "Datatype.Timestamp.to_string" } ;
-                   "stop",      { aggrs = [] ;             sortable = "" ;         keyable = false ; datatype = "Datatype.Timestamp"  ; display = "Datatype.Timestamp.to_string" } ;
-                   "count",     { aggrs = aggrs_int ;      sortable = "identity" ; keyable = false ; datatype = "Datatype.ULeast63"   ; display = "Datatype.string_of_inumber" } ;
-                   "vlan",      { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.VLan"       ; display = "Datatype.VLan.to_string" } ;
-                   "mac_src",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr"    ; display = "Datatype.EthAddr.to_string" } ;
-                   "mac_dst",   { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.EthAddr"    ; display = "Datatype.EthAddr.to_string" } ;
-                   "mac_proto", { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
-                   "mac_pld",   { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.ULeast63"   ; display = "Datatype.string_of_inumber" } ;
-                   "mtu",       { aggrs = ["max", aggr_max_int] ; sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
-                   "ip_src",    { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.InetAddr"  ; display = "Datatype.InetAddr.to_string" } ;
-                   "ip_dst",    { aggrs = [] ;             sortable = "" ;         keyable = true  ; datatype = "Datatype.InetAddr"  ; display = "Datatype.InetAddr.to_string" }  ;
-                   "ip_proto",  { aggrs = [] ;             sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger8" ; display = "Datatype.string_of_inumber" } ;
-                   "ip_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.ULeast63"  ; display = "Datatype.string_of_inumber" } ;
-                   "port_src",  { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
-                   "port_dst",  { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.UInteger16" ; display = "Datatype.string_of_inumber" } ;
-                   "l4_pld",    { aggrs = aggrs_int ;      sortable = "identity" ; keyable = true  ; datatype = "Datatype.ULeast63"   ; display = "Datatype.string_of_inumber" } ]
+    let fields = [
+        "start", {
+            help = "start time of the flow";
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = false ;
+            datatype = "Datatype.Timestamp" ;
+            display = "Datatype.Timestamp.to_string" } ;
+        "stop", {
+            help = "timestamp of the last packet of this flow" ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = false ;
+            datatype = "Datatype.Timestamp" ;
+            display = "Datatype.Timestamp.to_string" } ;
+        "count", {
+            help = "number of packets in this flow" ;
+            aggrs = aggrs_int ;
+            sortable = "identity" ;
+            keyable = false ;
+            datatype = "Datatype.ULeast63" ;
+            display = "Datatype.string_of_inumber" } ;
+        "vlan", {
+            help = "802.1q vlan id" ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.VLan" ;
+            display = "Datatype.VLan.to_string" } ;
+        "mac_src", {
+            help = "source ethernet address" ;
+            aggrs = [] ;
+			sortable = "" ;
+			keyable = true ;
+			datatype = "Datatype.EthAddr" ;
+			display = "Datatype.EthAddr.to_string" } ;
+        "mac_dst", {
+			help = "destination ethernet address" ;
+			aggrs = [] ;
+			sortable = "" ;
+			keyable = true ;
+			datatype = "Datatype.EthAddr" ;
+			display = "Datatype.EthAddr.to_string" } ;
+        "mac_proto", {
+			help = "ethernet protocol" ;
+			aggrs = [] ;
+			sortable = "identity" ;
+			keyable = true ;
+			datatype = "Datatype.UInteger16" ;
+			display = "Datatype.string_of_inumber" } ;
+        "mac_pld", {
+			help = "total ethernet frame payload" ;
+			aggrs = aggrs_int ;
+			sortable = "identity" ;
+			keyable = true ;
+			datatype = "Datatype.ULeast63" ;
+			display = "Datatype.string_of_inumber" } ;
+        "mtu", {
+			help = "max observed ethernet frame payload" ;
+			aggrs = ["max", aggr_max_int] ;
+			sortable = "identity" ;
+			keyable = true ;
+			datatype = "Datatype.UInteger16" ;
+			display = "Datatype.string_of_inumber" } ;
+        "ip_src", {
+			help = "source IP address (if IP)" ;
+			aggrs = [] ;
+			sortable = "" ;
+			keyable = true ;
+			datatype = "Datatype.InetAddr" ;
+			display = "Datatype.InetAddr.to_string" } ;
+        "ip_dst", {
+			help = "destination IP address (if IP)" ;
+			aggrs = [] ;
+			sortable = "" ;
+			keyable = true ;
+			datatype = "Datatype.InetAddr" ;
+			display = "Datatype.InetAddr.to_string" } ;
+        "ip_proto", {
+			help = "IP protocol (if IP)" ;
+			aggrs = [] ;
+			sortable = "identity" ;
+			keyable = true ;
+			datatype = "Datatype.UInteger8" ;
+			display = "Datatype.string_of_inumber" } ;
+        "ip_pld", {
+			help = "IP payload (if IP)" ;
+			aggrs = aggrs_int ;
+			sortable = "identity" ;
+			keyable = true ;
+			datatype = "Datatype.ULeast63" ;
+			display = "Datatype.string_of_inumber" } ;
+        "port_src", {
+			help = "source port (if UDP or TCP)" ;
+			aggrs = aggrs_int ;
+			sortable = "identity" ;
+			keyable = true ;
+			datatype = "Datatype.UInteger16" ;
+			display = "Datatype.string_of_inumber" } ;
+        "port_dst", {
+			help = "destination port (if UDP or TCP)" ;
+			aggrs = aggrs_int ;
+			sortable = "identity" ;
+			keyable = true ;
+			datatype = "Datatype.UInteger16" ;
+			display = "Datatype.string_of_inumber" } ;
+        "l4_pld", {
+			help = "UDP/TCP payload (if UDP or TCP)" ;
+			aggrs = aggrs_int ;
+			sortable = "identity" ;
+			keyable = true ;
+			datatype = "Datatype.ULeast63" ;
+			display = "Datatype.string_of_inumber" } ]
 
     (* This is just a way for our dynamically loaded code to reach us *)
     let filter_ = ref (fun (_ : t) -> true)

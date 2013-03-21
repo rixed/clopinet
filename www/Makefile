@@ -8,6 +8,8 @@ SOURCES  = \
 	filter_expr.ml \
 	selector.ml \
 	my_forms.ml \
+	my_ctrl.ml \
+	help.ml \
 	index.ml \
 
 REQUIRES = owww batteries bitstring bitstring.syntax dynlink parmap

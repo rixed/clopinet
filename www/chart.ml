@@ -114,7 +114,11 @@ let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size
 
 *)
 
-type fold_t = { fold : 'a. ('a -> string -> bool -> (int -> float) -> 'a) -> 'a -> 'a }
+type fold_t = {
+    (* The bool in there is true for all plots in the "primary" chart, and
+     * false once at most for the "secondary" plot. Note: the secondary plot
+     * is displayed with a distinct Y axis. *)
+    fold : 'a. ( 'a -> string -> bool -> (int -> float) -> 'a) -> 'a -> 'a }
             (* I wonder what's the world record in argument list length? *)
 type stacked = NotStacked | Stacked | StackedCentered
 let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
