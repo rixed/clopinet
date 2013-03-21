@@ -2,7 +2,8 @@
 
 set -e
 
+path=$(dirname $0)
+
 for m in tcp dns flow web traffic; do
-	echo "Purging $m..."
-	./$m"_exe.opt" -dir test.db/$m -purge
+	$path/$m"_exe.opt" -dir $path/test.db/$m -purge
 done

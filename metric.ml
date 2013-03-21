@@ -148,14 +148,16 @@ let purge dbdir lods =
         if snum > 0 then (
             let open Unix in
             let fname = Dbfile.path tdir hnum (pred snum) in
-            let last_write_age = time () -. (stat fname).st_mtime |> int_of_float in
-            let last_write_age = last_write_age / 86400 in (* in days *)
-            if last_write_age > max_age then (
-                Printf.printf "Deleting %s\n" fname ;
-                unlink fname ;
-                ignore_exceptions unlink (fname ^".meta")
-            )
-        )in
+            try (
+                let last_write_age = time () -. (stat fname).st_mtime |> int_of_float in
+                let last_write_age = last_write_age / 86400 in (* in days *)
+                if last_write_age > max_age then (
+                    Printf.printf "Deleting %s\n" fname ;
+                    unlink fname ;
+                    ignore_exceptions unlink (fname ^".meta")
+                )
+            ) with Unix_error (ENOENT, "stat", _) -> ()
+        ) in
     let purge_hnum max_age tdir hnum =
         Table.iter_snums tdir hnum (fun _ -> None) (purge_file max_age tdir hnum) in
     let purge_lod lod =
@@ -173,6 +175,7 @@ let purge dbdir lods =
 type aggr_function = { zero : string ; singleton : string ; func : string ; fin : string }
 
 type selectable_field = {
+    help : string ;
     aggrs : (string * aggr_function) list ;
     sortable : string ; (* name of to_int function, or "" *)
     keyable : bool ;
