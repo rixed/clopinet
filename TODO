@@ -8,6 +8,24 @@ Roadmap for 0.1
 
 - "View in browser" link should direct to proper action
 
+- Fix JS in reports (link to proper pages)
+
+- TCP view
+
+- Inline doc
+
+- generation of a VM
+
+- Shouldn't sniffer take it's input from conffile?
+
+- bw chart: la légende est à l'envers
+
+- bw chart: les unités en Y ne sont ps des bytes mais des bytes/sec sans doute
+
+- bw chart: ne pas afficher 1.500k mais 1.5k
+
+- bw chart: dans la légende ce ne sont pas des Ys mais des bytes/sec
+
 
 Bugs
 ----
@@ -89,6 +107,8 @@ Tags
 
 - in prefs, tags/name/filter = ..., tags/name/color = ... and then allow
 each filter to use this tag (replace in the AST 'tag = x' with '(expr) = x'.
+(Note: shortcut or expr migh be a better name than tag, though)
+(Note2: shortcuts and recoloring may be two very different things)
 
 
 

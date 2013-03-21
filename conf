@@ -50,7 +50,7 @@ db/base_dir = /home/rixed/share/src/clopinet/test.db
 ## db/max_opened_filedescr = 1000
 
 # Max file size before rotation (needs restart)
-## db/max_file_size = 10M
+## db/max_file_size = 1M
 
 # Max hash size (better if prime) (needs restart)
 # Delete your database if you change this
