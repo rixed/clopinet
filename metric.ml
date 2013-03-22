@@ -49,6 +49,20 @@ let optmax a b = match a, b with
     | Some a, Some b -> Some (max a b)
     | _ -> b
 
+(* used by some filters *)
+let string_ends_with e s =
+    let eo = String.length e - 1 and so = String.length s - 1 in
+    if eo > so then false else
+    let rec aux eo so =
+        if eo < 0 then true else e.[eo] = s.[so] && aux (eo-1) (so-1) in
+    aux eo so
+
+let string_starts_with e s =
+    if String.length e > String.length s then false else
+    let rec aux eo so =
+        if eo >= String.length e then true else e.[eo] = s.[so] && aux (eo+1) (so+1) in
+    aux 0 0
+
 (* functions related to the index *)
 
 let fold_using_indexed ip tdir fold_hnum make_fst merge = match ip with

@@ -379,8 +379,31 @@ module Web = struct
         let uniq_name = "method"
         let persistant = false
     end
+    module UsrFilter = struct
+        module Type = Optional (Filter_expr.Make (Web.Web))
+        let display_name = "free filter"
+        let uniq_name = "usr-filter"
+        let persistant = true
+    end
+    module KeySelector = struct
+        module Type = Selector.MakeKey (Web.Web)
+        let display_name = "key"
+        let uniq_name = "dns-tops-key"
+        let persistant = true
+    end
+    module AggrSelector = struct
+        module Type = Selector.MakeAggr (Web.Web)
+        let display_name = "fields"
+        let uniq_name = "dns-tops-fields"
+        let persistant = true
+    end
+    module SortSelector = struct
+        module Type = Selector.MakeSort (Web.Web)
+        let display_name = "sort by"
+        let uniq_name = "dns-tops-sort"
+        let persistant = true
+    end
 
-    (* TODO: Add HttpMethod *)
     module RespTime = RecordOf (ConsOf (FieldOf (StartField))
                                (ConsOf (FieldOf (StopField))
                                (ConsOf (FieldOf (VlanField))
@@ -398,23 +421,22 @@ module Web = struct
                                (ConsOf (FieldOf (TblNameField))
                                        (NulType))))))))))))))))
 
-    (* TODO: Add HttpMethod *)
-    module Top = RecordOf (ConsOf (FieldOf (StartField))
-                          (ConsOf (FieldOf (StopField))
-                          (ConsOf (FieldOf (VlanField))
-                          (ConsOf (FieldOf (MacSrcField))
-                          (ConsOf (FieldOf (MacDstField))
-                          (ConsOf (FieldOf (IpCltField))
-                          (ConsOf (FieldOf (IpSrvField))
-                          (ConsOf (FieldOf (HttpMethod))
-                          (ConsOf (FieldOf (HttpStatus))
-                          (ConsOf (FieldOf (HttpHost))
-                          (ConsOf (FieldOf (HttpURL))
-                          (ConsOf (FieldOf (MinRespTime))
-                          (ConsOf (FieldOf (MaxRespTime))
-                          (ConsOf (FieldOf (MaxGraphsField))
-                          (ConsOf (FieldOf (SortOrder))
-                                  (NulType))))))))))))))))
+    module Queries = RecordOf (ConsOf (FieldOf (StartField))
+                              (ConsOf (FieldOf (StopField))
+                              (ConsOf (FieldOf (VlanField))
+                              (ConsOf (FieldOf (MacSrcField))
+                              (ConsOf (FieldOf (MacDstField))
+                              (ConsOf (FieldOf (IpCltField))
+                              (ConsOf (FieldOf (IpSrvField))
+                              (ConsOf (FieldOf (HttpMethod))
+                              (ConsOf (FieldOf (HttpStatus))
+                              (ConsOf (FieldOf (HttpHost))
+                              (ConsOf (FieldOf (HttpURL))
+                              (ConsOf (FieldOf (MinRespTime))
+                              (ConsOf (FieldOf (MaxRespTime))
+                              (ConsOf (FieldOf (MaxGraphsField))
+                              (ConsOf (FieldOf (SortOrder))
+                                      (NulType))))))))))))))))
 
     module Distrib = RecordOf (ConsOf (FieldOf (StartField))
                               (ConsOf (FieldOf (StopField))
@@ -433,6 +455,18 @@ module Web = struct
                               (ConsOf (FieldOf (MaxGraphsField))
                               (ConsOf (FieldOf (TblNameField))
                                       (NulType)))))))))))))))))
+
+    module Tops = RecordOf (ConsOf (FieldOf (StartField))
+                           (ConsOf (FieldOf (StopField))
+                           (ConsOf (FieldOf (IpSrvField))
+                           (ConsOf (FieldOf (UsrFilter))
+                           (ConsOf (FieldOf (TblNameField))
+                           (ConsOf (FieldOf (KeySelector))
+                           (ConsOf (FieldOf (AggrSelector))
+                           (ConsOf (FieldOf (SortSelector))
+                           (ConsOf (FieldOf (MaxGraphsField))
+                           (ConsOf (FieldOf (SinglePass))
+                                   (NulType)))))))))))
 
 end
 
@@ -497,20 +531,20 @@ module Dns = struct
                                (ConsOf (FieldOf (TblNameField))
                                        (NulType)))))))))))))
 
-    module Top = RecordOf (ConsOf (FieldOf (StartField))
-                          (ConsOf (FieldOf (StopField))
-                          (ConsOf (FieldOf (VlanField))
-                          (ConsOf (FieldOf (MacSrcField))
-                          (ConsOf (FieldOf (MacDstField))
-                          (ConsOf (FieldOf (IpCltField))
-                          (ConsOf (FieldOf (IpSrvField))
-                          (ConsOf (FieldOf (MinRespTime))
-                          (ConsOf (FieldOf (MaxRespTime))
-                          (ConsOf (FieldOf (Error))
-                          (ConsOf (FieldOf (QueryName))
-                          (ConsOf (FieldOf (MaxGraphsField))
-                          (ConsOf (FieldOf (SortOrder))
-                                  (NulType))))))))))))))
+    module Queries = RecordOf (ConsOf (FieldOf (StartField))
+                              (ConsOf (FieldOf (StopField))
+                              (ConsOf (FieldOf (VlanField))
+                              (ConsOf (FieldOf (MacSrcField))
+                              (ConsOf (FieldOf (MacDstField))
+                              (ConsOf (FieldOf (IpCltField))
+                              (ConsOf (FieldOf (IpSrvField))
+                              (ConsOf (FieldOf (MinRespTime))
+                              (ConsOf (FieldOf (MaxRespTime))
+                              (ConsOf (FieldOf (Error))
+                              (ConsOf (FieldOf (QueryName))
+                              (ConsOf (FieldOf (MaxGraphsField))
+                              (ConsOf (FieldOf (SortOrder))
+                                      (NulType))))))))))))))
 
     module Distrib = RecordOf (ConsOf (FieldOf (StartField))
                               (ConsOf (FieldOf (StopField))

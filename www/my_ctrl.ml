@@ -294,14 +294,14 @@ struct
         url
 
     let queries_chart = function
-        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (n, (sort_order, ()))))))))))))))) ->
+        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (methd, (status, (host, (url, (rt_min, (rt_max, (n, (sort_order, ()))))))))))))))) ->
             let n = BatOption.default 30 n
             and start  = My_time.to_timeval start
             and stop   = My_time.to_timeval stop in
             let rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
             let sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
-            let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
+            let tops = top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
             let field_display_names =
                 [ "VLAN" ;
                   "Client MAC" ; "Client IP" ;
@@ -325,22 +325,22 @@ struct
 
     let queries_chart_descr =
         { ChartDescr.category = "Web" ;
-          ChartDescr.title = "top" ;
+          ChartDescr.title = "queries" ;
           ChartDescr.help = [] ;
           ChartDescr.to_html = (fun name getter ->
-                      display_errs Forms.Web.Top.from name getter |> queries_chart) ;
+                      display_errs Forms.Web.Queries.from name getter |> queries_chart) ;
           ChartDescr.filter = (fun target name getter ->
-                      form target (Forms.Web.Top.to_edit name getter)) }
+                      form target (Forms.Web.Queries.to_edit name getter)) }
 
     let srt_chart = function
-        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (time_step, (tblname, ()))))))))))))))) ->
+        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (methd, (status, (host, (url, (rt_min, (rt_max, (time_step, (tblname, ()))))))))))))))) ->
             let time_step = Interval.to_ms time_step (* FIXME: plot_resp_time should take seconds instead *)
             and start = My_time.to_timeval start
             and stop  = My_time.to_timeval stop in
             let rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
             let tblname = Forms.Web.TblNames.options.(tblname) in
-            let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
+            let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
             let fold f i =
                 let i = f i "Min" true
@@ -377,7 +377,7 @@ struct
                       form target (Forms.Web.RespTime.to_edit name getter)) }
 
     let distrib_chart = function
-        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))))))) ->
+        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (methd, (status, (host, (url, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))))))) ->
             let tblname = Forms.Dns.TblNames.options.(tblname)
             and start  = My_time.to_timeval start
             and stop   = My_time.to_timeval stop in
@@ -385,7 +385,7 @@ struct
             let rt_max = i2s ?min:rt_min rt_max in
             let prec   = i2s ~min:0.00001 ~max:1. prec in
             let vx_step, bucket_min, bucket_max, datasets =
-                plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
+                plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
             let vx_min = (float_of_int bucket_min +. 0.5) *. vx_step
             and nb_vx = bucket_max - bucket_min |> succ in
             let fold f i =
@@ -414,6 +414,33 @@ struct
                       display_errs Forms.Web.Distrib.from name getter |> distrib_chart) ;
           ChartDescr.filter = (fun target name getter ->
                       form target (Forms.Web.Distrib.to_edit name getter)) }
+
+    let top_chart = function
+        | Some (start, (stop, (ip_srv, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, (single_pass, ())))))))))) ->
+            let tblname = Forms.Web.TblNames.options.(tblname)
+            and start = My_time.to_timeval start
+            and stop  = My_time.to_timeval stop in
+            let datasets = get_top ~start ~stop ?ip_srv ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields dbdir tblname in
+            View.table_of_datasets group_by aggr_fields sort_by datasets
+        | None -> []
+
+    let top_chart_descr =
+        { ChartDescr.category = "Web" ;
+          ChartDescr.title = "top" ;
+          ChartDescr.help = [ p [ cdata "This is the 'free form' query into the HTTP messages database. You can ask \
+                                         for any fields, grouped by any fields with whatever aggregate function \
+                                         you like, sorted by any field, filtered by any expression, and get back \
+                                         the top " ; em "N" ; cdata " tuples." ] ;
+                              p [ cdata "This is useful when you look for something in particular and none of the \
+                                         other views fit your need." ] ;
+                              p [ cdata "Notice the " ; em "single" ; cdata " or " ; em "double" ;
+                                  cdata " pass radiobutton; single pass is approximately twice faster but will \
+                                         report an approximate result." ] ] ;
+          ChartDescr.to_html = (fun name getter ->
+                      display_errs Forms.Web.Tops.from name getter |> top_chart) ;
+          ChartDescr.filter = (fun target name getter ->
+                      form target (Forms.Web.Tops.to_edit name getter)) }
+
 
 end
 
@@ -454,9 +481,9 @@ struct
           ChartDescr.title = "queries" ;
           ChartDescr.help = [] ;
           ChartDescr.to_html = (fun name getter ->
-                      display_errs Forms.Dns.Top.from name getter |> queries_chart) ;
+                      display_errs Forms.Dns.Queries.from name getter |> queries_chart) ;
           ChartDescr.filter = (fun target name getter ->
-                      form target (Forms.Dns.Top.to_edit name getter)) }
+                      form target (Forms.Dns.Queries.to_edit name getter)) }
 
     let srt_chart = function
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (tx_min, (rt_min, (rt_max, (time_step, (tblname, ())))))))))))) ->
@@ -605,7 +632,7 @@ let chart_descrs = [ Traffic.bw_chart_descr ; Traffic.peer_chart_descr ;
                      Traffic.graph_chart_descr ; Traffic.top_chart_descr ;
                      Traffic.map_chart_descr ;
                      Flow.callflow_chart_descr ;
-                     Web.queries_chart_descr ; Web.srt_chart_descr ; Web.distrib_chart_descr ;
+                     Web.queries_chart_descr ; Web.srt_chart_descr ; Web.distrib_chart_descr ; Web.top_chart_descr ;
                      Dns.queries_chart_descr ; Dns.srt_chart_descr ; Dns.distrib_chart_descr ; Dns.top_chart_descr ]
 
 let find_chart cat title =

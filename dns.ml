@@ -115,7 +115,7 @@ struct
             sortable = "" ;
             keyable = true ;
             datatype = "Datatype.Integer8" ;
-            display = "Datatype.string_of_inumber" } ;
+            display = "Datatype.Integer8.to_string" } ;
         "start", {
             help = "timestamp of the query" ;
             from_prevfields = "" ;
@@ -177,19 +177,11 @@ struct
               check peer      Cidr.to_imm       "(let x = %s in Datatype.in_cidr ip_clt x || Datatype.in_cidr ip_srv x)" ;
               check vlan      VLan.to_imm       "vlan = %s" ;
               check error     Integer8.to_imm   "error = %s" ;
-              check qname     Text.to_imm       "Dns.Dns.string_ends_with %s name" ;
+              check qname     Text.to_imm       "Metric.string_ends_with %s name" ;
               check rt_min    Float.to_imm      "Distribution.max resptime >= %s" ;
               check rt_max    Float.to_imm      "Distribution.min resptime <= %s" ;
               check tx_min    ULeast63.to_imm   "Distribution.count resptime >= %s" ]) ;
         !filter_
-
-    (* used by above filters *)
-    let string_ends_with e s =
-        let eo = String.length e - 1 and so = String.length s - 1 in
-        if eo > so then false else
-        let rec aux eo so =
-            if eo < 0 then true else e.[eo] = s.[so] && aux (eo-1) (so-1) in
-        aux eo so
 
     let fold_all ?start ?stop ?hash_val dbdir name f make_fst merge =
         let tdir = table_name dbdir name in
