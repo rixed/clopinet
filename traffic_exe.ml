@@ -53,6 +53,6 @@ let main =
         "-ip-dst", String (fun s -> ip_dst := Some (Cidr.of_string s)), "limit to these dests" ;
         "-ip", String (fun s -> ip := Some (Cidr.of_string s)), "limit to these IPs" ;
         "-port", String (fun s -> port := Some (UInteger16.of_string s)), "limit to these ports" ;
-        "-filter", String (fun s -> usr_filter := Some User_filter.(expression TBool Traffic.filter_fields s)), "Additional filter, as free expression" ]
+        "-filter", String (fun s -> usr_filter := Some User_filter.(expression TBool Traffic.fields s)), "Additional filter, as free expression" ]
         (fun x -> raise (Bad x))
         "Operate the traffic DB")

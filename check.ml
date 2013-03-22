@@ -189,12 +189,13 @@ let check_prefs () =
 
 let check_expressions () =
     let open User_filter in
+    let open Datatype in
     let inet s = Value (InetAddr (Datatype.InetAddr.of_string s)) in
-    assert_exc (Peg.Parse_error ("Failure: Unknown field 'prout'", 0)) (expression TBool ["wizz", TInteger]) "1 == prout" ;
-    assert_exc (Peg.Parse_error ("Failure: Unknown field 'prout'", 5)) (expression TBool ["wizz", TInteger]) "prout == 1" ;
+    assert_exc (Peg.Parse_error ("Failure: Unknown field 'prout'", 0)) (expression TBool []) "1 == prout" ;
+    assert_exc (Peg.Parse_error ("Failure: Unknown field 'prout'", 5)) (expression TBool []) "prout == 1" ;
     assert (expression TBool [] "( 10.0.0.2 == 10.0.0.1) || true" =
         Or (Eq (inet "10.0.0.2", inet "10.0.0.1"), Value (Bool true))) ;
-    assert (expression TBool Traffic.Traffic.filter_fields "( 10.0.0.2 == 10.0.0.1 ) || true" =
+    assert (expression TBool Traffic.Traffic.fields "( 10.0.0.2 == 10.0.0.1 ) || true" =
         Or (Eq (inet "10.0.0.2", inet "10.0.0.1"), Value (Bool true))) ;
     (* check time+interval format *)
     assert (match expression TTimestamp [] "2012-10-25 +2months" with Add (Value (Timestamp _), Value (Interval _)) -> true | _ -> false) ;
@@ -202,7 +203,7 @@ let check_expressions () =
     assert (match expression TInteger [] "(1 + 2) + 3" with Add (Add (Value (Integer 1), Value (Integer 2)), Value (Integer 3)) -> true | _ -> false) ;
     assert (match expression TInteger [] "1 * 2 + 3" with Add (Mul (Value (Integer 1), Value (Integer 2)), Value (Integer 3)) -> true | _ -> false) ;
     assert (match expression TInteger [] "1 + 2 * 3" with Add (Value (Integer 1), Mul (Value (Integer 2), Value (Integer 3))) -> true | _ -> false) ;
-    assert (expression TBool Traffic.Traffic.filter_fields "ip_src == 213.251.171.101" = Eq (Field "ip_src", inet "213.251.171.101"))
+    assert (expression TBool Traffic.Traffic.fields "ip_src == 213.251.171.101" = Eq (Field "ip_src", inet "213.251.171.101"))
 
 let ok = ref true
 let check name f =

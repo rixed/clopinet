@@ -60,79 +60,192 @@ struct
             hash_on_srv write
             meta_aggr meta_read meta_write
 
-    (* Function to query the Lod0, ie select a set of individual queries *)
-    let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?error ?qname ?rt_min ?rt_max ?tx_min dbdir name f make_fst merge =
+    (* Field description *)
+    let fields = [
+        "vlan", {
+            help = "802.1q vlan id" ;
+            from_prevfields = "" ;
+            expr_type = TVLan ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.VLan" ;
+            display = "Datatype.VLan.to_string" } ;
+        "mac_clt", {
+            help = "client ethernet address" ;
+            from_prevfields = "" ;
+            expr_type = TEthAddr ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.EthAddr" ;
+            display = "Datatype.EthAddr.to_string" } ;
+        "ip_clt", {
+            help = "client IP address" ;
+            from_prevfields = "" ;
+            expr_type = TIp ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.Cidr" ;
+            display = "Datatype.Cidr.to_string" } ;
+        "mac_srv", {
+            help = "server ethernet address" ;
+            from_prevfields = "" ;
+            expr_type = TEthAddr ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.EthAddr" ;
+            display = "Datatype.EthAddr.to_string" } ;
+        "ip_srv", {
+            help = "server IP address" ;
+            from_prevfields = "" ;
+            expr_type = TIp ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.InetAddr" ;
+            display = "Datatype.InetAddr.to_string" } ;
+        "error", {
+            help = "response code" ;
+            from_prevfields = "" ;
+            expr_type = TInteger ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.Integer8" ;
+            display = "Datatype.string_of_inumber" } ;
+        "start", {
+            help = "timestamp of the query" ;
+            from_prevfields = "" ;
+            expr_type = TTimestamp ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = false ;
+            datatype = "Datatype.Timestamp" ;
+            display = "Datatype.Timestamp.to_string" } ;
+        "resptime", {
+            help = "response time" ;
+            from_prevfields = "" ;
+            expr_type = TFloat ;
+            aggrs = aggrs_distribution ;
+            sortable = "(fun d -> Int.of_float (1000. *. Distribution.avg d))" ; (* we sort by avg value (in msec) *)
+            keyable = false ;
+            datatype = "Distribution" ;
+            display = "Distribution.to_string" } ;
+        "queries", {
+            help = "number of queries" ;
+            from_prevfields = "Distribution.count resptime" ;
+            expr_type = TInteger ;
+            aggrs = aggrs_int ;
+            sortable = "identity" ;
+            keyable = false ;
+            datatype = "Least63" ;
+            display = "Least63.to_string" } ;
+        "name", {
+            help = "query name" ;
+            from_prevfields = "" ;
+            expr_type = TText ;
+            aggrs = [] ;
+            sortable = "" ; (* TODO: an int_of_string_for_sort *)
+            keyable = true ;
+            datatype = "Datatype.Text" ;
+            display = "Datatype.Text.to_string" } ;
+        "stop", {
+            help = "timestamp of the end of the transaction" ;
+            from_prevfields = "Datatype.Timestamp.add_seconds start (Distribution.max resptime)" ;
+            expr_type = TTimestamp ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = false ;
+            datatype = "Datatype.Timestamp" ;
+            display = "Datatype.Timestamp.to_string" }
+    ]
+
+    (* This is just a way for our dynamically loaded code to reach us *)
+    let filter_ = ref (fun (_ : t) -> true)
+    let set_filter f = filter_ := f
+    let compile_filter ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?error ?qname ?rt_min ?rt_max ?tx_min ?usr_filter () =
+        Dynlinker.(load_filter "Dns.Dns" ?usr_filter fields
+            [ check start     Timestamp.to_imm  "Datatype.Timestamp.compare stop %s >= 0" ;
+              check stop      Timestamp.to_imm  "Datatype.Timestamp.compare %s start > 0" ;
+              check mac_clt   EthAddr.to_imm    "Datatype.EthAddr.equal eth_clt %s" ;
+              check mac_srv   EthAddr.to_imm    "Datatype.EthAddr.equal eth_srv %s" ;
+              check ip_clt    Cidr.to_imm       "Datatype.in_cidr ip_clt %s" ;
+              check ip_srv    Cidr.to_imm       "Datatype.in_cidr ip_srv %s" ;
+              check peer      Cidr.to_imm       "(let x = %s in Datatype.in_cidr ip_clt x || Datatype.in_cidr ip_srv x)" ;
+              check vlan      VLan.to_imm       "vlan = %s" ;
+              check error     Integer8.to_imm   "error = %s" ;
+              check qname     Text.to_imm       "Dns.Dns.string_ends_with %s name" ;
+              check rt_min    Float.to_imm      "Distribution.max resptime >= %s" ;
+              check rt_max    Float.to_imm      "Distribution.min resptime <= %s" ;
+              check tx_min    ULeast63.to_imm   "Distribution.count resptime >= %s" ]) ;
+        !filter_
+
+    (* used by above filters *)
+    let string_ends_with e s =
+        let eo = String.length e - 1 and so = String.length s - 1 in
+        if eo > so then false else
+        let rec aux eo so =
+            if eo < 0 then true else e.[eo] = s.[so] && aux (eo-1) (so-1) in
+        aux eo so
+
+    let fold_all ?start ?stop ?hash_val dbdir name f make_fst merge =
         let tdir = table_name dbdir name in
         let fold_hnum hnum fst =
-            let ends_with e s =
-                let eo = String.length e - 1 and so = String.length s - 1 in
-                if eo > so then false else
-                let rec aux eo so =
-                    if eo < 0 then true else e.[eo] = s.[so] && aux (eo-1) (so-1) in
-                aux eo so in
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
-                let cmp = Timestamp.compare in
                 let res =
                     if is_within bounds start stop then (
-                        Table.fold_file tdir hnum snum read (fun ((vl, clte, clt, srve, srv, err, ts, rt, name) as x) prev ->
-                            if check start   (fun start -> cmp ts start >= 0) &&
-                               check stop    (fun stop  -> cmp stop ts >= 0) &&
-                               check rt_min  (fun rt_m  -> let _,_,ma,_,_ = rt in ma > rt_m) &&
-                               check rt_max  (fun rt_m  -> let _,mi,_,_,_ = rt in mi < rt_m) &&
-                               check tx_min  (fun req_m -> let c,_,_,_,_ = rt in c > req_m) &&
-                               check client  (fun cidr  -> inter_cidr clt cidr) &&
-                               check server  (fun cidr  -> in_cidr srv cidr) &&
-                               check peer    (fun cidr  -> in_cidr srv cidr || inter_cidr clt cidr) &&
-                               check mac_clt (fun mac   -> EthAddr.equal mac clte) &&
-                               check mac_srv (fun mac   -> EthAddr.equal mac srve) &&
-                               check error   (fun error -> error = err) &&
-                               check vlan    (fun vlan  -> vl = vlan) &&
-                               check qname   (fun qname -> ends_with qname name) then
-                               f x prev
-                            else prev)
-                            prev
+                        Table.fold_file tdir hnum snum read f prev
                     ) else (
                         prev
                     ) in
                 res)
                 fst merge in
-        fold_using_indexed server tdir fold_hnum make_fst merge
+        fold_using_indexed hash_val tdir fold_hnum make_fst merge
 
-    let iter ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?error ?qname ?rt_min ?tx_min dbdir name f =
+    let fold ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?error ?qname ?rt_min ?rt_max ?tx_min ?usr_filter dbdir name f make_fst merge =
+        let filter = compile_filter ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?error ?qname ?rt_min ?rt_max ?tx_min ?usr_filter () in
+        fold_all ?start ?stop ?hash_val:ip_srv dbdir name (fun x prev ->
+            if filter x then f x prev else prev)
+            make_fst merge
+
+    let iter ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?error ?qname ?rt_min ?tx_min dbdir name f =
         let dummy_merge _ _ = () in
-        fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer ?error ?qname ?rt_min ?tx_min dbdir name (fun x _ -> f x) ignore dummy_merge
+        fold ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?error ?qname ?rt_min ?tx_min dbdir name (fun x _ -> f x) ignore dummy_merge
 
 end
 
-let plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min step dbdir name =
+let plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?tx_min step dbdir name =
     let start, stop = min start stop, max start stop in
     let fold f i m =
-        Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min dbdir name
+        Dns.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?tx_min dbdir name
             (fun (_vlan, _mac_clt, _clt, _mac_srv, _srv, _err, ts, rt, _name) p ->
                 f ts rt p)
             i m in
     Plot.per_date start stop step fold
 
-let top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir n sort_order =
+let top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?error ?qname dbdir n sort_order =
     let start, stop = min start stop, max start stop in
-    let fold = Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir lods.(0) in
+    let fold = Dns.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?error ?qname dbdir lods.(0) in
     let cmp (_vl1, _eclt1, _clt1, _esrv1, _srv1, _err1, _ts1, (_, _, _, rt1, _), _nm1)
             (_vl2, _eclt2, _clt2, _esrv2, _srv2, _err2, _ts2, (_, _, _, rt2, _), _nm2) =
         Float.compare rt1 rt2 in
     Plot.top_table n sort_order cmp fold
 
-(* Display in it's own color the servers that represent more than 1/top_nth share of the tot
+(* Display in it's own color the ip_srvs that represent more than 1/top_nth share of the tot
  * number of queries *)
-let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?(prec=0.05) ?(top_nth=100) dbdir tblname =
+let plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?(prec=0.05) ?(top_nth=100) dbdir tblname =
      let fold f i m =
-        Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max dbdir tblname
+        Dns.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max dbdir tblname
             (fun (_vl, _clte, _clt, _srve, srv, _err, _ts, rt, _name) p ->
                 let nb_queries, _, _, _, _ = rt in
                 f (srv, nb_queries) p)
             i m in
     let interm = Plot.FindSignificant.pass1 fold top_nth in
     let fold2 f i m =
-        Dns.fold ~start ~stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max dbdir tblname
+        Dns.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max dbdir tblname
             (fun (_vl, _clte, _clt, _srve, srv, _err, _ts, rt, _name) p ->
                 let nb_queries, _, _, avg, _ = rt in
                 (* FIXME: instead of a single [avg], return the whole distrib so that we can
@@ -143,6 +256,16 @@ let plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_
     and aggr_rts prev_rts rts = List.rev_append rts prev_rts in
     let result, _rest_count, rest_rts, _sum_v, _sum_tv = Plot.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in
     Plot.distributions_of_response_times prec result rest_rts InetAddr.to_string
+
+(* Contrary to top request which return a list of queries from the query table, here we can query freely anything *)
+type top_fun = unit -> ((string array option * string array * int * int) list) * int * string array
+let dyn_top : top_fun ref = ref (fun () -> failwith "Cannot specialize top function")
+let get_top ?start ?stop ?ip_srv ?usr_filter ?(max_graphs=20) ?(single_pass=true) sort_by key_fields aggr_fields dbdir name =
+    let start = optmin start stop
+    and stop = optmax start stop in
+    let aggr_fields = List.map (fun n -> BatString.split n ".") aggr_fields in
+    Dynlinker.((if single_pass then load_top_single_pass else load_top_two_pass) "Dns" Dns.fields ?start ?stop ?hash_val:ip_srv ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name) ;
+    !dyn_top ()
 
 (* Lod1: degraded client, rounded query_date (to 1min), distribution of resptimes *)
 (* Lod2: round timestamp to 10 mins *)

@@ -103,8 +103,9 @@ html {
 
 h1 {
     background-color: #fff;
-    padding: 0.5em 0 0.5em 2em;
+    padding: 0.5em 5em 0.5em 5em;
     border-bottom: 1px solid #000;
+    text-align: center;
 }
 
 /* Forms */
@@ -299,9 +300,7 @@ p.hitem.selected {
 /* Help */
 
 .help {
-    width: 70%;
-    margin-left: auto;
-    margin-right: auto;
+    padding: 0.5em 5em 0.5em 5em;
 }
 
 .help p {

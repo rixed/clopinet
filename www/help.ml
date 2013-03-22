@@ -24,7 +24,7 @@ let () =
 
 
 let field_help (name, desc) =
-    let open Metric in
+    let open Datatype in
     tr [
         th [ CData name ] ;
         td [ CData desc.help ] ;
@@ -43,20 +43,20 @@ let field_help (name, desc) =
 
 let chart_help chart =
     Block (
-        h3 chart.My_ctrl.ChartDescr.title :: chart.My_ctrl.ChartDescr.descr
+        h3 chart.My_ctrl.ChartDescr.title :: chart.My_ctrl.ChartDescr.help
     )
 
 let page name _params =
     let descr, fields = Hashtbl.find pages name in
     let fields_help =
         List.map field_help fields
-    and chart_help =
+    and charts_help =
         List.filter (fun c -> c.My_ctrl.ChartDescr.category = name) My_ctrl.chart_descrs |>
         List.map chart_help in
-    [ div ~cls:"help" [
-        h2 name ;
+    [ h1 name ;
+      div ~cls:"help" [
         span descr ;
-        h3 "Fields" ;
+        h2 "Fields" ;
         table (
             tr [ th [ CData "name" ] ;
                  th [ CData "description" ] ;
@@ -64,8 +64,8 @@ let page name _params =
                  th [ CData "can be sorted by" ] ;
                  th [ CData "can be grouped by" ] ] ::
             fields_help) ;
-        h3 "Charts" ;
-        (* TODO: Also repeat this help in the chart page * (not in reports, or in a popup window) *)
-        Block chart_help
+        h2 "Charts" ;
+        (* TODO: Also repeat this help in the chart page (no data page) *)
+        Block charts_help
     ] ]
 

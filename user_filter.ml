@@ -105,16 +105,13 @@ let value =
   value (String.to_list "\"glop\"") = Peg.Res (Text "glop", [])
  *)
 
-type expr_type = TBool | TInteger | TFloat | TText
-               | TIp | TCidr | TEthAddr | TInterval
-               | TTimestamp | TVLan
 let string_of_type = function
     | TBool -> "boolean" | TInteger -> "integer" | TFloat -> "float"
     | TText -> "string"  | TIp  -> "IP address"  | TCidr -> "CIDR subnet"
     | TEthAddr -> "mac"  | TInterval -> "time interval" | TTimestamp -> "datetime"
     | TVLan -> "vlan"
 
-let fields = ref [ "prout", TIp ]
+let fields = ref []
 
 let field_name =
     let field_name_char = either [ alphabetic ; numeric ; item '_' ] in
@@ -295,7 +292,7 @@ and check_same_type e1 e2 =
     let t1 = type_of_expr e1 in check t1 e2
 and type_of_field s =
     (* we know at this point that this field exists *)
-    List.assoc s !fields
+    (List.assoc s !fields).expr_type
 and type_of_value = function
     | Cidr _      -> TCidr
     | InetAddr _  -> TIp
@@ -338,14 +335,14 @@ let type_of_string str =
     | _ -> assert false
 
 (*$T type_of_string
-  type_of_string "(true==false) == false" = TBool
-  type_of_string "(666 > 42) && true" = TBool
-  type_of_string "\"glop glop\" starts with \"glop\"" = TBool
-  type_of_string "1 == 1.0 || 1.2 <= 2" = TBool
-  type_of_string "2013-12-11" = TTimestamp
-  type_of_string "2013-12-11 09:45" = TTimestamp
-  type_of_string "30s" = TInterval
-  type_of_string "2013-12-11 09:45 +30s" = TTimestamp
+  type_of_string "(true==false) == false" = Datatype.TBool
+  type_of_string "(666 > 42) && true" = Datatype.TBool
+  type_of_string "\"glop glop\" starts with \"glop\"" = Datatype.TBool
+  type_of_string "1 == 1.0 || 1.2 <= 2" = Datatype.TBool
+  type_of_string "2013-12-11" = Datatype.TTimestamp
+  type_of_string "2013-12-11 09:45" = Datatype.TTimestamp
+  type_of_string "30s" = Datatype.TInterval
+  type_of_string "2013-12-11 09:45 +30s" = Datatype.TTimestamp
  *)
 
 (* {2 Convertion into an OCaml string} *)

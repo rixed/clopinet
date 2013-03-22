@@ -32,7 +32,7 @@ let ocaml_of_user_filter = function
     | None      -> "true"
     | Some expr -> User_filter.ocaml_of_expr expr
 
-let load_filter module_name usr_fields ?usr_filter checks =
+let load_filter module_name ?usr_filter usr_fields checks =
     let param_names = List.map fst usr_fields |> String.join "," in
     (* We have two filters combined: one from preset filter terms, and the free usr_filter, ANDed *)
     let checks =
@@ -57,7 +57,6 @@ let () =\n\
     load_string
 
 open Datatype
-open Metric
 
 let maketuple name datatypes =
     let str = IO.output_string () in
@@ -114,25 +113,39 @@ let maketuple name datatypes =
     printf "end\n" ;
     IO.close_out str
 
-let load_top_two_pass modname fields ?start ?stop ?ip_src ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
+let virtual_fields fields =
+    "(* build virtual fields - if any *)
+    "^ (List.filter (is_virtual%snd) fields |>
+        List.map (fun (n,f) ->
+            "let "^n^" = "^f.from_prevfields^" in") |>
+        String.concat "\n    ")
+
+let to_sort_int fields sort_by =
+    let f = List.assoc sort_by fields in
+    assert (f.sortable <> "") ;
+    "("^ f.sortable ^" "^ sort_by ^")"
+
+let load_top_two_pass modname fields ?start ?stop ?hash_val ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
+    let sort_by = to_sort_int fields sort_by in
 "open "^ modname ^"
 open Batteries
 
 let top () =
     "^ (start |> BatOption.map (fun s -> "let min_start = "^ (s |> Timestamp.to_imm) ^" in") |> BatOption.default "") ^"
     "^ (stop  |> BatOption.map (fun s -> "let max_stop  = "^ (s |> Timestamp.to_imm) ^" in") |> BatOption.default "") ^"
-    "^ (ip_src|> BatOption.map (fun i -> "let req_ip_src = "^ (i |> Cidr.to_imm) ^" in") |> BatOption.default "") ^"
+    "^ (hash_val|> BatOption.map (fun i -> "let req_ip_src = "^ (i |> Cidr.to_imm) ^" in") |> BatOption.default "") ^"
     let fold1 f i m =
         "^ modname ^".fold_all
             "^ (start |> BatOption.map (fun _ -> "~start:min_start") |> BatOption.default "") ^"
             "^ (stop  |> BatOption.map (fun _ -> "~stop:max_stop") |> BatOption.default "") ^"
-            "^ (ip_src|> BatOption.map (fun _ -> "~ip_src:req_ip_src") |> BatOption.default "") ^"
+            "^ (hash_val|> BatOption.map (fun _ -> "~hash_val:req_ip_src") |> BatOption.default "") ^"
             "^ Text.to_imm dbdir ^" "^ Text.to_imm name ^"
-            (fun ("^ (fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
+            (fun ("^ (List.filter (is_concrete%snd) fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
+                "^ (virtual_fields fields) ^"
                 if "^ (usr_filter |> BatOption.map User_filter.ocaml_of_expr |> BatOption.default "true") ^" &&
                    "^ (start |> BatOption.map (fun _ -> "Datatype.Timestamp.compare stop min_start >= 0") |> BatOption.default "true") ^" &&
                    "^ (stop  |> BatOption.map (fun _ -> "Datatype.Timestamp.compare max_stop start > 0") |> BatOption.default "true") ^" &&
-                   "^ (ip_src|> BatOption.map (fun _ -> "Datatype.in_cidr ip_src req_ip_src") |> BatOption.default "true") ^"
+                   "^ (hash_val|> BatOption.map (fun _ -> "Datatype.in_cidr hash_val req_ip_src") |> BatOption.default "true") ^"
                 then (
                     let y = "^ sort_by ^" in
                     "^ (start |> BatOption.map (fun _ ->
@@ -155,13 +168,14 @@ let top () =
             "^ modname ^".fold_all
             "^ (start |> BatOption.map (fun _ -> "~start:min_start") |> BatOption.default "") ^"
             "^ (stop  |> BatOption.map (fun _ -> "~stop:max_stop") |> BatOption.default "") ^"
-            "^ (ip_src|> BatOption.map (fun _ -> "~ip_src:req_ip_src") |> BatOption.default "") ^"
+            "^ (hash_val|> BatOption.map (fun _ -> "~hash_val:req_ip_src") |> BatOption.default "") ^"
             "^ Text.to_imm dbdir ^" "^ Text.to_imm name ^"
-            (fun ("^ (fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
+            (fun ("^ (List.filter (is_concrete%snd) fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
+                "^ (virtual_fields fields) ^"
                 if "^ (usr_filter |> BatOption.map User_filter.ocaml_of_expr |> BatOption.default "true") ^" &&
                    "^ (start |> BatOption.map (fun _ -> "Datatype.Timestamp.compare stop min_start >= 0") |> BatOption.default "true") ^" &&
                    "^ (stop  |> BatOption.map (fun _ -> "Datatype.Timestamp.compare max_stop start > 0") |> BatOption.default "true") ^" &&
-                   "^ (ip_src|> BatOption.map (fun _ -> "Datatype.in_cidr ip_src req_ip_src") |> BatOption.default "true") ^"
+                   "^ (hash_val|> BatOption.map (fun _ -> "Datatype.in_cidr hash_val req_ip_src") |> BatOption.default "true") ^"
                 then (
                     let y = "^ sort_by ^" in
                     "^ (start |> BatOption.map (fun _ ->
@@ -228,25 +242,27 @@ let () =
     load_string
 
 
-let load_top_single_pass modname fields ?start ?stop ?ip_src ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
+let load_top_single_pass modname fields ?start ?stop ?hash_val ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
+    let sort_by = to_sort_int fields sort_by in
 "open "^ modname ^"
 open Batteries
 
 let top () =
     "^ (start |> BatOption.map (fun s -> "let min_start = "^ (s |> Timestamp.to_imm) ^" in") |> BatOption.default "") ^"
     "^ (stop  |> BatOption.map (fun s -> "let max_stop  = "^ (s |> Timestamp.to_imm) ^" in") |> BatOption.default "") ^"
-    "^ (ip_src|> BatOption.map (fun i -> "let req_ip_src = "^ (i |> Cidr.to_imm) ^" in") |> BatOption.default "") ^"
+    "^ (hash_val|> BatOption.map (fun i -> "let req_ip_src = "^ (i |> Cidr.to_imm) ^" in") |> BatOption.default "") ^"
     let fold f i m =
         "^ modname ^".fold_all
             "^ (start |> BatOption.map (fun _ -> "~start:min_start") |> BatOption.default "") ^"
             "^ (stop  |> BatOption.map (fun _ -> "~stop:max_stop") |> BatOption.default "") ^"
-            "^ (ip_src|> BatOption.map (fun _ -> "~ip_src:req_ip_src") |> BatOption.default "") ^"
+            "^ (hash_val|> BatOption.map (fun _ -> "~hash_val:req_ip_src") |> BatOption.default "") ^"
             "^ Text.to_imm dbdir ^" "^ Text.to_imm name ^"
-            (fun ("^ (fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
+            (fun ("^ (List.filter (is_concrete%snd) fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
+                "^ (virtual_fields fields) ^"
                 if "^ (usr_filter |> BatOption.map User_filter.ocaml_of_expr |> BatOption.default "true") ^" &&
                    "^ (start |> BatOption.map (fun _ -> "Datatype.Timestamp.compare stop min_start >= 0") |> BatOption.default "true") ^" &&
                    "^ (stop  |> BatOption.map (fun _ -> "Datatype.Timestamp.compare max_stop start > 0") |> BatOption.default "true") ^" &&
-                   "^ (ip_src|> BatOption.map (fun _ -> "Datatype.in_cidr ip_src req_ip_src") |> BatOption.default "true") ^"
+                   "^ (hash_val|> BatOption.map (fun _ -> "Datatype.in_cidr hash_val req_ip_src") |> BatOption.default "true") ^"
                 then (
                     let y = "^ sort_by ^" in
                     "^ (start |> BatOption.map (fun _ ->
@@ -293,7 +309,7 @@ let top () =
                 let a = List.assoc an f.aggrs in
                 f.display ^" ("^a.fin ^" "^fn^"_"^an^")") |> String.concat "; ") ^" |] in
             (Some k_a, v_a, v, v+n0) :: lst)
-        h"^
+        h "^
         (if aggr_fields = [] then "[]" else
         "(let "^ (aggr_fields |> List.map (fun (fn,an) -> "r_"^fn^"_"^an) |> String.concat ", ") ^" = rtv in
             [ None, [| "^ (aggr_fields |> List.map (fun (fn,an) ->

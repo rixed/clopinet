@@ -42,6 +42,13 @@ let is_within bounds start stop = match bounds with
         check start (fun start -> not (cmp ts2 start < 0)) &&
         check stop  (fun stop  -> not (cmp stop ts1 < 0))
 
+let optmin a b = match a, b with
+    | Some a, Some b -> Some (min a b)
+    | _ -> a
+let optmax a b = match a, b with
+    | Some a, Some b -> Some (max a b)
+    | _ -> b
+
 (* functions related to the index *)
 
 let fold_using_indexed ip tdir fold_hnum make_fst merge = match ip with
@@ -169,16 +176,4 @@ let purge dbdir lods =
             let tdir = table_name dbdir lod in
             Table.iter_hnums tdir (purge_hnum max_age tdir) in
     Array.iter purge_lod lods
-
-(* Fields models for templates *)
-
-type aggr_function = { zero : string ; singleton : string ; func : string ; fin : string }
-
-type selectable_field = {
-    help : string ;
-    aggrs : (string * aggr_function) list ;
-    sortable : string ; (* name of to_int function, or "" *)
-    keyable : bool ;
-    datatype : string ;
-    display : string }
 

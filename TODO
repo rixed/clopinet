@@ -4,7 +4,9 @@ TODO stack
 Roadmap for 0.1
 ---------------
 
-- make appending accumulators configured by conffile
+- Faire marcher le top dans Dns
+
+- Ajouter user_filter pour DNS (dans Top et ailleurs)
 
 - "View in browser" link should direct to proper action
 
@@ -160,6 +162,12 @@ Callflow
   into time, and info on selected peer timeline (IP...?) + http link to other
   infos related to this peer
 
+- Arrows at top/bottom to scroll time range
+
+- limit the selection to a given amount of rows to avoid flooding the client 
+  with a massive SVG that can't be rendered (display a "data truncated" 
+notification)
+
 
 
 - Add user-agent and referer in web metric
@@ -276,4 +284,6 @@ distributed querying
 - distrib chart for HTTP should give choice for grouping field (for instance,
   response code, method...)
 
+
+- make appending accumulators configured by conffile
 

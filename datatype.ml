@@ -979,6 +979,10 @@ module Timestamp = struct
         Int64.mul t i64
     let mul _ _ = failwith "Cannot mul timestamps!"
 
+    let add_seconds t s =
+        add t (s /. 1000. |> Int64.of_float) (* TODO: better rounding woudnt hurt *)
+
+    (* Used here and there - just in case in future generic max is not good enough *)
     let min = min
     let max = max
 
@@ -1320,4 +1324,46 @@ end
 (* Used pervasively *)
 
 module VLan = Option (UInteger16)
+
+(* Now that we have these, define a few related types.
+ * Note: in the future, we'd like some of these merged into datatypes module so that to
+ *       generate runtime code we'd merely need a list of name -> datatype module name *)
+
+type expr_type = TBool | TInteger | TFloat | TText
+               | TIp | TCidr | TEthAddr | TInterval
+               | TTimestamp | TVLan
+
+(* Fields models for templates *)
+
+type aggr_function = {
+    zero : string ;         (* neutral 'x value *)
+    singleton : string ;    (* how to change our first value to the first 'x when starting the aggregation? *)
+    func : string ;         (* the aggr function itself, taking two 'x and returning 'x *)
+    fin : string }          (* at the end we don't want 'xs we want our value *)
+
+type selectable_field = {
+    help : string ;
+    from_prevfields : string ; (* the expression to build its value from previously defined fields, or "" if the field come from the DB *)
+    expr_type : expr_type ;
+    aggrs : (string * aggr_function) list ;
+    sortable : string ; (* name of to_int function, or "" *)
+    keyable : bool ;
+    datatype : string ;
+    display : string }
+
+let is_virtual field = String.length field.from_prevfields > 0
+let is_concrete = not % is_virtual
+
+let aggr_max_int = { zero = "min_int" ; singleton = "identity" ; func = "max" ; fin = "identity" }
+let aggr_min_int = { zero = "max_int" ; singleton = "identity" ; func = "min" ; fin = "identity" }
+let aggr_sum_int = { zero = "0"       ; singleton = "identity" ; func = "(+)" ; fin = "identity" }
+let aggr_avg_int = { zero = "(0,0)"   ; singleton = "(fun v -> 1,v)" ; func = "(fun (c1,s1) (c2,s2) -> c1+c2, s1+s2)" ; fin = "(fun (c,s) -> if c <> 0 then s/c else 0)" }
+let aggrs_int = [ "max", aggr_max_int ; "min", aggr_min_int ; "sum", aggr_sum_int ; "avg", aggr_avg_int ]
+
+let aggr_distribution = {
+    zero = "Distribution.zero" ;
+    singleton = "identity" ;
+    func = "Distribution.combine" ;
+    fin = "identity" }
+let aggrs_distribution = [ "distribution", aggr_distribution ]
 

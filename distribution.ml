@@ -7,6 +7,7 @@ open Datatype
    See Aggregator.distr for an aggregation function.
  *)
 
+(* FIXME: count should be a ULeast63 *)
 include Tuple5.Make (Least63) (Float) (Float) (Float) (Float)
 
 let zero = Least63.zero, 0., 0., 0., 0.
@@ -64,3 +65,5 @@ let max   (_c, _mi, ma, _avg, _v) = ma
 let avg   (_c, _mi, _ma, avg, _v) = avg
 let var   (_c, _mi, _ma, _avg, v) = v
 
+let to_string (c, mi, ma, avg, _v as d) =
+    Printf.sprintf "%f, s:%f, min:%f, max:%f, count:%d" avg (std_dev d) mi ma c

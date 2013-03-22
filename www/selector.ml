@@ -1,6 +1,6 @@
 open Batteries
 open Input.Ops
-open Metric
+open Datatype
 
 module type CONF =
 sig

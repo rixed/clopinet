@@ -202,6 +202,12 @@ module DistPrecField = struct
     let uniq_name = "distr-prec"
     let persistant = true
 end
+module SinglePass = struct
+    module Type = Optional (Boolean)
+    let display_name = "single pass"
+    let uniq_name = "single-pass"
+    let persistant = true
+end
 
 module Traffic = struct
     module TblNames = struct
@@ -252,12 +258,6 @@ module Traffic = struct
         module Type = Selector.MakeSort (Traffic.Traffic)
         let display_name = "sort by"
         let uniq_name = "traffic-tops-sort"
-        let persistant = true
-    end
-    module SinglePass = struct
-        module Type = Optional (Boolean)
-        let display_name = "single pass"
-        let uniq_name = "single-pass"
         let persistant = true
     end
 
@@ -459,6 +459,30 @@ module Dns = struct
         let uniq_name = "qname"
         let persistant = false
     end
+    module UsrFilter = struct
+        module Type = Optional (Filter_expr.Make (Dns.Dns))
+        let display_name = "free filter"
+        let uniq_name = "usr-filter"
+        let persistant = true
+    end
+    module KeySelector = struct
+        module Type = Selector.MakeKey (Dns.Dns)
+        let display_name = "key"
+        let uniq_name = "dns-tops-key"
+        let persistant = true
+    end
+    module AggrSelector = struct
+        module Type = Selector.MakeAggr (Dns.Dns)
+        let display_name = "fields"
+        let uniq_name = "dns-tops-fields"
+        let persistant = true
+    end
+    module SortSelector = struct
+        module Type = Selector.MakeSort (Dns.Dns)
+        let display_name = "sort by"
+        let uniq_name = "dns-tops-sort"
+        let persistant = true
+    end
     module RespTime = RecordOf (ConsOf (FieldOf (StartField))
                                (ConsOf (FieldOf (StopField))
                                (ConsOf (FieldOf (VlanField))
@@ -501,6 +525,18 @@ module Dns = struct
                               (ConsOf (FieldOf (MaxGraphsField))
                               (ConsOf (FieldOf (TblNameField))
                                       (NulType)))))))))))))
+
+    module Tops = RecordOf (ConsOf (FieldOf (StartField))
+                           (ConsOf (FieldOf (StopField))
+                           (ConsOf (FieldOf (IpSrvField))
+                           (ConsOf (FieldOf (UsrFilter))
+                           (ConsOf (FieldOf (TblNameField))
+                           (ConsOf (FieldOf (KeySelector))
+                           (ConsOf (FieldOf (AggrSelector))
+                           (ConsOf (FieldOf (SortSelector))
+                           (ConsOf (FieldOf (MaxGraphsField))
+                           (ConsOf (FieldOf (SinglePass))
+                                   (NulType)))))))))))
 end
 
 module Flow = struct

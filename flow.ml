@@ -231,7 +231,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
             let empty_flows () = []
             and merge_flows f1 f2 = List.rev_append f2 f1 in
             let dns_flows = BatOption.map_default (fun dbdir ->
-                Dns.Dns.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir Dns.lods.(0) (fun dns flows ->
+                Dns.Dns.fold ~start ~stop ?vlan ~ip_srv:(cidr_singleton ip) dbdir Dns.lods.(0) (fun dns flows ->
                     flow_of_dns dns :: flows)
                     empty_flows merge_flows) [] dns_dbdir
             and web_flows = BatOption.map_default (fun dbdir ->

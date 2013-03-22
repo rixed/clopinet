@@ -90,14 +90,11 @@ struct
             l4_pld + l4_pld'
 
     (* Field description for code templates, HTML forms, etc... *)
-    let aggr_max_int = { zero = "min_int" ; singleton = "identity" ; func = "max" ; fin = "identity" }
-    let aggr_min_int = { zero = "max_int" ; singleton = "identity" ; func = "min" ; fin = "identity" }
-    let aggr_sum_int = { zero = "0"       ; singleton = "identity" ; func = "(+)" ; fin = "identity" }
-    let aggr_avg_int = { zero = "(0,0)"   ; singleton = "(fun v -> 1,v)" ; func = "(fun (c1,s1) (c2,s2) -> c1+c2, s1+s2)" ; fin = "(fun (c,s) -> if c <> 0 then s/c else 0)" }
-    let aggrs_int = [ "max", aggr_max_int ; "min", aggr_min_int ; "sum", aggr_sum_int ; "avg", aggr_avg_int ]
     let fields = [
         "start", {
-            help = "start time of the flow";
+            help = "start time of the flow" ;
+            from_prevfields = "" ;
+            expr_type = TTimestamp ;
             aggrs = [] ;
             sortable = "" ;
             keyable = false ;
@@ -105,13 +102,17 @@ struct
             display = "Datatype.Timestamp.to_string" } ;
         "stop", {
             help = "timestamp of the last packet of this flow" ;
+            from_prevfields = "" ;
+            expr_type = TTimestamp ;
             aggrs = [] ;
             sortable = "" ;
             keyable = false ;
             datatype = "Datatype.Timestamp" ;
             display = "Datatype.Timestamp.to_string" } ;
-        "count", {
+        "packets", {
             help = "number of packets in this flow" ;
+            from_prevfields = "" ;
+            expr_type = TInteger ;
             aggrs = aggrs_int ;
             sortable = "identity" ;
             keyable = false ;
@@ -119,109 +120,127 @@ struct
             display = "Datatype.string_of_inumber" } ;
         "vlan", {
             help = "802.1q vlan id" ;
+            from_prevfields = "" ;
+            expr_type = TVLan ;
             aggrs = [] ;
             sortable = "" ;
             keyable = true ;
             datatype = "Datatype.VLan" ;
             display = "Datatype.VLan.to_string" } ;
-        "mac_src", {
+        "eth_src", {
             help = "source ethernet address" ;
+            from_prevfields = "" ;
+            expr_type = TEthAddr ;
             aggrs = [] ;
-			sortable = "" ;
-			keyable = true ;
-			datatype = "Datatype.EthAddr" ;
-			display = "Datatype.EthAddr.to_string" } ;
-        "mac_dst", {
-			help = "destination ethernet address" ;
-			aggrs = [] ;
-			sortable = "" ;
-			keyable = true ;
-			datatype = "Datatype.EthAddr" ;
-			display = "Datatype.EthAddr.to_string" } ;
-        "mac_proto", {
-			help = "ethernet protocol" ;
-			aggrs = [] ;
-			sortable = "identity" ;
-			keyable = true ;
-			datatype = "Datatype.UInteger16" ;
-			display = "Datatype.string_of_inumber" } ;
-        "mac_pld", {
-			help = "total ethernet frame payload" ;
-			aggrs = aggrs_int ;
-			sortable = "identity" ;
-			keyable = true ;
-			datatype = "Datatype.ULeast63" ;
-			display = "Datatype.string_of_inumber" } ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.EthAddr" ;
+            display = "Datatype.EthAddr.to_string" } ;
+        "eth_dst", {
+            help = "destination ethernet address" ;
+            from_prevfields = "" ;
+            expr_type = TEthAddr ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.EthAddr" ;
+            display = "Datatype.EthAddr.to_string" } ;
+        "eth_proto", {
+            help = "ethernet protocol" ;
+            from_prevfields = "" ;
+            expr_type = TInteger ;
+            aggrs = [] ;
+            sortable = "identity" ;
+            keyable = true ;
+            datatype = "Datatype.UInteger16" ;
+            display = "Datatype.string_of_inumber" } ;
+        "eth_payload", {
+            help = "total ethernet frame payload" ;
+            from_prevfields = "" ;
+            expr_type = TInteger ;
+            aggrs = aggrs_int ;
+            sortable = "identity" ;
+            keyable = true ;
+            datatype = "Datatype.ULeast63" ;
+            display = "Datatype.string_of_inumber" } ;
         "mtu", {
-			help = "max observed ethernet frame payload" ;
-			aggrs = ["max", aggr_max_int] ;
-			sortable = "identity" ;
-			keyable = true ;
-			datatype = "Datatype.UInteger16" ;
-			display = "Datatype.string_of_inumber" } ;
+            help = "max observed ethernet frame payload" ;
+            from_prevfields = "" ;
+            expr_type = TInteger ;
+            aggrs = ["max", aggr_max_int] ;
+            sortable = "identity" ;
+            keyable = true ;
+            datatype = "Datatype.UInteger16" ;
+            display = "Datatype.string_of_inumber" } ;
         "ip_src", {
-			help = "source IP address (if IP)" ;
-			aggrs = [] ;
-			sortable = "" ;
-			keyable = true ;
-			datatype = "Datatype.InetAddr" ;
-			display = "Datatype.InetAddr.to_string" } ;
+            help = "source IP address (if IP)" ;
+            from_prevfields = "" ;
+            expr_type = TIp ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.InetAddr" ;
+            display = "Datatype.InetAddr.to_string" } ;
         "ip_dst", {
-			help = "destination IP address (if IP)" ;
-			aggrs = [] ;
-			sortable = "" ;
-			keyable = true ;
-			datatype = "Datatype.InetAddr" ;
-			display = "Datatype.InetAddr.to_string" } ;
+            help = "destination IP address (if IP)" ;
+            from_prevfields = "" ;
+            expr_type = TIp ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.InetAddr" ;
+            display = "Datatype.InetAddr.to_string" } ;
         "ip_proto", {
-			help = "IP protocol (if IP)" ;
-			aggrs = [] ;
-			sortable = "identity" ;
-			keyable = true ;
-			datatype = "Datatype.UInteger8" ;
-			display = "Datatype.string_of_inumber" } ;
-        "ip_pld", {
-			help = "IP payload (if IP)" ;
-			aggrs = aggrs_int ;
-			sortable = "identity" ;
-			keyable = true ;
-			datatype = "Datatype.ULeast63" ;
-			display = "Datatype.string_of_inumber" } ;
+            help = "IP protocol (if IP)" ;
+            from_prevfields = "" ;
+            expr_type = TInteger ;
+            aggrs = [] ;
+            sortable = "identity" ;
+            keyable = true ;
+            datatype = "Datatype.UInteger8" ;
+            display = "Datatype.string_of_inumber" } ;
+        "ip_payload", {
+            help = "IP payload (if IP)" ;
+            from_prevfields = "" ;
+            expr_type = TInteger ;
+            aggrs = aggrs_int ;
+            sortable = "identity" ;
+            keyable = true ;
+            datatype = "Datatype.ULeast63" ;
+            display = "Datatype.string_of_inumber" } ;
         "port_src", {
-			help = "source port (if UDP or TCP)" ;
-			aggrs = aggrs_int ;
-			sortable = "identity" ;
-			keyable = true ;
-			datatype = "Datatype.UInteger16" ;
-			display = "Datatype.string_of_inumber" } ;
+            help = "source port (if UDP or TCP)" ;
+            from_prevfields = "" ;
+            expr_type = TInteger ;
+            aggrs = aggrs_int ;
+            sortable = "identity" ;
+            keyable = true ;
+            datatype = "Datatype.UInteger16" ;
+            display = "Datatype.string_of_inumber" } ;
         "port_dst", {
-			help = "destination port (if UDP or TCP)" ;
-			aggrs = aggrs_int ;
-			sortable = "identity" ;
-			keyable = true ;
-			datatype = "Datatype.UInteger16" ;
-			display = "Datatype.string_of_inumber" } ;
-        "l4_pld", {
-			help = "UDP/TCP payload (if UDP or TCP)" ;
-			aggrs = aggrs_int ;
-			sortable = "identity" ;
-			keyable = true ;
-			datatype = "Datatype.ULeast63" ;
-			display = "Datatype.string_of_inumber" } ]
+            help = "destination port (if UDP or TCP)" ;
+            from_prevfields = "" ;
+            expr_type = TInteger ;
+            aggrs = aggrs_int ;
+            sortable = "identity" ;
+            keyable = true ;
+            datatype = "Datatype.UInteger16" ;
+            display = "Datatype.string_of_inumber" } ;
+        "l4_payload", {
+            help = "UDP/TCP payload (if UDP or TCP)" ;
+            from_prevfields = "" ;
+            expr_type = TInteger ;
+            aggrs = aggrs_int ;
+            sortable = "identity" ;
+            keyable = true ;
+            datatype = "Datatype.ULeast63" ;
+            display = "Datatype.string_of_inumber" } ]
 
     (* This is just a way for our dynamically loaded code to reach us *)
     let filter_ = ref (fun (_ : t) -> true)
     let set_filter f = filter_ := f
-    (* globally accessible so that one can get the list of available fields *)
-    let filter_fields =
-        let open User_filter in
-        [ "start", TInteger ; "stop", TInteger ;
-          "packets", TInteger ; "vlan", TVLan; "eth_src", TInteger ; "eth_dst", TInteger ;
-          "eth_proto", TInteger ; "eth_payload", TInteger ; "mtu", TInteger ;
-          "ip_src", TIp ; "ip_dst", TIp ; "ip_proto", TInteger ; "ip_payload", TInteger ;
-          "port_src", TInteger ; "port_dst", TInteger ; "t4_payload", TInteger ]
     let compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter () =
-        Dynlinker.(load_filter "Traffic.Traffic" ?usr_filter filter_fields
+        Dynlinker.(load_filter "Traffic.Traffic" ?usr_filter fields
             [ check start     Timestamp.to_imm  "Datatype.Timestamp.compare stop %s >= 0" ;
               check stop      Timestamp.to_imm  "Datatype.Timestamp.compare %s start > 0" ;
               check mac_src   EthAddr.to_imm    "Datatype.EthAddr.equal eth_src %s" ;
@@ -236,7 +255,7 @@ struct
         !filter_
 
     (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
-    let fold_all ?start ?stop ?ip_src dbdir name f make_fst merge =
+    let fold_all ?start ?stop ?hash_val dbdir name f make_fst merge =
         let tdir = table_name dbdir name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
@@ -248,11 +267,11 @@ struct
                     ) in
                 res)
                 fst merge in
-        fold_using_indexed ip_src tdir fold_hnum make_fst merge
+        fold_using_indexed hash_val tdir fold_hnum make_fst merge
 
     let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter dbdir name f make_fst merge =
         let filter = compile_filter ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter () in
-        fold_all ?start ?stop ?ip_src dbdir name (fun x prev ->
+        fold_all ?start ?stop ?hash_val:ip_src dbdir name (fun x prev ->
             if filter x then f x prev else prev)
             make_fst merge
 
@@ -263,13 +282,6 @@ struct
 end
 
 (* Querries *)
-
-let optmin a b = match a, b with
-    | Some a, Some b -> Some (min a b)
-    | _ -> a
-let optmax a b = match a, b with
-    | Some a, Some b -> Some (max a b)
-    | _ -> b
 
 type plot_what = PacketCount | Volume
 
@@ -386,7 +398,7 @@ let get_top ?start ?stop ?ip_src ?usr_filter ?(max_graphs=20) ?(single_pass=true
     let start = optmin start stop
     and stop = optmax start stop in
     let aggr_fields = List.map (fun n -> BatString.split n ".") aggr_fields in
-    Dynlinker.((if single_pass then load_top_single_pass else load_top_two_pass) "Traffic" Traffic.fields ?start ?stop ?ip_src ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name) ;
+    Dynlinker.((if single_pass then load_top_single_pass else load_top_two_pass) "Traffic" Traffic.fields ?start ?stop ?hash_val:ip_src ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name) ;
     !dyn_top ()
 
 (* FIXME: app should be a string, and we should also report various eth apps *)

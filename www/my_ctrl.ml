@@ -70,7 +70,7 @@ struct
     (* A chart unique id is "category/title" *)
     type t = { category : string ; (* for menus *)
                title : string ; (* submenu entry *)
-               descr : html ;
+               help : html ;
                to_html : string -> (string -> string list) -> html ; (* rendering the chart *)
                filter : string -> string -> (string -> string list) -> html_chunk (* FIXME: html! *) (* rendering the form *) }
 
@@ -84,7 +84,7 @@ let filtered_chart_show chart_descr getter =
 let filtered_chart chart_descr getter =
     let target = chart_descr.category ^"/"^ chart_descr.title ^"/show" in
     let form = chart_descr.filter target "filter" getter in
-    View.make_filter chart_descr.title form
+    View.make_filter chart_descr.title chart_descr.help form
 
 end
 
@@ -134,10 +134,10 @@ struct
     let bw_chart_descr =
         { ChartDescr.category = "Traffic" ;
           ChartDescr.title = "bandwidth" ;
-          ChartDescr.descr = [ p [ cdata "The first chart to check is usualy the bandwidth chart. \
-                                          It displays the volume of traffic (either bytes or packets count) \
-                                          with regard to time." ;
-                                   cdata "It is possible to group volume by addresses or ports." ] ] ;
+          ChartDescr.help = [ p [ cdata "The first chart to check is usualy the bandwidth chart. \
+                                         It displays the volume of traffic (either bytes or packets count) \
+                                         with regard to time." ] ;
+                              p [ cdata "It is possible to group volume by addresses or ports." ] ] ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Traffic.Bandwidth.from name getter |> bandwidth_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -165,9 +165,9 @@ struct
     let peer_chart_descr =
         { ChartDescr.category = "Traffic" ;
           ChartDescr.title = "peers" ;
-          ChartDescr.descr = [ p [ cdata "This chart displays which network peers exchanged the most traffic." ;
-                                   cdata "This may be used to learn what hosts are the more verbose or to spot \
-                                          possibly compromised hosts that connect to many others." ] ] ;
+          ChartDescr.help = [ p [ cdata "This chart displays which network peers exchanged the most traffic." ;
+                                  cdata "This may be used to learn what hosts are the more verbose or to spot \
+                                         possibly compromised hosts that connect to many others." ] ] ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Traffic.Peers.from name getter |> peers_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -189,11 +189,11 @@ struct
     let graph_chart_descr =
         { ChartDescr.category = "Traffic" ;
           ChartDescr.title = "graph" ;
-          ChartDescr.descr = [ p [ cdata "This chart displays a zoomable graph of " ; em "all" ; cdata " peers \
-                                          (above a given threshold of volume) as layered by graphviz." ;
-                                   cdata "This comes handy to learn what clusters your hosts are in, \
-                                          and can even be used to spot subnets of bots (via the pattern these \
-                                          bots use to synchronize)." ] ] ;
+          ChartDescr.help = [ p [ cdata "This chart displays a zoomable graph of " ; em "all" ; cdata " peers \
+                                         (above a given threshold of volume) as layered by graphviz." ;
+                                  cdata "This comes handy to learn what clusters your hosts are in, \
+                                         and can even be used to spot subnets of bots (via the pattern these \
+                                         bots use to synchronize)." ] ] ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Traffic.Graph.from name getter |> graph_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -211,15 +211,15 @@ struct
     let top_chart_descr =
         { ChartDescr.category = "Traffic" ;
           ChartDescr.title = "top" ;
-          ChartDescr.descr = [ p [ cdata "This is the 'free form' query into the traffic database. You can ask \
-                                          for any fields, grouped by any fields with whatever aggregate function \
-                                          you like, sorted by any field, filtered by any expression, and get back \
-                                          the top " ; em "N" ; cdata " tuples." ] ;
-                               p [ cdata "This is useful when you look for something in particular and none of the \
-                                          other views fit your need." ] ;
-                               p [ cdata "Notice the " ; em "single" ; cdata " or " ; em "double" ;
-                                   cdata " pass radiobutton; single pass is approximately twice faster but will \
-                                          report an approximate result." ] ] ;
+          ChartDescr.help = [ p [ cdata "This is the 'free form' query into the traffic database. You can ask \
+                                         for any fields, grouped by any fields with whatever aggregate function \
+                                         you like, sorted by any field, filtered by any expression, and get back \
+                                         the top " ; em "N" ; cdata " tuples." ] ;
+                              p [ cdata "This is useful when you look for something in particular and none of the \
+                                         other views fit your need." ] ;
+                              p [ cdata "Notice the " ; em "single" ; cdata " or " ; em "double" ;
+                                  cdata " pass radiobutton; single pass is approximately twice faster but will \
+                                         report an approximate result." ] ] ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Traffic.Tops.from name getter |> top_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -239,10 +239,10 @@ struct
     let map_chart_descr =
         { ChartDescr.category = "Traffic" ;
           ChartDescr.title = "World Map" ;
-          ChartDescr.descr = [ p [ cdata "This chart maps your traffic on a world map, according to IP geolocalisation \
-                                          provided by the (free version of) the geoip database." ] ;
-                               p [ cdata "May be useful to check where your traffic comes from or what sites use the \
-                                          most bandwidth, and always nice to look at." ] ] ;
+          ChartDescr.help = [ p [ cdata "This chart maps your traffic on a world map, according to IP geolocalisation \
+                                         provided by the (free version of) the geoip database." ] ;
+                              p [ cdata "May be useful to check where your traffic comes from or what sites use the \
+                                         most bandwidth, and always nice to look at." ] ] ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Traffic.Map.from name getter |> map_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -269,7 +269,13 @@ struct
     let callflow_chart_descr =
         { ChartDescr.category = "Traffic" ;
           ChartDescr.title = "callflow" ;
-          ChartDescr.descr = [] ;
+          ChartDescr.help = [ p [ cdata "This chart is the microscope allowing to view graphically the complete \
+                                         set of informations stored for a given range of time, from a given IP \
+                                         address. All traffic from this IP sent during this time range will be \
+                                         displayed as well as all other communicating hosts related to this \
+                                         traffic, as a call flow with time increasing from top to bottom." ] ;
+                              p [ cdata "As a busy host can send and receive many things per seconds, it \
+                                         is advised to start with a very short time range." ] ] ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Flow.Callflow.from name getter |> callflow_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -287,7 +293,7 @@ struct
         (if port = 80 then "" else (":" ^ string_of_int port)) ^
         url
 
-    let top_chart = function
+    let queries_chart = function
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (methd, (status, (host, (url, (rt_min, (rt_max, (n, (sort_order, ()))))))))))))))) ->
             let n = BatOption.default 30 n
             and start  = My_time.to_timeval start
@@ -317,12 +323,12 @@ struct
                       url_name host port url ])
         | None -> []
 
-    let top_chart_descr =
+    let queries_chart_descr =
         { ChartDescr.category = "Web" ;
           ChartDescr.title = "top" ;
-          ChartDescr.descr = [] ;
+          ChartDescr.help = [] ;
           ChartDescr.to_html = (fun name getter ->
-                      display_errs Forms.Web.Top.from name getter |> top_chart) ;
+                      display_errs Forms.Web.Top.from name getter |> queries_chart) ;
           ChartDescr.filter = (fun target name getter ->
                       form target (Forms.Web.Top.to_edit name getter)) }
 
@@ -364,7 +370,7 @@ struct
     let srt_chart_descr =
         { ChartDescr.category = "Web" ;
           ChartDescr.title = "resptime" ;
-          ChartDescr.descr = [] ;
+          ChartDescr.help = [] ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Web.RespTime.from name getter |> srt_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -403,7 +409,7 @@ struct
     let distrib_chart_descr =
         { ChartDescr.category = "Web" ;
           ChartDescr.title = "distrib" ;
-          ChartDescr.descr = [] ;
+          ChartDescr.help = [] ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Web.Distrib.from name getter |> distrib_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -416,15 +422,15 @@ struct
     include Dns
     let dbdir = dbdir^"/dns"
 
-    let top_chart = function
-        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (error, (qname, (n, (sort_order, ()))))))))))))) ->
+    let queries_chart = function
+        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (rt_min, (rt_max, (error, (qname, (n, (sort_order, ()))))))))))))) ->
             let start = My_time.to_timeval start
             and stop  = My_time.to_timeval stop in
             let rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
             let n = BatOption.default 30 n
             and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
-            let tops = top_requests start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?error ?qname dbdir n sort_order in
+            let tops = top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?error ?qname dbdir n sort_order in
             let field_display_names =
                 [ "VLAN" ;
                   "Client MAC" ; "Client IP" ;
@@ -443,24 +449,24 @@ struct
                   name ])
         | None -> []
 
-    let top_chart_descr =
+    let queries_chart_descr =
         { ChartDescr.category = "DNS" ;
-          ChartDescr.title = "top" ;
-          ChartDescr.descr = [] ;
+          ChartDescr.title = "queries" ;
+          ChartDescr.help = [] ;
           ChartDescr.to_html = (fun name getter ->
-                      display_errs Forms.Dns.Top.from name getter |> top_chart) ;
+                      display_errs Forms.Dns.Top.from name getter |> queries_chart) ;
           ChartDescr.filter = (fun target name getter ->
                       form target (Forms.Dns.Top.to_edit name getter)) }
 
     let srt_chart = function
-        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (tx_min, (rt_min, (rt_max, (time_step, (tblname, ())))))))))))) ->
+        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (tx_min, (rt_min, (rt_max, (time_step, (tblname, ())))))))))))) ->
             let time_step = Interval.to_ms time_step
             and tblname = Forms.Dns.TblNames.options.(tblname)
             and start = My_time.to_timeval start
             and stop  = My_time.to_timeval stop in
             let rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
-            let datasets = plot_resp_time start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
+            let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
             let fold f i =
                 let i = f i "Min" true
@@ -490,7 +496,7 @@ struct
     let srt_chart_descr =
         { ChartDescr.category = "DNS" ;
           ChartDescr.title = "resptime" ;
-          ChartDescr.descr = [] ;
+          ChartDescr.help = [] ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Dns.RespTime.from name getter |> srt_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -498,7 +504,7 @@ struct
 
 
     let distrib_chart = function
-        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (client, (server, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))) ->
+        | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))) ->
             let tblname = Forms.Dns.TblNames.options.(tblname)
             and start  = My_time.to_timeval start
             and stop   = My_time.to_timeval stop in
@@ -506,7 +512,7 @@ struct
             let rt_max = i2s ?min:rt_min rt_max in
             let prec   = i2s ~min:0.00001 ~max:1. prec in
             let vx_step, bucket_min, bucket_max, datasets =
-                plot_distrib start stop ?vlan ?mac_clt ?client ?mac_srv ?server ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
+                plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
             let vx_min = (float_of_int bucket_min +. 0.5) *. vx_step
             and nb_vx = bucket_max - bucket_min |> succ in
             let fold f i =
@@ -530,11 +536,37 @@ struct
     let distrib_chart_descr =
         { ChartDescr.category = "DNS" ;
           ChartDescr.title = "distrib" ;
-          ChartDescr.descr = [] ;
+          ChartDescr.help = [] ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Dns.Distrib.from name getter |> distrib_chart) ;
           ChartDescr.filter = (fun target name getter ->
                       form target (Forms.Dns.Distrib.to_edit name getter)) }
+
+    let top_chart = function
+        | Some (start, (stop, (ip_srv, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, (single_pass, ())))))))))) ->
+            let tblname = Forms.Dns.TblNames.options.(tblname)
+            and start = My_time.to_timeval start
+            and stop  = My_time.to_timeval stop in
+            let datasets = get_top ~start ~stop ?ip_srv ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields dbdir tblname in
+            View.table_of_datasets group_by aggr_fields sort_by datasets
+        | None -> []
+
+    let top_chart_descr =
+        { ChartDescr.category = "DNS" ;
+          ChartDescr.title = "top" ;
+          ChartDescr.help = [ p [ cdata "This is the 'free form' query into the DNS messages database. You can ask \
+                                         for any fields, grouped by any fields with whatever aggregate function \
+                                         you like, sorted by any field, filtered by any expression, and get back \
+                                         the top " ; em "N" ; cdata " tuples." ] ;
+                              p [ cdata "This is useful when you look for something in particular and none of the \
+                                         other views fit your need." ] ;
+                              p [ cdata "Notice the " ; em "single" ; cdata " or " ; em "double" ;
+                                  cdata " pass radiobutton; single pass is approximately twice faster but will \
+                                         report an approximate result." ] ] ;
+          ChartDescr.to_html = (fun name getter ->
+                      display_errs Forms.Dns.Tops.from name getter |> top_chart) ;
+          ChartDescr.filter = (fun target name getter ->
+                      form target (Forms.Dns.Tops.to_edit name getter)) }
 
 end
 
@@ -573,8 +605,8 @@ let chart_descrs = [ Traffic.bw_chart_descr ; Traffic.peer_chart_descr ;
                      Traffic.graph_chart_descr ; Traffic.top_chart_descr ;
                      Traffic.map_chart_descr ;
                      Flow.callflow_chart_descr ;
-                     Web.top_chart_descr ; Web.srt_chart_descr ; Web.distrib_chart_descr ;
-                     Dns.top_chart_descr ; Dns.srt_chart_descr ; Dns.distrib_chart_descr ]
+                     Web.queries_chart_descr ; Web.srt_chart_descr ; Web.distrib_chart_descr ;
+                     Dns.queries_chart_descr ; Dns.srt_chart_descr ; Dns.distrib_chart_descr ; Dns.top_chart_descr ]
 
 let find_chart cat title =
     List.find (fun d -> d.ChartDescr.category = cat && d.ChartDescr.title = title) chart_descrs

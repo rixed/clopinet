@@ -32,7 +32,7 @@ let menu () =
     let report_names = [ "daily" ] in
     let html_of_entry e1 e2 = tag "li" [ tag "a" ~attrs:["href","?action="^e1^"/"^e2] [cdata e2] ]
     and menu_entries = [ "Traffic", ["bandwidth"; "peers"; "top"; "graph"; "map"; "callflow"] ;
-                         "DNS", ["resptime"; "top"; "distrib"] ;
+                         "DNS", ["resptime"; "queries"; "top"; "distrib"] ;
                          "Web", ["resptime"; "top"; "distrib"] ;
                          "Reports", report_names ;
                          "Config", ["preferences"] ] in
@@ -73,11 +73,12 @@ let make_app_page_for_email content =
     make_app_page (content @ [ p [ tag "a" ~attrs:["href","#"] [ cdata "View in browser" ] ] ]) |>
     Inliner.filter wwwdir
 
-let make_filter title form =
+let make_filter title help form =
     [ h1 title ;
-      div ~cls:"filter"
+      div ~cls:"filter" ~attrs:["style", "position: static; float: left; margin-right: 2em;"]
         [ div ~cls:"filter-form" [ form ] ;
-          div ~cls:"filter-handle" [] ] ; ]
+          div ~cls:"filter-handle" [] ] ;
+      div ~cls:"help" help ]
 
 let random_id () =
     let chars = "abcdefghijklmnopqrstuvwxyz_" in
@@ -91,7 +92,7 @@ let make_chart title form graph =
             [ div ~cls:"filter-form" ~id:(id^"-form") [ form ] ;
               div ~cls:"filter-handle" [] ] ;
           div ~cls:"data" ~id:(id^"-data") graph ] ;
-      if graph = [] then raw "No data" else
+      if graph = [] then p ~cls:"no-data" [ cdata "No data" ] else
       script ("\n\
           var filter_"^id^" = document.getElementById('"^id^"');\n\
           var form_"^id^" = document.getElementById('"^id^"-form');\n\
