@@ -32,8 +32,17 @@ let ocaml_of_user_filter = function
     | None      -> "true"
     | Some expr -> User_filter.ocaml_of_expr expr
 
-let load_filter module_name ?usr_filter usr_fields checks =
-    let param_names = List.map fst usr_fields |> String.join "," in
+open Datatype
+
+let virtual_fields fields =
+    "(* build virtual fields - if any *)
+    "^ (List.filter (is_virtual%snd) fields |>
+        List.map (fun (n,f) ->
+            "let "^n^" = "^f.from_prevfields^" in") |>
+        String.concat "\n    ")
+
+let load_filter module_name ?usr_filter fields checks =
+    let param_names = List.filter (is_concrete%snd) fields |> List.map fst |> String.join "," in
     (* We have two filters combined: one from preset filter terms, and the free usr_filter, ANDed *)
     let checks =
         List.fold_left (fun p ->
@@ -47,16 +56,16 @@ let load_filter module_name ?usr_filter usr_fields checks =
 open Batteries
 let () =\n\
     %s.set_filter (fun (%s) ->\n\
+        %s\n\
         (* user free filters *)\n\
         %s &&\n\
         (* preset filters *)\n\
         %s)\n"
             module_name param_names
+            (virtual_fields fields)
             (ocaml_of_user_filter usr_filter) preset_filter ;
     IO.close_out os |>
     load_string
-
-open Datatype
 
 let maketuple name datatypes =
     let str = IO.output_string () in
@@ -112,13 +121,6 @@ let maketuple name datatypes =
     printf "    include Datatype.Datatype_of(%s_base)\n" name ;
     printf "end\n" ;
     IO.close_out str
-
-let virtual_fields fields =
-    "(* build virtual fields - if any *)
-    "^ (List.filter (is_virtual%snd) fields |>
-        List.map (fun (n,f) ->
-            "let "^n^" = "^f.from_prevfields^" in") |>
-        String.concat "\n    ")
 
 let to_sort_int fields sort_by =
     let f = List.assoc sort_by fields in
