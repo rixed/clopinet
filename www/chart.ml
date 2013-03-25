@@ -134,7 +134,7 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
     let force_show_0 = if stacked = StackedCentered then true else force_show_0 in
     (* build iter and map from fold *)
     let iter_datasets f = fold.fold (fun _prev label prim get -> f label prim get) ()
-    and map_datasets f = fold.fold (fun prev label prim get -> (f label prim get) :: prev) [] in
+    and map_datasets f = List.rev @@ fold.fold (fun prev label prim get -> (f label prim get) :: prev) [] in
     (* Graph geometry in pixels *)
     let max_label_length = y_tick_spacing *. 0.9 in
     let y_axis_x = margin_left +. max_label_length in

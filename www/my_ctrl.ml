@@ -112,7 +112,7 @@ struct
                     app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what time_step dbdir tblname in
             if datasets = [] then []
             else
-                let what = if what = PacketCount then "Packets" else "Bytes" in
+                let what = if what = PacketCount then "Packets/secs" else "Bytes/secs" in
                 let nb_vx =
                     List.fold_left (fun ma (_l, a) ->
                         max ma (Array.length a))

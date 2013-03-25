@@ -284,11 +284,16 @@ let power m v =
         else
             aux (succ e) (v*.m) in
     aux 0 v
+let strip_trailing_zero s =
+    let rec loop i =
+        if i > 0 && let c = s.[i-1] in c = '0' || c = '.' then loop (pred i) else i in
+    let i = loop (String.length s) in
+    if i = 0 then "0" else String.sub s 0 i
 let string_of_volume v =
     let e, v = unpower 1024. v in
-    Printf.sprintf "%.*f%s" (if fst (modf v) < 0.01 then 0 else 2) v multiples_bytes.(e)
+    (Printf.sprintf "%.2f" v |> strip_trailing_zero) ^ multiples_bytes.(e)
 let string_of_float v =
-    Printf.sprintf "%.*f" (if fst (modf v) <= 0.0005 then 0 else 3) v
+    Printf.sprintf "%.3f" v |> strip_trailing_zero
 let string_of_number v =
     if abs_float v >= 1. then (
         let e, v = unpower 1000. v in

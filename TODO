@@ -4,29 +4,23 @@ TODO stack
 Roadmap for 0.1
 ---------------
 
-- Faire marcher le top dans Dns
-
-- Ajouter user_filter pour DNS (dans Top et ailleurs)
-
 - "View in browser" link should direct to proper action
 
 - Fix JS in reports (link to proper pages)
-
-- TCP view
 
 - Inline doc
 
 - generation of a VM
 
+- bw chart: dans la légende ce ne sont pas des Ys mais des bytes
+
 - Shouldn't sniffer take it's input from conffile?
 
-- bw chart: la légende est à l'envers
+- tout remplacer par des variables d'environnement (avantage: junkie peut etre
+  configurer aussi, on peut utiliser le langage shell (variables, if...), et
+  plus simple
 
-- bw chart: les unités en Y ne sont ps des bytes mais des bytes/sec sans doute
-
-- bw chart: ne pas afficher 1.500k mais 1.5k
-
-- bw chart: dans la légende ce ne sont pas des Ys mais des bytes/sec
+- netflow_to_traffic?
 
 
 Bugs
