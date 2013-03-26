@@ -165,11 +165,13 @@ let check_serial () =
 
 let check_disp_numbers () =
     assert (string_of_number 4000. = "4k") ;
+    assert (string_of_number 40000. = "40k") ;
     assert (string_of_number 0.004 = "4m") ;
     assert (string_of_number ~-.0.004 = "-4m") ;
     assert (string_of_number ~-.4000. = "-4k") ;
     assert (string_of_number 0. = "0") ;
-    assert (string_of_number 1500. = "1.5k")
+    assert (string_of_number 1500. = "1.5k") ;
+    assert (string_of_number 10_000_000. = "10M")
 
 let check_prefs () =
     let open Prefs in

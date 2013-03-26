@@ -12,15 +12,15 @@ let hashtbl_update_with_default d h k f =
  * others, at the end) *)
 let top_plot_datasets max_graphs datasets nb_steps label_of_key other_key =
     let max_peak = Array.make (max_graphs-1) None (* ordered by max peak (bigger first) *)
-    and others_pts = Array.make nb_steps 0.
-    and max_pts pts = Array.fold_left max min_float pts
+    and others_pts = Array.make nb_steps 0
+    and max_pts pts = Array.fold_left max min_int pts
     and need_others = ref false in
     let add_to_others k =
         need_others := true ;
         Hashtbl.find datasets k |>
         Array.iteri (fun i y ->
             (* add it to others then *)
-            others_pts.(i) <- others_pts.(i) +. y) in
+            others_pts.(i) <- others_pts.(i) + y) in
     let insert_max max k =
         let rec aux i =
             if i < Array.length max_peak then (
@@ -307,16 +307,8 @@ let per_time ?(max_graphs=10) start stop step fold label_of_key other_key =
                         m1)
                     m2 ;
                 m1) in
-    let datasets = Hashtbl.create 71
-    and step_s = Int64.to_float step /. 1000. in
-    (* Build hashtables indexed by label (instead of map indexed by some key), and convert Y into Y per second. *)
-    Hashtbl.iter (fun k a ->
-        Array.map (fun y -> float_of_int y /. step_s) a |>
-        Hashtbl.add datasets k)
-        m ;
-
     (* reduce number of datasets to max_graphs *)
-    top_plot_datasets max_graphs datasets nb_steps label_of_key other_key
+    top_plot_datasets max_graphs m nb_steps label_of_key other_key
 
 
 (* Hashtbl versions of DataSet *)
@@ -460,13 +452,10 @@ let distributions_of_response_times prec m rest_rts label_of_key =
     in
     prec, mi, ma, d
 
-(* Return a mere list of label -> float array from a Maplot of key -> (_ * y_array) *)
-let arrays_of_volume_chunks step nb_steps vols rest_vols label_of_key =
-    let step_s = Int64.to_float step /. 1000. in
+(* Return a mere list of label -> int array from a Maplot of key -> (_ * y_array) *)
+let arrays_of_volume_chunks nb_steps vols rest_vols label_of_key =
     let to_scaled_array ya =
-        let a = array_of_y_array nb_steps ya in
-        (* while we are at it, convert from bytes to bytes/secs *)
-        Array.map (fun y -> float_of_int y /. step_s) a in
+        array_of_y_array nb_steps ya in
     Hashtbl.fold (fun k (_, ya) prev ->
         (label_of_key k, to_scaled_array ya) :: prev)
         vols ["others", to_scaled_array rest_vols]

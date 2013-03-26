@@ -344,7 +344,7 @@ function svg_explore_plot(svg_id, vx_min, vx_max, x_axis_xmin, x_axis_xmax, prec
 
 // Functions for time plot
 
-function plot_select2(peer_name)
+function plot_select2(peer_name, info)
 {
     // Make svg elements more visible
     var all = document.getElementsByClassName("fitem");
@@ -362,7 +362,7 @@ function plot_select2(peer_name)
 
     // fill in infos for this peer
     document.getElementById('selected-peer-name').innerHTML = peer_name;
-    document.getElementById('selected-peer-info').innerHTML = '??';
+    document.getElementById('selected-peer-info').innerHTML = info;
 }
 
 function plot_unselect2(peer_name)
@@ -378,9 +378,9 @@ function plot_unselect2(peer_name)
 }
 
 // These are called from the SVG, with the event
-function plot_select(evt, peer_name)
+function plot_select(evt, peer_name, info)
 {
-    plot_select2(peer_name);
+    plot_select2(peer_name, info);
 }
 
 function plot_unselect(evt, peer_name)

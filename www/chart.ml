@@ -121,20 +121,22 @@ type fold_t = {
     fold : 'a. ( 'a -> string -> bool -> (int -> float) -> 'a) -> 'a -> 'a }
             (* I wonder what's the world record in argument list length? *)
 type stacked = NotStacked | Stacked | StackedCentered
-let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
+let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.string_of_number) ?string_of_x
             ?(svg_width=800.) ?(svg_height=600.) ?(font_size=14.)
             ?(margin_bottom=30.) ?(margin_left=10.) ?(margin_top=30.) ?(margin_right=10.)
             ?(y_tick_spacing=100.) ?(x_tick_spacing=200.) ?(tick_length=5.5)
             ?(axis_arrow_h=11.)
             ?(vxmin_filter="filter/start") ?(vxmax_filter="filter/stop") ?(vxstep_filter="filter/tstep")
-            ?(stacked=NotStacked) ?(force_show_0=false)
+            ?(stacked=NotStacked) ?(force_show_0=false) ?(show_rate=false) ?x_label_for_rate
             x_label y_label
             vx_min vx_step nb_vx
             fold =
     let force_show_0 = if stacked = StackedCentered then true else force_show_0 in
+    let y_label_grid = if show_rate then y_label ^"/"^ (x_label_for_rate |? x_label) else y_label in
     (* build iter and map from fold *)
     let iter_datasets f = fold.fold (fun _prev label prim get -> f label prim get) ()
-    and map_datasets f = List.rev @@ fold.fold (fun prev label prim get -> (f label prim get) :: prev) [] in
+    and map_datasets f = List.rev @@ fold.fold (fun prev label prim get -> (f label prim get) :: prev) []
+    and rate_of_vy vy = if show_rate then vy /. vx_step else vy in
     (* Graph geometry in pixels *)
     let max_label_length = y_tick_spacing *. 0.9 in
     let y_axis_x = margin_left +. max_label_length in
@@ -159,7 +161,7 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
         (fun label prim get ->
             if not prim then label2 := Some label ;
             let pi = if prim then 0 else 1 in
-            for i = 0 to nb_vx-1 do set_max pi i (get i) done) ;
+            for i = 0 to nb_vx-1 do set_max pi i (get i |> rate_of_vy) done) ;
     (* TODO: if vy_min is close to 0 (compared to vy_max) then clamp it to 0 *)
     let vy_min = Array.create 2 max_float
     and vy_max = Array.create 2 0. in
@@ -185,6 +187,27 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
             Array.init nb_vx (fun i -> ~-.0.5 *. max_vy.(0).(i))
         else
             Array.create nb_vx 0. in
+    (* per chart infos *)
+    let tot_vy = Hashtbl.create 11
+    and tot_vys = ref 0. in
+    iter_datasets (fun lbl prim get ->
+        if prim then for i = 0 to nb_vx-1 do
+            let vy = get i in
+            tot_vys := !tot_vys +. vy ;
+            Hashtbl.modify_def 0. lbl ((+.) vy) tot_vy
+        done) ;
+    let dvx = vx_max -. vx_min in
+    let avg_vy =
+        if dvx > 0. then
+            (string_of_y (!tot_vys /. dvx)) ^ y_label_grid
+        else "none" in
+    let info prim label =
+        if prim then (
+            let tot = Hashtbl.find tot_vy label in
+            "Tot:&nbsp;"^ (string_of_y tot) ^ y_label ^
+            (if dvx > 0. then "<br/>Avg:&nbsp;"^ (string_of_y (tot /. dvx)) ^ y_label_grid else "")
+        ) else "" in
+    (* The SVG *)
     let path_of_dataset label prim get =
         let is_stacked = stacked <> NotStacked && prim in
         let pi = if prim then 0 else 1 in
@@ -194,13 +217,13 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
              ~fill:(if is_stacked then stroke else "none")
              ?fill_opacity:(if is_stacked then Some 0.5 else None)
              ~attrs:["class","fitem "^label ;
-                     "onmouseover","plot_select(evt, '"^label^"')" ;
+                     "onmouseover","plot_select(evt, '"^label^"', '"^info prim label^"')" ;
                      "onmouseout", "plot_unselect(evt)" ]
             (
                 let buf = Buffer.create 100 in (* to write path commands in *)
                 (* Top line *)
                 for i = 0 to nb_vx-1 do
-                    let vy' = get i +. (if is_stacked then prev_vy.(i) else 0.) in
+                    let vy' = (get i |> rate_of_vy) +. (if is_stacked then prev_vy.(i) else 0.) in
                     Buffer.add_string buf
                         ((if i = 0 then moveto else lineto)
                             (get_x (vx_of_bucket i), get_y pi vy'))
@@ -209,7 +232,7 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
                     (* Bottom line (to close the area) (note: we loop here from last to first) *)
                     for i = nb_vx-1 downto 0 do
                         let vy' = prev_vy.(i) in
-                        prev_vy.(i) <- vy' +. get i ;
+                        prev_vy.(i) <- vy' +. (get i |> rate_of_vy) ;
                         Buffer.add_string buf
                             (lineto (get_x (vx_of_bucket i), get_y pi vy'))
                     done ;
@@ -218,10 +241,10 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
                 Buffer.contents buf
             )
 
-    and legend_of_dataset label _prim _get =
+    and legend_of_dataset label prim _get =
         let color = Color.random_of_string label in
         p ~attrs:["class","hitem "^label ;
-                  "onmouseover","plot_select2('"^label^"')" ;
+                  "onmouseover","plot_select2('"^label^"', '"^info prim label^"')" ;
                   "onmouseout", "plot_unselect2()" ] [
             span ~attrs:[ "class","color-box" ;
                           "style","background-color: " ^ Color.to_html color ]
@@ -232,22 +255,16 @@ let xy_plot ?string_of_y ?(string_of_y2=Datatype.string_of_number) ?string_of_x
     let y2 =
         Option.bind !label2 (fun label ->
             Some (label, string_of_y2, vy_min.(1), vy_max.(1))) in
-    let grid = xy_grid ~stroke:"#000" ~stroke_width:2. ~font_size ~arrow_size:axis_arrow_h ~x_tick_spacing ~y_tick_spacing ~tick_length ~x_label ~y_label ?string_of_x ?string_of_y ?y2 (x_axis_xmin, x_axis_xmax) (y_axis_ymin, y_axis_ymax) (vx_min, vx_max) (vy_min.(0), vy_max.(0))
+    let grid = xy_grid ~stroke:"#000" ~stroke_width:2. ~font_size ~arrow_size:axis_arrow_h ~x_tick_spacing ~y_tick_spacing ~tick_length ~x_label ~y_label:y_label_grid ?string_of_x ~string_of_y ?y2 (x_axis_xmin, x_axis_xmax) (y_axis_ymin, y_axis_ymax) (vx_min, vx_max) (vy_min.(0), vy_max.(0))
     and distrs = g (map_datasets path_of_dataset) in
-    let tot_vys = Array.fold_left (+.) 0. max_vy.(0) in (* FIXME: if not stacked then max_vy is the max not the sum *)
-    let dvx = vx_max -. vx_min in
-    let avg_vy =
-        if dvx > 0. then
-            (Datatype.string_of_number (tot_vys /. dvx)) ^ "&nbsp;X/s"
-        else "none" in
     let cursor = rect ~attrs:["id","cursor"] ~stroke:"none" ~fill:"#d8a" ~fill_opacity:0.3 x_axis_xmin y_axis_ymax 0. (y_axis_ymin -. y_axis_ymax) in
     [ table ~attrs:["class","svg"] [ tr
         [ td ~id:"plot"
             [ svg [ cursor ; grid ; distrs ] ] ;
           td [ div ~attrs:["class","svg-info"]
                 ([ h3 "Global" ;
-                   p [ raw ((Datatype.string_of_number tot_vys) ^ "&nbsp;Ys") ] ;
-                   p [ raw ("average: " ^ avg_vy) ] ;
+                   p [ raw ("Tot: "^ (string_of_y !tot_vys) ^ y_label) ] ;
+                   p [ raw ("Avg: "^ avg_vy) ] ;
                    h3 ~id:"selected-peer-name" "" ;
                    p ~id:"selected-peer-info" [] ;
                    h3 "Legend" ] @

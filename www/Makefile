@@ -22,9 +22,11 @@ include $(top_srcdir)/make.common
 index.cgi: index.opt
 	ln -f $< $@
 
+$(XOBJECTS): $(top_srcdir)/clopinet.cmxa
+
 # for some reason the same rules from make.common reverse the elemtns of %^ (!??)
-index.opt: $(XOBJECTS)
-	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" -ccopt -L$(top_srcdir) clopinet.cmxa $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $^
+index.opt: $(XOBJECTS) $(top_srcdir)/clopinet.cmxa
+	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" -ccopt -L$(top_srcdir) clopinet.cmxa $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $(XOBJECTS)
 
 .PHONY: httpd
 httpd:

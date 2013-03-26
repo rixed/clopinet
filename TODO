@@ -12,15 +12,16 @@ Roadmap for 0.1
 
 - generation of a VM
 
-- bw chart: dans la légende ce ne sont pas des Ys mais des bytes
-
 - Shouldn't sniffer take it's input from conffile?
 
 - tout remplacer par des variables d'environnement (avantage: junkie peut etre
-  configurer aussi, on peut utiliser le langage shell (variables, if...), et
-  plus simple
+  configuré aussi, on peut utiliser le langage shell (variables, if...), et
+  plus simple - mais pb pour transmettre ca via suexec (ou alors, faire un
+  wrapper ?)
 
 - netflow_to_traffic?
+
+- fix all titles
 
 
 Bugs

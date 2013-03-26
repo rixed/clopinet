@@ -286,7 +286,11 @@ let power m v =
     aux 0 v
 let strip_trailing_zero s =
     let rec loop i =
-        if i > 0 && let c = s.[i-1] in c = '0' || c = '.' then loop (pred i) else i in
+        if i > 0 then (
+            let c = s.[i-1] in
+            if c = '0' then loop (pred i) else
+            if c = '.' then pred i else i
+        ) else i in
     let i = loop (String.length s) in
     if i = 0 then "0" else String.sub s 0 i
 let string_of_volume v =

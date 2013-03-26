@@ -112,7 +112,7 @@ struct
                     app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what time_step dbdir tblname in
             if datasets = [] then []
             else
-                let what = if what = PacketCount then "Packets/secs" else "Bytes/secs" in
+                let what = if what = PacketCount then "Packets" else "Bytes" in
                 let nb_vx =
                     List.fold_left (fun ma (_l, a) ->
                         max ma (Array.length a))
@@ -122,12 +122,12 @@ struct
                 and svg_height = Prefs.get_float "gui/svg/height" 600. in
                 let fold f init =
                     List.fold_left (fun prev (l, a) ->
-                        let get i = Array.get a i in
+                        let get i = Array.get a i |> float_of_int in
                         f prev l true get)
                         init datasets in
                 Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.Stacked
-                              ~force_show_0:true ~string_of_x:string_of_date
-                              "time" what
+                              ~force_show_0:true ~string_of_x:string_of_date ~show_rate:true
+                              "time" ~x_label_for_rate:"secs" what
                               (Timestamp.to_unixfloat start) time_step nb_vx
                               { Chart.fold = fold }
 
@@ -362,7 +362,7 @@ struct
             and svg_height = Prefs.get_float "gui/svg/height" 600. in
             Chart.xy_plot ~svg_width ~svg_height
                           ~string_of_x:string_of_date ~stacked:Chart.Stacked
-                          "time" "response time (s)"
+                          "time" "secs"
                           (Timestamp.to_unixfloat start) time_step nb_vx
                           { Chart.fold = fold }
         | None -> []
@@ -401,7 +401,7 @@ struct
             Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
                           ~vxmin_filter:"filter/minrt" ~vxmax_filter:"filter/maxrt"
                           ~vxstep_filter:"filter/distr-prec"
-                          "response time (s)" "#queries"
+                          "secs" "#queries"
                           vx_min vx_step nb_vx
                           { Chart.fold = fold }
         | None -> []
@@ -515,7 +515,7 @@ struct
             and svg_height = Prefs.get_float "gui/svg/height" 600. in
             Chart.xy_plot ~svg_width ~svg_height
                           ~string_of_x:string_of_date ~stacked:Chart.Stacked
-                          "time" "response time (s)"
+                          "time" "secs"
                           (Timestamp.to_unixfloat start) time_step nb_vx
                           { Chart.fold = fold }
         | None -> []
@@ -555,7 +555,7 @@ struct
             Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
                           ~vxmin_filter:"filter/minrt" ~vxmax_filter:"filter/maxrt"
                           ~vxstep_filter:"filter/distr-prec"
-                          "response time (s)" "#queries"
+                          "secs" "#queries"
                           vx_min vx_step nb_vx
                           { Chart.fold = fold }
         | None -> []
