@@ -13,14 +13,24 @@ let () =
             p [ CData "Notice that the 'CallFlow' chart is peculiar as it also makes use of other metrics." ]
         ],
         Traffic.Traffic.fields
-    ) (*;
+    ) ;
     Hashtbl.add pages "DNS" (
         [
-            p [ CData "This metric displays informations about all DNS queries, associating answers to\
-                       queries in order to compute response times." ]
+            p [ CData "This table stores informations about each DNS queries, associating answers to \
+                       queries in order to compute response times." ] ;
+            p [ CData "Monitoring DNS queries is important since it's used prevalently in so many other services. \
+                       Beyond performance, you should check DNS errors, queried servers, etc..." ] ;
         ],
         Dns.Dns.fields
-    )*)
+    ) ;
+    Hashtbl.add pages "Web" (
+        [
+            p [ CData "This table stores informations about each HTTP queries, associating answers to \
+                       queries in order to compute response times." ] ;
+            p [ CData "Monitoring HTTP queries is important since so many services are based on this protocol." ]
+        ],
+        Dns.Dns.fields
+    )
 
 
 let field_help (name, desc) =

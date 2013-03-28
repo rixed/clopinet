@@ -88,6 +88,36 @@ let filtered_chart chart_descr getter =
 
 end
 
+let top_help name =
+    [ p [ cdata @@ "This is the 'free form' query into the "^ name ^" database. You can ask \
+                 for any fields, grouped by any fields with whatever aggregate function \
+                 you like, sorted by any field, filtered by any expression, and get back \
+                 the top " ; em "N" ; cdata " tuples." ] ;
+      p [ cdata "This is useful when you look for something in particular and none of the \
+                 other views fit your need." ] ;
+      p [ cdata "Notice the " ; em "single" ; cdata " or " ; em "double" ;
+          cdata " pass radiobutton; single pass is approximately twice faster but will \
+                 report an approximate result." ] ]
+
+let queries_help =
+    [ p [ cdata "This lists individual queries, sorted by response times, limited to the " ; em "N" ;
+          cdata " fastest/slowest." ] ;
+      p [ cdata "As usual, you can filter queries my any filter to limit the scope to what's important to you." ] ]
+
+let resptime_help name =
+    [ p [ cdata @@ "This chart displays the response time of "^ name ^" queries with regard to time." ] ;
+      p [ cdata "The average response time is surrounded by the min, max and standard deviation." ] ;
+      p [ cdata "The thin line above this graph represents the number of queries, which scale \
+                 is drawn on the right Y axis." ] ]
+
+let distrib_help name =
+    [ p [ cdata @@ "This chart displays a distribution of the "^ name ^" request times. It gives the \
+                 best available representation of the performance of name resolution for your \
+                 users. Different servers are shown in different colors." ] ;
+      p [ cdata "Basically, the X coordinate give a response time and the height of the plot \
+                 at that location represents the number of queries which were answered that fast. \
+                 You will probably want to zoom in to have a closer view of the clusters." ] ]
+
 (* DB search pages *)
 module Traffic =
 struct
@@ -133,8 +163,8 @@ struct
 
     let bw_chart_descr =
         { ChartDescr.category = "Traffic" ;
-          ChartDescr.title = "bandwidth" ;
-          ChartDescr.help = [ p [ cdata "The first chart to check is usualy the bandwidth chart. \
+          ChartDescr.title = "Bandwidth Evolution" ;
+          ChartDescr.help = [ p [ cdata "The first chart to check is usually the bandwidth chart. \
                                          It displays the volume of traffic (either bytes or packets count) \
                                          with regard to time." ] ;
                               p [ cdata "It is possible to group volume by addresses or ports." ] ] ;
@@ -164,7 +194,7 @@ struct
 
     let peer_chart_descr =
         { ChartDescr.category = "Traffic" ;
-          ChartDescr.title = "peers" ;
+          ChartDescr.title = "Peers" ;
           ChartDescr.help = [ p [ cdata "This chart displays which network peers exchanged the most traffic." ;
                                   cdata "This may be used to learn what hosts are the more verbose or to spot \
                                          possibly compromised hosts that connect to many others." ] ] ;
@@ -188,7 +218,7 @@ struct
 
     let graph_chart_descr =
         { ChartDescr.category = "Traffic" ;
-          ChartDescr.title = "graph" ;
+          ChartDescr.title = "Network Graph" ;
           ChartDescr.help = [ p [ cdata "This chart displays a zoomable graph of " ; em "all" ; cdata " peers \
                                          (above a given threshold of volume) as layered by graphviz." ;
                                   cdata "This comes handy to learn what clusters your hosts are in, \
@@ -210,16 +240,8 @@ struct
 
     let top_chart_descr =
         { ChartDescr.category = "Traffic" ;
-          ChartDescr.title = "top" ;
-          ChartDescr.help = [ p [ cdata "This is the 'free form' query into the traffic database. You can ask \
-                                         for any fields, grouped by any fields with whatever aggregate function \
-                                         you like, sorted by any field, filtered by any expression, and get back \
-                                         the top " ; em "N" ; cdata " tuples." ] ;
-                              p [ cdata "This is useful when you look for something in particular and none of the \
-                                         other views fit your need." ] ;
-                              p [ cdata "Notice the " ; em "single" ; cdata " or " ; em "double" ;
-                                  cdata " pass radiobutton; single pass is approximately twice faster but will \
-                                         report an approximate result." ] ] ;
+          ChartDescr.title = "Free Search" ;
+          ChartDescr.help = top_help "traffic" ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Traffic.Tops.from name getter |> top_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -268,7 +290,7 @@ struct
 
     let callflow_chart_descr =
         { ChartDescr.category = "Traffic" ;
-          ChartDescr.title = "callflow" ;
+          ChartDescr.title = "Call Flow" ;
           ChartDescr.help = [ p [ cdata "This chart is the microscope allowing to view graphically the complete \
                                          set of informations stored for a given range of time, from a given IP \
                                          address. All traffic from this IP sent during this time range will be \
@@ -325,8 +347,8 @@ struct
 
     let queries_chart_descr =
         { ChartDescr.category = "Web" ;
-          ChartDescr.title = "queries" ;
-          ChartDescr.help = [] ;
+          ChartDescr.title = "Queries" ;
+          ChartDescr.help = queries_help ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Web.Queries.from name getter |> queries_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -369,8 +391,8 @@ struct
 
     let srt_chart_descr =
         { ChartDescr.category = "Web" ;
-          ChartDescr.title = "resptime" ;
-          ChartDescr.help = [] ;
+          ChartDescr.title = "Response Time Evolution" ;
+          ChartDescr.help = resptime_help "HTTP" ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Web.RespTime.from name getter |> srt_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -408,8 +430,8 @@ struct
 
     let distrib_chart_descr =
         { ChartDescr.category = "Web" ;
-          ChartDescr.title = "distrib" ;
-          ChartDescr.help = [] ;
+          ChartDescr.title = "Response Time Distribution" ;
+          ChartDescr.help = distrib_help "HTTP" ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Web.Distrib.from name getter |> distrib_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -426,16 +448,8 @@ struct
 
     let top_chart_descr =
         { ChartDescr.category = "Web" ;
-          ChartDescr.title = "top" ;
-          ChartDescr.help = [ p [ cdata "This is the 'free form' query into the HTTP messages database. You can ask \
-                                         for any fields, grouped by any fields with whatever aggregate function \
-                                         you like, sorted by any field, filtered by any expression, and get back \
-                                         the top " ; em "N" ; cdata " tuples." ] ;
-                              p [ cdata "This is useful when you look for something in particular and none of the \
-                                         other views fit your need." ] ;
-                              p [ cdata "Notice the " ; em "single" ; cdata " or " ; em "double" ;
-                                  cdata " pass radiobutton; single pass is approximately twice faster but will \
-                                         report an approximate result." ] ] ;
+          ChartDescr.title = "Free Search" ;
+          ChartDescr.help = top_help "HTTP" ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Web.Tops.from name getter |> top_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -478,8 +492,8 @@ struct
 
     let queries_chart_descr =
         { ChartDescr.category = "DNS" ;
-          ChartDescr.title = "queries" ;
-          ChartDescr.help = [] ;
+          ChartDescr.title = "Queries" ;
+          ChartDescr.help = queries_help ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Dns.Queries.from name getter |> queries_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -522,8 +536,8 @@ struct
 
     let srt_chart_descr =
         { ChartDescr.category = "DNS" ;
-          ChartDescr.title = "resptime" ;
-          ChartDescr.help = [] ;
+          ChartDescr.title = "Response Time Evolution" ;
+          ChartDescr.help = resptime_help "DNS" ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Dns.RespTime.from name getter |> srt_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -562,8 +576,8 @@ struct
 
     let distrib_chart_descr =
         { ChartDescr.category = "DNS" ;
-          ChartDescr.title = "distrib" ;
-          ChartDescr.help = [] ;
+          ChartDescr.title = "Response Time Distribution" ;
+          ChartDescr.help = distrib_help "DNS" ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Dns.Distrib.from name getter |> distrib_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -580,16 +594,8 @@ struct
 
     let top_chart_descr =
         { ChartDescr.category = "DNS" ;
-          ChartDescr.title = "top" ;
-          ChartDescr.help = [ p [ cdata "This is the 'free form' query into the DNS messages database. You can ask \
-                                         for any fields, grouped by any fields with whatever aggregate function \
-                                         you like, sorted by any field, filtered by any expression, and get back \
-                                         the top " ; em "N" ; cdata " tuples." ] ;
-                              p [ cdata "This is useful when you look for something in particular and none of the \
-                                         other views fit your need." ] ;
-                              p [ cdata "Notice the " ; em "single" ; cdata " or " ; em "double" ;
-                                  cdata " pass radiobutton; single pass is approximately twice faster but will \
-                                         report an approximate result." ] ] ;
+          ChartDescr.title = "Free Search" ;
+          ChartDescr.help = top_help "DNS" ;
           ChartDescr.to_html = (fun name getter ->
                       display_errs Forms.Dns.Tops.from name getter |> top_chart) ;
           ChartDescr.filter = (fun target name getter ->
@@ -634,6 +640,15 @@ let chart_descrs = [ Traffic.bw_chart_descr ; Traffic.peer_chart_descr ;
                      Flow.callflow_chart_descr ;
                      Web.queries_chart_descr ; Web.srt_chart_descr ; Web.distrib_chart_descr ; Web.top_chart_descr ;
                      Dns.queries_chart_descr ; Dns.srt_chart_descr ; Dns.distrib_chart_descr ; Dns.top_chart_descr ]
+
+let menu_entries =
+    (* TODO: get list of alldefined reports... *)
+    let report_names = [ "daily" ] in
+    [ "Traffic", ["Bandwidth Evolution"; "Peers"; "Free Search"; "Network Graph"; "World Map"; "Call Flow"] ;
+      "DNS", ["Response Time Evolution"; "Queries"; "Free Search"; "Response Time Distribution"] ;
+      "Web", ["Response Time Evolution"; "Queries"; "Free Search"; "Response Time Distribution"] ;
+      "Reports", report_names ;
+      "Config", ["Preferences"] ]
 
 let find_chart cat title =
     List.find (fun d -> d.ChartDescr.category = cat && d.ChartDescr.title = title) chart_descrs

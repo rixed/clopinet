@@ -99,7 +99,7 @@ db/max_days/flow/flows = 8
 
 report/daily/0/title = Yesterdays Bandwidth
 report/daily/0/descr = Everything starts with a BW chart...
-report/daily/0/chart = Traffic/bandwidth
+report/daily/0/chart = Traffic/Bandwidth Evolution
 report/daily/0/start = -25h
 report/daily/0/stop  = now
 report/daily/0/tstep = 20 mins
@@ -109,7 +109,7 @@ report/daily/0/groupby = port
 
 report/daily/1/title = Yesterdays Peers
 report/daily/1/descr = Host we receive data from / sent data to
-report/daily/1/chart = Traffic/peers
+report/daily/1/chart = Traffic/Peers
 report/daily/1/start = -25h
 report/daily/1/stop  = now
 report/daily/1/vol-table = 10mins

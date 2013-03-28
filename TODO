@@ -8,8 +8,6 @@ Roadmap for 0.1
 
 - Fix JS in reports (link to proper pages)
 
-- Inline doc
-
 - generation of a VM
 
 - Shouldn't sniffer take it's input from conffile?
@@ -21,7 +19,8 @@ Roadmap for 0.1
 
 - netflow_to_traffic?
 
-- fix all titles
+- sensible default values for distribution time step, BW time step, and an 
+  auto value to choose table field.
 
 
 Bugs

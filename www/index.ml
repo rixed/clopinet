@@ -33,7 +33,7 @@ let cgi_entry_point () =
             Some (decode_cookie s)
         with Not_found -> None in
     Prefs.set_overwrite_function get_from_cookie ;
-    Dispatch.run (fun name getter -> get_page name getter |> View.make_app_page)
+    Dispatch.run (fun name getter -> get_page name getter |> View.make_app_page Ctrl.menu_entries)
 
 let cli_entry_point () =
     let action = ref "main"

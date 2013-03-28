@@ -49,4 +49,4 @@ let main =
                                                (Timestamp.to_string ts1) (Timestamp.to_string ts2)
                                                descr group)), "List flows from this IP" ]
         (fun x -> raise (Bad x))
-        "Operate the traffic DB")
+        "Operate the flow DB")
