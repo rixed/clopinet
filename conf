@@ -78,7 +78,7 @@ db/max_days/tcp/10mins = 32
 db/max_days/tcp/1min = 15
 db/max_days/tcp/sockets = 4
 
-db/max_days/flow/flows = 8
+db/max_days/flow/flows = 3
 
 
 # How many cores to scan database

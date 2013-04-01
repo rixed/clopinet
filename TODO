@@ -8,7 +8,12 @@ Roadmap for 0.1
 
 - Fix JS in reports (link to proper pages)
 
-- generation of a VM
+- cron to purge should be a deamon optionally
+
+- purge based on space as well as time (so that full disk is not an issue)
+
+- installation script (avec mini_httpd, openssl, libgc, libgmp, libunistring, 
+  guile, junkie, opam...)
 
 - Shouldn't sniffer take it's input from conffile?
 
@@ -17,7 +22,8 @@ Roadmap for 0.1
   plus simple - mais pb pour transmettre ca via suexec (ou alors, faire un
   wrapper ?)
 
-- netflow_to_traffic?
+- netflow_to_traffic? Non il faudra une métrique dédiée à netflow, plus tard
+  (avec source, AS, port...)
 
 - sensible default values for distribution time step, BW time step, and an 
   auto value to choose table field.
