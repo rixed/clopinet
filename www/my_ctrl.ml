@@ -613,7 +613,7 @@ struct
                 | Some v -> [v]
                 | None   -> getter name
             ) else getter name in
-        let prefs_form = form "Config/preferences/save" (Forms.Config.Preferences.to_edit "prefs" getter') in
+        let prefs_form = form "Config/Preferences/save" (Forms.Config.Preferences.to_edit "prefs" getter') in
         [ h1 "DNS Response Times" ;
           div ~id:"preferences" [ prefs_form ] ]
 

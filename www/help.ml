@@ -30,6 +30,13 @@ let () =
             p [ CData "Monitoring HTTP queries is important since so many services are based on this protocol." ]
         ],
         Dns.Dns.fields
+    ) ;
+    Hashtbl.add pages "Config" (
+        [
+            p [ CData "Here you can change some of the settings. New values will be stored as cookies and will \
+                       take precedence over settings from the configuration file." ]
+        ],
+        []
     )
 
 
@@ -57,25 +64,32 @@ let chart_help chart =
     )
 
 let page name _params =
-    let descr, fields = Hashtbl.find pages name in
+    let descr, fields =
+        try Hashtbl.find pages name
+        with Not_found -> [ p [ cdata "No help for page " ; cdata name ] ], [] in
     let fields_help =
-        List.map field_help fields
+        Block (
+            if fields <> [] then [
+                h2 "Fields" ;
+                table (
+                    tr [ th [ CData "name" ] ;
+                         th [ CData "description" ] ;
+                         th [ CData "possible aggregation functions" ] ;
+                         th [ CData "can be sorted by" ] ;
+                         th [ CData "can be grouped by" ] ] ::
+                    List.map field_help fields
+                )
+            ] else [])
     and charts_help =
-        List.filter (fun c -> c.My_ctrl.ChartDescr.category = name) My_ctrl.chart_descrs |>
-        List.map chart_help in
+        let charts = List.filter (fun c -> c.My_ctrl.ChartDescr.category = name) My_ctrl.chart_descrs in
+        Block (
+            if charts <> [] then
+                h2 "Charts" :: List.map chart_help charts
+            else []) in
     [ h1 name ;
       div ~cls:"help" [
         span descr ;
-        h2 "Fields" ;
-        table (
-            tr [ th [ CData "name" ] ;
-                 th [ CData "description" ] ;
-                 th [ CData "possible aggregation functions" ] ;
-                 th [ CData "can be sorted by" ] ;
-                 th [ CData "can be grouped by" ] ] ::
-            fields_help) ;
-        h2 "Charts" ;
-        (* TODO: Also repeat this help in the chart page (no data page) *)
-        Block charts_help
+        fields_help ;
+        charts_help
     ] ]
 

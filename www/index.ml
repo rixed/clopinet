@@ -11,9 +11,9 @@ let get_page = function
         Ctrl.main
     | ["Reports"; name] ->
         Ctrl.Report.build name
-    | ["Config"; "preferences"] ->
+    | ["Config"; "Preferences"] ->
         Ctrl.Config.preferences
-    | ["Config"; "preferences"; "save"] ->
+    | ["Config"; "Preferences"; "save"] ->
         Ctrl.Config.save_preferences
     | [cat; "help"] ->
         Help.page cat
