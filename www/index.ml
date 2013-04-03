@@ -46,10 +46,9 @@ let cli_entry_point () =
                 Hashtbl.add h n v
             with Not_found -> raise (Bad s))
         ("Render an HTML page: "^Sys.argv.(0)^" param1=value1 param2=value2...")) ;
-    let action = String.nsplit ~by:"/" !action
-    and getter = Hashtbl.find_all h in
-    get_page action getter |>
-    View.make_app_page_for_email |>
+    let getter = Hashtbl.find_all h in
+    get_page (String.nsplit ~by:"/" !action) getter |>
+    View.make_app_page_for_email ("?action="^ !action) |>
     List.iter (Html.print stdout)
 
 let _ =
