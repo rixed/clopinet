@@ -375,7 +375,7 @@ struct
                     (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
                 let i = f i "Max" true
                     (fun i -> Distribution.max datasets.(i)) in
-                let i = f i "#Transactions" false
+                let i = f i "Transactions" false
                     (fun i -> Distribution.count datasets.(i) |> float_of_int) in
                 i in
             let nb_vx = Array.length datasets in
@@ -423,7 +423,7 @@ struct
             Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
                           ~vxmin_filter:"filter/minrt" ~vxmax_filter:"filter/maxrt"
                           ~vxstep_filter:"filter/distr-prec"
-                          "secs" "#queries"
+                          "secs" "queries"
                           vx_min vx_step nb_vx
                           { Chart.fold = fold }
         | None -> []
@@ -520,7 +520,7 @@ struct
                     (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
                 let i = f i "Max" true
                     (fun i -> Distribution.max datasets.(i)) in
-                let i = f i "#Transactions" false
+                let i = f i "Transactions" false
                     (fun i -> Distribution.count datasets.(i) |> float_of_int) in
                 i in
             let nb_vx = Array.length datasets in
@@ -569,7 +569,7 @@ struct
             Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
                           ~vxmin_filter:"filter/minrt" ~vxmax_filter:"filter/maxrt"
                           ~vxstep_filter:"filter/distr-prec"
-                          "secs" "#queries"
+                          "secs" "queries"
                           vx_min vx_step nb_vx
                           { Chart.fold = fold }
         | None -> []
