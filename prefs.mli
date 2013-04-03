@@ -41,3 +41,7 @@ val get_bool : string -> bool -> bool
 
 val get_bool_option : string -> bool option
 
+val enum : unit -> (string * string) BatEnum.t
+(** [enum ()] returns an enumeration of all config parameters
+ * (but the ones from the overwrite function for obvious reasons) *)
+

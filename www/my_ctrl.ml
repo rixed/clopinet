@@ -642,8 +642,15 @@ let chart_descrs = [ Traffic.bw_chart_descr ; Traffic.peer_chart_descr ;
                      Dns.queries_chart_descr ; Dns.srt_chart_descr ; Dns.distrib_chart_descr ; Dns.top_chart_descr ]
 
 let menu_entries =
-    (* TODO: get list of alldefined reports... *)
-    let report_names = [ "daily" ] in
+    (* TODO: get list of all defined reports... *)
+    let report_names =
+        Prefs.enum () //@
+        (fun (n, _v) ->
+            match String.nsplit ~by:"/" n with
+            | ["report" ; name ; _ ; "title" ] -> Some name
+            | _ -> None) |>
+        List.of_enum |>
+        List.sort_unique String.compare in
     [ "Traffic", ["Bandwidth Evolution"; "Peers"; "Free Search"; "Network Graph"; "World Map"; "Call Flow"] ;
       "DNS", ["Response Time Evolution"; "Queries"; "Free Search"; "Response Time Distribution"] ;
       "Web", ["Response Time Evolution"; "Queries"; "Free Search"; "Response Time Distribution"] ;
