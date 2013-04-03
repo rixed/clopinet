@@ -270,5 +270,5 @@ let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.str
                    h3 "Legend" ] @
                  (map_datasets legend_of_dataset)) ] ] ] ;
         (* for this we really do want stdlib's string_of_float not our stripped down version *)
-        script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", '"^vxmin_filter^"', '"^vxmax_filter^"', '"^vxstep_filter^"');") ]
+        script ~attrs:["class","interactive"] ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", '"^vxmin_filter^"', '"^vxmax_filter^"', '"^vxstep_filter^"');") ]
 

@@ -61,10 +61,25 @@ let make_app_page menu_entries content =
     in
     [ html head body ]
 
-let make_app_page_for_email content =
+(* remove all html elements which class match the given one *)
+let remove_class name doc =
+    let rec aux = function
+        | Tag (t, a, s) :: rest ->
+            if AList.(mem a "class" ~value_match:(has_word name)) then
+                rest
+            else
+                Tag (t, a, aux s) :: aux rest
+        | Block h :: rest ->
+            Block (aux h) :: aux rest
+        | x :: rest -> x :: aux rest
+        | [] -> [] in
+    aux doc
+
+let make_app_page_for_email url content =
     let wwwdir = Prefs.get_string "gui/inliner/wwwdir" "www" in
-    make_app_page [] (content @ [ p [ tag "a" ~attrs:["href","#"] [ cdata "View in browser" ] ] ]) |>
-    Inliner.filter wwwdir
+    make_app_page [] (content @ [ p [ tag "a" ~attrs:["href",url] [ cdata "View in browser" ] ] ]) |>
+    Inliner.filter wwwdir |>
+    remove_class "interactive" (* elements in this class must not be present in emails. *)
 
 let make_filter title help form =
     [ h1 title ;
@@ -337,7 +352,7 @@ layout=\"%s\";\n"
                       h4 ~id:"selected-peer-name" "" ;
                       p ~id:"selected-peer-info" [] ;
                       p ~id:"selected-peer-links" [] ] ] ] ] ;
-          script "svg_explorer('netgraph', 'scaler');" ]
+          script ~attrs:["class","interactive"] "svg_explorer('netgraph', 'scaler');" ]
     with End_of_file ->
         [ raw "dot crashed" ]
 
@@ -542,7 +557,7 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
                   h4 ~id:"selected-peer-name" "" ;
                   p ~id:"selected-peer-info" [] ;
                   p ~id:"selected-peer-links" [] ] ] ] ] ;
-      script "svg_explorer('callflow', 'scaler');" ]
+      script ~attrs:["class","interactive"] "svg_explorer('callflow', 'scaler');" ]
 
 (* Helpers for axis and grids *)
 
@@ -731,7 +746,7 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
                    h3 "Legend" ] @
                  (List.map legend_of_dataset datasets)) ] ] ] ;
         (* for this we really do want stdlib's string_of_float not our stripped down version *)
-        script ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", 'filter/minrt', 'filter/maxrt', 'filter/distr-prec');") ]
+        script ~attrs:["class","interactive"] ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", 'filter/minrt', 'filter/maxrt', 'filter/distr-prec');") ]
 
 let peers_map datasets =
     let max_ips = Prefs.get_int "geoip/max_ips" 10 in
