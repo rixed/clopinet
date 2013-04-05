@@ -111,6 +111,16 @@ let load fname parzer append flush =
 
 let table_name dbdir name = dbdir ^ "/" ^ name
 
+let rti_of_lod lod metric =
+    let pname = "db/"^ metric ^"/"^ lod ^"/round" in
+    BatOption.map Interval.to_ms (Interval.of_pref_option pname)
+
+let buffer_duration_of_lod lod metric =
+    let msecs = rti_of_lod lod metric in
+    BatOption.map (fun ms -> Int64.to_float ms *. 0.001 *. 2.) msecs |>
+    BatOption.default 1. (* won't be used if this lod is not defined *)
+
+
 (* functions related to repairing db files *)
 
 exception File_truncated
@@ -164,30 +174,31 @@ let dbck dbdir lods read meta_read =
 
 let purge dbdir lods =
     let name = Filename.basename dbdir in
-    let purge_file max_age tdir hnum snum _meta =
+    let purge_file expiration tdir hnum snum _meta =
         (* Never delete the last snum which is still written to *)
         if snum > 0 then (
             let open Unix in
             let fname = Dbfile.path tdir hnum (pred snum) in
             try (
-                let last_write_age = time () -. (stat fname).st_mtime |> int_of_float in
-                let last_write_age = last_write_age / 86400 in (* in days *)
-                if last_write_age > max_age then (
+                let last_write_age = time () -. (stat fname).st_mtime in
+                if last_write_age > expiration then (
                     Printf.printf "Deleting %s\n" fname ;
                     unlink fname ;
                     ignore_exceptions unlink (fname ^".meta")
                 )
             ) with Unix_error (ENOENT, "stat", _) -> ()
         ) in
-    let purge_hnum max_age tdir hnum =
-        Table.iter_snums tdir hnum (fun _ -> None) (purge_file max_age tdir hnum) in
+    let purge_hnum expiration tdir hnum =
+        Table.iter_snums tdir hnum (fun _ -> None) (purge_file expiration tdir hnum) in
     let purge_lod lod =
-        let pname = "db/max_days/"^name^"/"^lod in
-        match Prefs.get_int_option pname with
+        let pname = "db/"^name^"/"^lod^"/expiration" in
+        match Interval.of_pref_option pname with
         | None ->
             Printf.printf "%s unset, skipping\n" pname
-        | Some max_age ->
+        | Some expiration ->
+            let expiration = Interval.to_secs expiration in
             let tdir = table_name dbdir lod in
-            Table.iter_hnums tdir (purge_hnum max_age tdir) in
+            Table.iter_hnums tdir (purge_hnum expiration tdir) in
     Array.iter purge_lod lods
+
 

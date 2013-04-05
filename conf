@@ -59,26 +59,37 @@ db/base_dir = /home/rixed/share/src/clopinet/test.db
 # Number of days to keep datafiles once full
 # (will not purge anything if not defined)
 
-db/max_days/traffic/1hour = 370
-db/max_days/traffic/10mins = 32
-db/max_days/traffic/1min = 8
+db/traffic/1hour/expiration = 370 days
+db/traffic/1hour/round = 1h
+db/traffic/10mins/expiration = 32 days
+db/traffic/10mins/round = 10mins
+db/traffic/1min/expiration = 8 days
 
-db/max_days/dns/1hour = 370
-db/max_days/dns/10mins = 32
-db/max_days/dns/1min = 15
-db/max_days/dns/queries = 4
+db/dns/1hour/expiration = 370 days
+db/dns/1hour/round = 1hour
+db/dns/10mins/expiration = 32 days
+db/dns/10mins/round = 10mins
+db/dns/1min/expiration = 15 days
+db/dns/1min/round = 1min
+db/dns/queries/expiration = 4 days
 
-db/max_days/web/1hour = 370
-db/max_days/web/10mins = 32
-db/max_days/web/1min = 15
-db/max_days/web/queries = 4
+db/web/1hour/expiration = 370 days
+db/web/1hour/round = 1hour
+db/web/10mins/expiration = 32 days
+db/web/10mins/round = 10mins
+db/web/1min/expiration = 15 days
+db/web/1min/round = 1min
+db/web/queries/expiration = 4 days
 
-db/max_days/tcp/1hour = 370
-db/max_days/tcp/10mins = 32
-db/max_days/tcp/1min = 15
-db/max_days/tcp/sockets = 4
+db/tcp/1hour/expiration = 370 days
+db/tcp/1hour/round = 1 hour
+db/tcp/10mins/expiration = 32 days
+db/tcp/10mins/round = 10 mins
+db/tcp/1min/expiration = 15 days
+db/tcp/1min/round = 1 min
+db/tcp/sockets/expiration = 4 days
 
-db/max_days/flow/flows = 3
+db/flow/flows/expiration = 3 days
 
 
 # How many cores to scan database

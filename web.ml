@@ -322,43 +322,51 @@ let load dbdir create fname =
 
     let table3 = Web.table dbdir lods.(3) in
     let accum3, flush3 =
-        Aggregator.(accum (now_and_then (2. *. 3600.)))
+        Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(3) "web")))
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
                               Table.append table3 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ] in
 
     let table2 = Web.table dbdir lods.(2) in
+    let rti = rti_of_lod lods.(2) "web" in
     let accum2, flush2 =
-        Aggregator.(accum (now_and_then (2. *. 600.)))
+        Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(2) "web")))
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
                               Table.append table2 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
-                              let ts = round_timestamp 3600_000L ts in
-                              accum3 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ] in
+                              BatOption.may (fun rti ->
+                                  let ts = round_timestamp rti ts in
+                                  accum3 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
+                                  rti ] in
 
     let table1 = Web.table dbdir lods.(1) in
+    let rti = rti_of_lod lods.(2) "web" in
     let accum1, flush1 =
-        Aggregator.(accum (now_and_then 60.))
+        Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(1) "web")))
                          Distribution.combine
                          [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
                               Table.append table1 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
-                              let ts = round_timestamp 600_000L ts in
-                              accum2 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ] in
-
-    let table0 = Web.table dbdir lods.(0) in
+                              BatOption.may (fun rti ->
+                                  let ts = round_timestamp rti ts in
+                                  accum2 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
+                                  rti ] in
 
     let shorten_url s =
         try let i = String.index s '?' in
             String.sub s 0 i
         with Not_found -> s in
 
+    let table0 = Web.table dbdir lods.(0) in
+    let rti = rti_of_lod lods.(1) "web" in
     let append0 ((vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) as v) =
         Table.append table0 v ;
-        let clt, _mask = clt in
-        let clt = cidr_of_inetaddr Subnet.subnets clt
-        and ts = round_timestamp 60_000L ts
-        and url = shorten_url url in
-        accum1 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr in
+        BatOption.may (fun rti ->
+            let clt, _mask = clt in
+            let clt = cidr_of_inetaddr Subnet.subnets clt
+            and ts = round_timestamp rti ts
+            and url = shorten_url url in
+            accum1 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
+            rti in
 
     let flush_all () =
         if !verbose then Printf.printf "Flushing...\n" ;

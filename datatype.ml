@@ -31,6 +31,9 @@ sig
     (* automatically added by Datatype_of functor: *)
     val of_string : string -> t
     val to_string : t -> string
+
+    val of_pref_option : string -> t option
+    val of_pref : string -> t -> t
 end
 
 module Datatype_of (B : DATATYPE_BASE) =
@@ -45,6 +48,12 @@ struct
         let buf = Buffer.create 32 in
         B.write_txt (Output.of_buffer buf) t ;
         Buffer.contents buf
+
+    let of_pref_option name =
+        Option.map of_string (Prefs.get_option name)
+    let of_pref name default =
+        of_pref_option name |> Option.default default
+
 end
 
 (* Many of them are numbers of some sort *)

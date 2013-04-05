@@ -113,37 +113,45 @@ let load dbdir create fname =
 
     let table3 = Tcp.table dbdir lods.(3) in
     let accum3, flush3 =
-        Aggregator.(accum (now_and_then (2. *. 3600.)))
+        Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(3) "tcp")))
             aggreg_all
             [ fun (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ->
                 Table.append table3 (vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct) ] in
 
     let table2 = Tcp.table dbdir lods.(2) in
+    let rti = rti_of_lod lods.(3) "tcp" in
     let accum2, flush2 =
-        Aggregator.(accum (now_and_then (2. *. 600.)))
+        Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(2) "tcp")))
             aggreg_all
             [ fun (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ->
                 Table.append table2 (vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct) ;
-                let ts = round_timestamp 3600_000L ts in
-                accum3 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ] in
+                BatOption.may (fun rti ->
+                    let ts = round_timestamp rti ts in
+                    accum3 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct))
+                    rti ] in
 
     let table1 = Tcp.table dbdir lods.(1) in
+    let rti = rti_of_lod lods.(2) "tcp" in
     let accum1, flush1 =
-        Aggregator.(accum (now_and_then 60.))
+        Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(1) "tcp")))
             aggreg_all
             [ fun (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ->
                 Table.append table1 (vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct) ;
-                let ts = round_timestamp 600_000L ts
-                and clt, _mask = clt in
-                let clt = cidr_of_inetaddr Subnet.subnets clt in
-                accum2 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ] in
+                BatOption.may (fun rti ->
+                    let ts = round_timestamp rti ts
+                    and clt, _mask = clt in
+                    let clt = cidr_of_inetaddr Subnet.subnets clt in
+                    accum2 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct))
+                    rti ] in
 
     let table0 = Tcp.table dbdir lods.(0) in
-
+    let rti = rti_of_lod lods.(1) "tcp" in
     let append0 ((vlan, clte, clt, srve, srv, _cltp, srvp, ts, syns, ct) as v) =
         Table.append table0 v ;
-        let ts = round_timestamp 60_000L ts in
-        accum1 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) in
+        BatOption.may (fun rti ->
+            let ts = round_timestamp rti ts in
+            accum1 (vlan, clte, clt, srve, srv, srvp, ts) (syns, ct))
+            rti in
 
     let flush_all () =
         if !verbose then Printf.printf "Flushing...\n" ;
