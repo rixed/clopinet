@@ -93,9 +93,9 @@ let value =
              Integer.parzer ~picky:true   >>: (fun v -> Integer v) ;
              (* must be tried before hostname! *)
              Float.parzer ~picky:true     >>: (fun v -> Float v) ;
+             Bool.parzer ~picky:true      >>: (fun v -> Bool v) ;
              InetAddr.parzer ~picky:true  >>: (fun v -> InetAddr v) ;
              Cidr.parzer ~picky:true      >>: (fun v -> Cidr v) ;
-             Bool.parzer ~picky:true      >>: (fun v -> Bool v) ;
              Text.parzer ~picky:true      >>: (fun v -> Text v) ;
              VLan.parzer ~picky:true      >>: (fun v -> VLan v) ]
 
