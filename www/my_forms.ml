@@ -118,7 +118,7 @@ module L4PortField = struct
     let persistant = true
 end
 module TimeStepField = struct
-    module Type = InputOfDatatype (Interval)
+    module Type = Optional (InputOfDatatype (Interval))
     let display_name = "time step"
     let uniq_name = "tstep"
     let persistant = true

@@ -118,6 +118,10 @@ let distrib_help name =
                  at that location represents the number of queries which were answered that fast. \
                  You will probably want to zoom in to have a closer view of the clusters." ] ]
 
+let timestep_of_timestamps start stop =
+    let dt = Timestamp.to_unixfloat stop -. Timestamp.to_unixfloat start in
+    Interval.of_secs (dt /. float_of_int (Prefs.get_int "gui/chart/prefered_resolution" 200))
+
 (* DB search pages *)
 module Traffic =
 struct
@@ -128,9 +132,9 @@ struct
         | None ->
             [ p ~cls:"err" [ cdata "No selection" ] ]
         | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (time_step, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))))) ->
-            let time_step = Interval.to_ms time_step
-            and start = My_time.to_timeval start
-            and stop  = My_time.to_timeval stop
+            let start = My_time.to_timeval start
+            and stop  = My_time.to_timeval stop in
+            let time_step = Interval.to_ms @@ match time_step with Some t -> t | None -> timestep_of_timestamps start stop
             and tblname = Forms.Traffic.TblNames.options.(tblname)
             and what = if what = 0 then Volume else PacketCount in
             let datasets = match group_by with
@@ -356,12 +360,12 @@ struct
 
     let srt_chart = function
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (methd, (status, (host, (url, (rt_min, (rt_max, (time_step, (tblname, ()))))))))))))))) ->
-            let time_step = Interval.to_ms time_step (* FIXME: plot_resp_time should take seconds instead *)
-            and start = My_time.to_timeval start
+            let start = My_time.to_timeval start
             and stop  = My_time.to_timeval stop in
-            let rt_min = i2s ~min:0. rt_min in
-            let rt_max = i2s ?min:rt_min rt_max in
-            let tblname = Forms.Web.TblNames.options.(tblname) in
+            let time_step = Interval.to_ms @@ match time_step with Some t -> t | None -> timestep_of_timestamps start stop
+            and rt_min = i2s ~min:0. rt_min in
+            let rt_max = i2s ?min:rt_min rt_max
+            and tblname = Forms.Web.TblNames.options.(tblname) in
             let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
             let fold f i =
@@ -501,11 +505,11 @@ struct
 
     let srt_chart = function
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (tx_min, (rt_min, (rt_max, (time_step, (tblname, ())))))))))))) ->
-            let time_step = Interval.to_ms time_step
-            and tblname = Forms.Dns.TblNames.options.(tblname)
-            and start = My_time.to_timeval start
+            let start = My_time.to_timeval start
             and stop  = My_time.to_timeval stop in
-            let rt_min = i2s ~min:0. rt_min in
+            let time_step = Interval.to_ms @@ match time_step with Some t -> t | None -> timestep_of_timestamps start stop
+            and tblname = Forms.Dns.TblNames.options.(tblname)
+            and rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
             let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
             (* TODO: plot_resp_time should return 0 in count instead of None... *)

@@ -28,6 +28,9 @@ compiler/ocamlfind = ocamlfind
 # For inlining generated HTML, the path to the www directory
 # gui/inliner/wwwdir = www
 
+# What should be the default number of point in a chart
+## gui/chart/prefered_resolution = 200
+
 #
 # GeoIP
 #
