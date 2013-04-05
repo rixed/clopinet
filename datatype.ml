@@ -1217,11 +1217,18 @@ module ListOf_base (T : DATATYPE) = struct
         "["^ (List.map T.to_imm t |> String.concat ";") ^"]"
 
     let parzer ?(picky=false) =
-        ignore picky ;
         let open Peg in
-        let sep = any blank ++ item ';' ++ any blank in
-        seqf [ none (item '[') ; none (any blank) ; some (several ~sep T.parzer) ; none (any blank) ; none (item ']') ] >>:
-        function [l] -> l | _ -> assert false
+        let sep = any blank ++ (if picky then item ';' else either [ item ';' ; item ':' ]) ++ any blank in
+        let p opn clo =
+            seqf [ none (item opn) ; none (any blank) ;
+                   some (several ~sep T.parzer) ;
+                   none (any blank) ; none (item clo) ] in
+        let unlist = function [l] -> l | _ -> assert false in
+        if picky then p '[' ']' >>: unlist else
+            either [ p '[' ']' >>: unlist ;
+                     p '(' ')' >>: unlist ;
+                     p '{' '}' >>: unlist ;
+                     several ~sep T.parzer ]
 end
 module ListOf (T : DATATYPE) :
     DATATYPE with type t = T.t list =
