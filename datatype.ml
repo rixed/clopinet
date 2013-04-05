@@ -609,6 +609,8 @@ module InetAddr_base = struct
         Peg.Res (Unix.inet_addr_of_string "123.123.123.123", [])
       parzer (String.to_list "eneide.happyleptic.org") = \
         Peg.Res (Unix.inet_addr_of_string "213.251.171.101", [])
+      dotted_ip_addr (String.to_list "123.123.123.123") = \
+        Peg.Res (Unix.inet_addr_of_string "123.123.123.123", [])
      *)
 
     (*$>*)
