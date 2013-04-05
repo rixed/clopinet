@@ -130,3 +130,10 @@ report/daily/1/Y = volume
 report/daily/1/series = 500
 
 #### many of these filters (value, groupby, Y...) should be optional
+
+#
+# Subnets
+#
+# Define some subnets to blur IP addresses into subnets and save space.
+
+subnets = [ 10.0.0.0/8 ; 172.16.0.0/12; 192.168.0.0/24 ]

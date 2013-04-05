@@ -1,7 +1,12 @@
 (* Classify IP addresses into subnets.
  * Used by all metrics. *)
 
+module SL = Datatype.ListOf (Datatype.Cidr)
+
 let subnets =
-    List.map (fun (s, w) -> Unix.inet_addr_of_string s, w)
-        [ "0.0.0.0", 2 ; "64.0.0.0", 2 ; "128.0.0.0", 2 ; "192.0.0.0", 2 ]
+    (* don't crash here if syntax is not clean since it's in module initialization code (we may not need subnets) *)
+    try SL.of_pref "subnets" []
+    with Peg.Parse_error err ->
+        Printf.fprintf stderr "Cannot parse subnets: %s. Continuing without subnets..." (Peg.string_of_error err) ;
+        []
 
