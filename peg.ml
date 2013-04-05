@@ -217,7 +217,7 @@ let repeat ?min ?max ?sep p bs =
                 | Some sep ->
                     (match sep rem with
                     | Fail ->
-                        out nb_match (res'::res) rem
+                        out nb_match' (res'::res) rem
                     | Res (_, rem') ->
                         aux nb_match' (res'::res) rem'))
         | Fail ->

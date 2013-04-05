@@ -1219,8 +1219,9 @@ module ListOf_base (T : DATATYPE) = struct
     let parzer ?(picky=false) =
         ignore picky ;
         let open Peg in
-        item '[' ++ several T.parzer ++ item ']' >>:
-        fun ((_,l),_) -> l
+        let sep = any blank ++ item ';' ++ any blank in
+        seqf [ none (item '[') ; none (any blank) ; some (several ~sep T.parzer) ; none (any blank) ; none (item ']') ] >>:
+        function [l] -> l | _ -> assert false
 end
 module ListOf (T : DATATYPE) :
     DATATYPE with type t = T.t list =
