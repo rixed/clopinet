@@ -1,9 +1,45 @@
 #!/bin/sh
+# Run me with:
+# (./purge --daemon dir &) &
+# to run as a daemon
 
 set -e
+path=$(dirname "$0")
 
-path=$(dirname $0)
+help() {
+	echo "purge [--daemon] dbdir"
+}
 
-for m in tcp dns flow web traffic; do
-	$path/$m"_exe.opt" -dir $path/test.db/$m -purge
+daemon="no"
+dbdir=""
+
+while test -n "$1" ; do case "$1" in
+	"-help"|"--help")
+		help
+		exit 0 ;;
+	"-d"|"--daemon")
+		daemon="yes"
+		shift ;;
+	*)
+		if test -n "$dbdir" ; then
+			help
+			exit 1
+		fi
+		dbdir="$1"
+		shift ;;
+esac done
+
+if test -z "$dbdir" ; then
+	help
+	exit 1
+fi
+
+while true; do
+	for m in tcp dns flow web traffic; do
+		"$path/$m"_exe.opt -dir $dbdir/$m -purge
+	done
+	if test "$daemon" = "no" ; then
+		exit 0
+	fi
+	sleep 3600
 done
