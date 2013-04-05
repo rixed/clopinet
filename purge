@@ -12,6 +12,7 @@ help() {
 
 daemon="no"
 dbdir=""
+export CLOPINET_CONFFILE
 
 while test -n "$1" ; do case "$1" in
 	"-help"|"--help")
