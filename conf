@@ -31,6 +31,9 @@ compiler/ocamlfind = ocamlfind
 # What should be the default number of point in a chart
 ## gui/chart/prefered_resolution = 200
 
+# What should be the default duration of a chart
+## gui/chart/prefered_duration = 1 day
+
 #
 # GeoIP
 #

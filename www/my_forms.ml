@@ -22,7 +22,7 @@ end
 open Input
 
 module StartField = struct
-    module Type = My_time
+    module Type = Optional (My_time)
     let display_name = "start"
     let uniq_name = "start"
     let persistant = true
