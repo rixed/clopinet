@@ -1050,7 +1050,7 @@ module Timestamp = struct
         add_interval t (inverse i)
 
     let sub_to_interval (t1 : t) (t2 : t) =
-        let ds = to_unixfloat t2 -. to_unixfloat t1 in
+        let ds = to_unixfloat t1 -. to_unixfloat t2 in
         Interval.of_secs ds
 
     let now () = of_unixfloat (Unix.time ())
