@@ -215,7 +215,7 @@ module Traffic = struct
         let options = [| "1min";"10mins";"1hour" |]
     end
     module TblNameField = struct
-        module Type = Enum (TblNames)
+        module Type = OptEnum (TblNames)
         let display_name = "DB table"
         let uniq_name = "vol-table"
         let persistant = true
@@ -350,7 +350,7 @@ module Web = struct
         let options = [| "queries";"1min";"10mins";"1hour" |]
     end
     module TblNameField = struct
-        module Type = Enum (TblNames)
+        module Type = OptEnum (TblNames)
         let display_name = "DB table"
         let uniq_name = "web-table"
         let persistant = true
@@ -476,7 +476,7 @@ module Dns = struct
         let options = [| "queries";"1min";"10mins";"1hour" |]
     end
     module TblNameField = struct
-        module Type = Enum (TblNames)
+        module Type = OptEnum (TblNames)
         let display_name = "DB table"
         let uniq_name = "dns-table"
         let persistant = true

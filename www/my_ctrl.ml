@@ -114,7 +114,7 @@ let distrib_help name =
     [ p [ cdata @@ "This chart displays a distribution of the "^ name ^" request times. It gives the \
                  best available representation of the performance of name resolution for your \
                  users. Different servers are shown in different colors." ] ;
-      p [ cdata "Basically, the X coordinate give a response time and the height of the plot \
+      p [ cdata "Basically, the X coordinate gives a response time and the height of the plot \
                  at that location represents the number of queries which were answered that fast. \
                  You will probably want to zoom in to have a closer view of the clusters." ] ]
 
@@ -123,6 +123,25 @@ let timestep_of_timestamps start stop =
     Interval.of_secs (dt /. float_of_int (Prefs.get_int "gui/chart/prefered_resolution" 200))
 
 let default_chart_duration = Interval.of_pref "gui/chart/prefered_duration" Interval.({ zero with days = 1. })
+
+let tblname_of_timestep_of_timestamps dt metric tbls =
+    let nb_noblur = ref 0 in (* it's ok to have one table with no bluring, but more than that and the user got a warning *)
+    (* choose the table which round parameter is greater yet below dt *)
+    let pname tbl = "db/"^ metric ^"/"^ tbl ^"/round" in
+    match Array.fold_left (fun ma tbl ->
+        match Interval.of_pref_option (pname tbl) with
+        | None ->
+            incr nb_noblur ;
+            if !nb_noblur > 1 then Log.warning "No time bluring information for table %s (%s unset)" tbl (pname tbl) ;
+            if ma = None then Some (Interval.({zero with msecs = 0.1}), tbl) else ma
+        | Some round ->
+            if Interval.compare round dt <= 0 then match ma with
+                | Some (m,_) when Interval.compare round m <= 0 ->
+                    ma
+                | _ -> Some (round, tbl)
+            else ma) None tbls with
+    | Some (_, tbl) -> tbl
+    | None -> tbls.(0)
 
 (* DB search pages *)
 module Traffic =
@@ -136,9 +155,10 @@ struct
         | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (time_step, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))))) ->
             let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
-            let time_step = Interval.to_ms @@ match time_step with Some t -> t | None -> timestep_of_timestamps start stop
-            and tblname = Forms.Traffic.TblNames.options.(tblname)
-            and what = if what = 0 then Volume else PacketCount in
+            let time_step = match time_step with Some t -> t | None -> timestep_of_timestamps start stop in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps time_step "traffic" Forms.Traffic.TblNames.options in
+            let time_step = Interval.to_ms time_step in
+            let what = if what = 0 then Volume else PacketCount in
             let datasets = match group_by with
                 | 1 (* src-mac *) | 2 (* dst-mac *) as sd ->
                     eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 1) what time_step dbdir tblname
@@ -182,10 +202,10 @@ struct
 
     let peers_chart = function
         | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (tblname, (what, (group_by, (max_graphs, ())))))))))))))))) ->
-            let tblname = Forms.Traffic.TblNames.options.(tblname)
-            and stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
-            let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration
-            and what = if what = 0 then Volume else PacketCount in
+            let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
+            let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps (Timestamp.sub_to_interval stop start) "traffic" Forms.Traffic.TblNames.options in
+            let what = if what = 0 then Volume else PacketCount in
             let datasets = match group_by with
                 | 0 (* mac *) ->
                     eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname
@@ -211,10 +231,10 @@ struct
 
     let graph_chart = function
         | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (usr_filter, (layout, (tblname, (group_by, ()))))))))))) ->
-            let tblname = Forms.Traffic.TblNames.options.(tblname)
-            and stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
-            let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration
-            and show_ip = group_by <> 2 and show_mac = group_by <> 1 in
+            let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
+            let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps (Timestamp.sub_to_interval stop start) "traffic" Forms.Traffic.TblNames.options in
+            let show_ip = group_by <> 2 and show_mac = group_by <> 1 in
             let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter show_mac show_ip dbdir tblname in
             if Hashtbl.is_empty datasets then
                 []
@@ -237,9 +257,9 @@ struct
 
     let top_chart = function
         | Some (start, (stop, (_vlan, (_mac_src, (_mac_dst, (_eth_proto, (ip_src, (_ip_dst, (_ip, (_ip_proto, (_port, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, (single_pass, ())))))))))))))))))) ->
-            let tblname = Forms.Traffic.TblNames.options.(tblname)
-            and stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
+            let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps (Timestamp.sub_to_interval stop start) "traffic" Forms.Traffic.TblNames.options in
             let datasets = get_top ~start ~stop ?ip_src ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields dbdir tblname in
             View.table_of_datasets group_by aggr_fields sort_by datasets
         | None -> []
@@ -255,9 +275,9 @@ struct
 
     let map_chart = function
         | Some (start, (stop, (vlan, (eth_proto, (ip_proto, (port, (min_volume, (usr_filter, (tblname, ()))))))))) ->
-            let tblname = Forms.Traffic.TblNames.options.(tblname)
-            and stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
+            let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps (Timestamp.sub_to_interval stop start) "traffic" Forms.Traffic.TblNames.options in
             let datasets = network_map start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter dbdir tblname in
             if Hashtbl.is_empty datasets then []
             else
@@ -364,10 +384,11 @@ struct
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (methd, (status, (host, (url, (rt_min, (rt_max, (time_step, (tblname, ()))))))))))))))) ->
             let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
-            let time_step = Interval.to_ms @@ match time_step with Some t -> t | None -> timestep_of_timestamps start stop
-            and rt_min = i2s ~min:0. rt_min in
-            let rt_max = i2s ?min:rt_min rt_max
-            and tblname = Forms.Web.TblNames.options.(tblname) in
+            let time_step = match time_step with Some t -> t | None -> timestep_of_timestamps start stop in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps time_step "web" Forms.Traffic.TblNames.options in
+            let time_step = Interval.to_ms time_step in
+            let rt_min = i2s ~min:0. rt_min in
+            let rt_max = i2s ?min:rt_min rt_max in
             let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
             let fold f i =
@@ -406,9 +427,9 @@ struct
 
     let distrib_chart = function
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (methd, (status, (host, (url, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))))))) ->
-            let tblname = Forms.Dns.TblNames.options.(tblname)
-            and stop   = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
+            let stop   = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps (Timestamp.sub_to_interval stop start) "web" Forms.Traffic.TblNames.options in
             let rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
             let prec   = i2s ~min:0.00001 ~max:1. prec in
@@ -445,9 +466,9 @@ struct
 
     let top_chart = function
         | Some (start, (stop, (ip_srv, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, (single_pass, ())))))))))) ->
-            let tblname = Forms.Web.TblNames.options.(tblname)
-            and stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
+            let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps (Timestamp.sub_to_interval stop start) "web" Forms.Traffic.TblNames.options in
             let datasets = get_top ~start ~stop ?ip_srv ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields dbdir tblname in
             View.table_of_datasets group_by aggr_fields sort_by datasets
         | None -> []
@@ -509,9 +530,10 @@ struct
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (tx_min, (rt_min, (rt_max, (time_step, (tblname, ())))))))))))) ->
             let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
-            let time_step = Interval.to_ms @@ match time_step with Some t -> t | None -> timestep_of_timestamps start stop
-            and tblname = Forms.Dns.TblNames.options.(tblname)
-            and rt_min = i2s ~min:0. rt_min in
+            let time_step = match time_step with Some t -> t | None -> timestep_of_timestamps start stop in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps time_step "dns" Forms.Traffic.TblNames.options in
+            let time_step = Interval.to_ms time_step in
+            let rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
             let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
@@ -552,9 +574,9 @@ struct
 
     let distrib_chart = function
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (rt_min, (rt_max, (prec, (top_nth, (tblname, ())))))))))))) ->
-            let tblname = Forms.Dns.TblNames.options.(tblname)
-            and stop   = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
+            let stop   = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps (Timestamp.sub_to_interval stop start) "dns" Forms.Traffic.TblNames.options in
             let rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
             let prec   = i2s ~min:0.00001 ~max:1. prec in
@@ -591,9 +613,9 @@ struct
 
     let top_chart = function
         | Some (start, (stop, (ip_srv, (usr_filter, (tblname, (group_by, (aggr_fields, (sort_by, (max_graphs, (single_pass, ())))))))))) ->
-            let tblname = Forms.Dns.TblNames.options.(tblname)
-            and stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
+            let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
+            let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep_of_timestamps (Timestamp.sub_to_interval stop start) "dns" Forms.Traffic.TblNames.options in
             let datasets = get_top ~start ~stop ?ip_srv ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields dbdir tblname in
             View.table_of_datasets group_by aggr_fields sort_by datasets
         | None -> []
