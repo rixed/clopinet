@@ -28,7 +28,7 @@ module StartField = struct
     let persistant = true
 end
 module StopField = struct
-    module Type = My_time
+    module Type = Optional (My_time)
     let display_name = "stop"
     let uniq_name = "stop"
     let persistant = true
