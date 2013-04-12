@@ -29,7 +29,8 @@ let lods = [| "queries"; "1min"; "10mins"; "1hour" |];
 
 module Web =
 struct
-    include Altern1 (Tuple12.Make (VLan)                (* VLAN *)
+    include Altern1 (Tuple13.Make (Origin)              (* where the record came from *)
+                                  (VLan)                (* VLAN *)
                                   (EthAddr)             (* client MAC *)
                                   (Cidr)                (* client IP *)
                                   (EthAddr)             (* server MAC *)
@@ -43,36 +44,37 @@ struct
                                   (Text)                (* URL *))
     (* We'd rather have an inlined reader *)
     let read ic =
-        let tuple12_read ic =
-            let t0 =
+        let tuple13_read ic =
+            let t0 = Origin.read ic in
+            let t1 =
                 let o = Serial.deser8 ic in
                 if o <> 0 then (
                     assert (o = 1) ;
                     Some (UInteger16.read ic)
                 ) else None in
-            let t1 = EthAddr.read ic in
-            let t2 = Cidr.read ic in
-            let t3 = EthAddr.read ic in
-            let t4 = InetAddr.read ic in
-            let t5 = Integer16.read ic in
-            let t6 = Integer8.read ic in
-            let t7 = Integer16.read ic in
-            let t8 = Timestamp.read ic in
-            let t9 = Distribution.read ic in
-            let t10 = Text.read ic in
+            let t2 = EthAddr.read ic in
+            let t3 = Cidr.read ic in
+            let t4 = EthAddr.read ic in
+            let t5 = InetAddr.read ic in
+            let t6 = Integer16.read ic in
+            let t7 = Integer8.read ic in
+            let t8 = Integer16.read ic in
+            let t9 = Timestamp.read ic in
+            let t10 = Distribution.read ic in
             let t11 = Text.read ic in
-            t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11 in
+            let t12 = Text.read ic in
+            t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12 in
         let v = Serial.deser8 ic in
         if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
         assert (v = 0) ;
-        tuple12_read ic
+        tuple13_read ic
 
     (* We hash on the server IP *)
-    let hash_on_srv (_vlan, _clte, _clt, _srve, srv, _srvp, _method, _err, _ts, _rt, _host, _url) =
+    let hash_on_srv (_orig, _vlan, _clte, _clt, _srve, srv, _srvp, _method, _err, _ts, _rt, _host, _url) =
         InetAddr.hash srv
 
     (* Metafile stores timestamp range *)
-    let meta_aggr (_vlan, _clte, _clt, _srve, _srv, _srvp, _method, _err, ts, _rt, _host, _url) =
+    let meta_aggr (_orig, _vlan, _clte, _clt, _srve, _srv, _srvp, _method, _err, ts, _rt, _host, _url) =
         Aggregator.bounds ~cmp:Timestamp.compare ts
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
@@ -84,6 +86,15 @@ struct
 
     (* Field description *)
     let fields = [
+        "origin", {
+            help = "origin of this record" ;
+            from_prevfields = "" ;
+            expr_type = TOrigin ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.Origin" ;
+            display = "Datatype.Origin.to_string" } ;
         "vlan", {
             help = "802.1q vlan id" ;
             from_prevfields = "" ;
@@ -263,7 +274,7 @@ let plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?st
     let start, stop = min start stop, max start stop in
     let fold f i m =
         Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir name
-            (fun (_vlan, _mac_clt, _clt, _mac_srv, _srv, _srvp, _met, _err, ts, rt, _h, _u) p ->
+            (fun (_orig, _vlan, _mac_clt, _clt, _mac_srv, _srv, _srvp, _met, _err, ts, rt, _h, _u) p ->
                 f ts rt p)
             i m in
     Plot.per_date start stop step fold
@@ -271,8 +282,8 @@ let plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?st
 let top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order =
     let start, stop = min start stop, max start stop in
     let fold = Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir lods.(0) in
-    let cmp (_vl1, _ec1, _c1, _es1, _s1, _p1, _mt1, _er1, _ts1, (_, _, _, rt1, _), _h1, _u1)
-            (_vl2, _ec2, _c2, _es2, _s2, _p2, _mt2, _er2, _ts2, (_, _, _, rt2, _), _h2, _u2) =
+    let cmp (_o1, _vl1, _ec1, _c1, _es1, _s1, _p1, _mt1, _er1, _ts1, (_, _, _, rt1, _), _h1, _u1)
+            (_o2, _vl2, _ec2, _c2, _es2, _s2, _p2, _mt2, _er2, _ts2, (_, _, _, rt2, _), _h2, _u2) =
         Float.compare rt1 rt2 in
     Plot.top_table n sort_order cmp fold
 
@@ -281,14 +292,14 @@ let top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?stat
 let plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max ?(prec=0.05) ?(top_nth=100) dbdir tblname =
      let fold f i m =
         Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir tblname
-            (fun (_vl, _mac_clt, _clt, _mac_srv, srv, _srvp, _met, _err, _ts, rt, _h, _u) p ->
+            (fun (_orig, _vl, _mac_clt, _clt, _mac_srv, srv, _srvp, _met, _err, _ts, rt, _h, _u) p ->
                 let nb_queries, _, _, _, _ = rt in
                 f (srv, nb_queries) p)
             i m in
     let interm = Plot.FindSignificant.pass1 fold top_nth in
     let fold2 f i m =
         Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir tblname
-            (fun (_vl, _mac_clt, _clt, _mac_srv, srv, _srvp, _met, _err, _ts, rt, _h, _u) p ->
+            (fun (_orig, _vl, _mac_clt, _clt, _mac_srv, srv, _srvp, _met, _err, _ts, rt, _h, _u) p ->
                 let nb_queries, _, _, avg, _ = rt in
                 (* TODO: instead of a single [avg], fake a distribution of nb_queries values *)
                 f (srv, nb_queries, [avg]) p)
@@ -324,19 +335,19 @@ let load dbdir create fname =
     let accum3, flush3 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(3) "web")))
                          Distribution.combine
-                         [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
-                              Table.append table3 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ] in
+                         [ fun (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
+                              Table.append table3 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ] in
 
     let table2 = Web.table dbdir lods.(2) in
     let rti = rti_of_lod lods.(2) "web" in
     let accum2, flush2 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(2) "web")))
                          Distribution.combine
-                         [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
-                              Table.append table2 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
+                         [ fun (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
+                              Table.append table2 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
                               BatOption.may (fun rti ->
                                   let ts = round_timestamp rti ts in
-                                  accum3 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
+                                  accum3 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
                                   rti ] in
 
     let table1 = Web.table dbdir lods.(1) in
@@ -344,11 +355,11 @@ let load dbdir create fname =
     let accum1, flush1 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(1) "web")))
                          Distribution.combine
-                         [ fun (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
-                              Table.append table1 (vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
+                         [ fun (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
+                              Table.append table1 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
                               BatOption.may (fun rti ->
                                   let ts = round_timestamp rti ts in
-                                  accum2 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
+                                  accum2 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
                                   rti ] in
 
     let shorten_url s =
@@ -358,14 +369,14 @@ let load dbdir create fname =
 
     let table0 = Web.table dbdir lods.(0) in
     let rti = rti_of_lod lods.(1) "web" in
-    let append0 ((vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) as v) =
+    let append0 ((orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) as v) =
         Table.append table0 v ;
         BatOption.may (fun rti ->
             let clt, _mask = clt in
             let clt = cidr_of_inetaddr Subnet.subnets clt
             and ts = round_timestamp rti ts
             and url = shorten_url url in
-            accum1 (vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
+            accum1 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
             rti in
 
     let flush_all () =

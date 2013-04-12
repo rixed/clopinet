@@ -11,7 +11,8 @@ let lods = [| "flows" |];
 
 module Flow =
 struct
-    include Altern1 (Tuple12.Make (VLan)                         (* vlan *)
+    include Altern1 (Tuple13.Make (Origin)                       (* where the record came from *)
+                                  (VLan)                         (* vlan *)
                                   (EthAddr)                      (* src mac *)
                                   (InetAddr)                     (* src IP *)
                                   (EthAddr)                      (* dst mac *)
@@ -23,36 +24,37 @@ struct
                                   (ULeast63)                     (* L4 payload *))
     (* We'd rather have an inlined reader: *)
     let read ic =
-        let tuple12_read ic =
-            let t0 =
+        let tuple13_read ic =
+            let t0 = Origin.read ic in
+            let t1 =
                 let o = Serial.deser8 ic in
                 if o <> 0 then (
                     assert (o = 1) ;
                     Some (UInteger16.read ic)
                 ) else None in
-            let t1 = EthAddr.read ic in
-            let t2 = InetAddr.read ic in
-            let t3 = EthAddr.read ic in
-            let t4 = InetAddr.read ic in
-            let t5 = UInteger8.read ic in
-            let t6 = UInteger16.read ic in
+            let t2 = EthAddr.read ic in
+            let t3 = InetAddr.read ic in
+            let t4 = EthAddr.read ic in
+            let t5 = InetAddr.read ic in
+            let t6 = UInteger8.read ic in
             let t7 = UInteger16.read ic in
-            let t8 = Timestamp.read ic in
+            let t8 = UInteger16.read ic in
             let t9 = Timestamp.read ic in
-            let t10 = ULeast63.read ic in
+            let t10 = Timestamp.read ic in
             let t11 = ULeast63.read ic in
-            t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11 in
+            let t12 = ULeast63.read ic in
+            t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12 in
         let v = Serial.deser8 ic in
         if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
         assert (v = 0) ;
-        tuple12_read ic
+        tuple13_read ic
 
     (* We hash on the source IP *)
-    let hash_on_src (_vlan, _mac_src, ip_src, _mac_dst, _ip_dst, _ip_proto, _port_src, _port_dst, _ts1, _ts2, _pkts, _pld) =
+    let hash_on_src (_orig, _vlan, _mac_src, ip_src, _mac_dst, _ip_dst, _ip_proto, _port_src, _port_dst, _ts1, _ts2, _pkts, _pld) =
         InetAddr.hash ip_src
 
     (* Metafile stores timestamp range of the whole flow duration *)
-    let meta_aggr (_vlan, _mac_src, _ip_src, _mac_dst, _ip_dst, _ip_proto, _port_src, _port_dst, ts1, ts2, _pkts, _pld) bound_opt =
+    let meta_aggr (_orig, _vlan, _mac_src, _ip_src, _mac_dst, _ip_dst, _ip_proto, _port_src, _port_dst, ts1, ts2, _pkts, _pld) bound_opt =
         let bound = Aggregator.bounds ~cmp:Timestamp.compare ts1 bound_opt in
         Aggregator.bounds ~cmp:Timestamp.compare ts2 (Some bound)
     let meta_read = BoundsTS.read
@@ -71,6 +73,7 @@ struct
         | Some meta -> f meta
         | None -> ()
 
+    (* FIXME: fold_all and compilation of check function *)
     (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
     let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?ip_src ?ip_dst ?ip ?ip_proto ?port_src ?port_dst ?port dbdir name f make_fst merge =
         let tdir = table_name dbdir name in
@@ -79,7 +82,7 @@ struct
                 let cmp = Timestamp.compare in
                 let res =
                     if is_within bounds start stop then (
-                        Table.fold_file tdir hnum snum read (fun ((vl, mac_s, ip_s, mac_d, ip_d, ip_prot, port_s, port_d, ts1, ts2, _pkts, _pld) as x) prev ->
+                        Table.fold_file tdir hnum snum read (fun ((_orig, vl, mac_s, ip_s, mac_d, ip_d, ip_prot, port_s, port_d, ts1, ts2, _pkts, _pld) as x) prev ->
                             (* ocamlopt won't inline check function here, which hurts! *)
                             if check start     (fun start -> cmp ts2 start >= 0) &&
                                check stop      (fun stop  -> cmp stop ts1 > 0) &&
@@ -119,17 +122,17 @@ type callflow_item =
 let clip start stop (x : Flow.t) =
     let ratio tot rem v =
         Int64.div (Int64.mul rem (Int64.of_int v)) tot |> Int64.to_int in
-    let clip_lo ((vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, ts1, ts2, pkts, pld) as x) =
+    let clip_lo ((orig, vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, ts1, ts2, pkts, pld) as x) =
         if Timestamp.compare ts1 start >= 0 then x else (
             let tot = Timestamp.sub ts2 ts1
             and rem = Timestamp.sub start ts1 in
-            (vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, start, ts2, ratio tot rem pkts, ratio tot rem pld)
+            (orig, vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, start, ts2, ratio tot rem pkts, ratio tot rem pld)
         )
-    and clip_hi ((vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, ts1, ts2, pkts, pld) as x) =
+    and clip_hi ((orig, vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, ts1, ts2, pkts, pld) as x) =
         if Timestamp.compare ts2 stop <= 0 then x else (
             let tot = Timestamp.sub ts2 ts1
             and rem = Timestamp.sub ts2 stop in
-            (vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, ts1, stop, ratio tot rem pkts, ratio tot rem pld)
+            (orig, vl, mac_s, ip_s, mac_d, ip_d, ip_proto, port_s, port_d, ts1, stop, ratio tot rem pkts, ratio tot rem pld)
         ) in
     clip_lo x |> clip_hi
 
@@ -139,7 +142,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
         assert (rt_count = 1) ;
         let dt = Int64.of_float (rt_avg *. 0.001) in (* micro to milliseconds *)
         Timestamp.add ts1 dt in
-    let flow_of_tuple ((_vl, _mac_s, ip_s, _mac_d, ip_d, ip_proto, port_s, port_d, ts1, ts2, pkts, pld) : Flow.t) : callflow_item =
+    let flow_of_tuple ((_orig, _vl, _mac_s, ip_s, _mac_d, ip_d, ip_proto, port_s, port_d, ts1, ts2, pkts, pld) : Flow.t) : callflow_item =
         ts1, ts2,
         InetAddr.to_string ip_s, InetAddr.to_string ip_d,
         (let proto = try Unix.((getprotobynumber ip_proto).p_name) with Not_found -> "" in
@@ -150,19 +153,19 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
             (string_of_volume (float_of_int pld))),
         Traffic.label_of_app_key (ip_proto, min port_s port_d),
         Dt (float_of_int pld)
-    and flow_of_dns (_vlan, _clte, clt, _srve, srv, err, ts, rt, name) =
+    and flow_of_dns (_orig, _vlan, _clte, clt, _srve, srv, err, ts, rt, name) =
         ts, ts2_of_rt ts rt,
         InetAddr.to_string (fst clt), InetAddr.to_string srv,
         Printf.sprintf "%s?" name,
         "DNS",
         Tx (Dns.string_of_err err)
-    and flow_of_web (_vlan, _clte, clt, _srve, srv, _srvp, meth, err, ts, rt, host, url) =
+    and flow_of_web (_orig, _vlan, _clte, clt, _srve, srv, _srvp, meth, err, ts, rt, host, url) =
         ts, ts2_of_rt ts rt,
         InetAddr.to_string (fst clt), InetAddr.to_string srv,
         Web.string_of_request ~max_len:60 meth host url,
         "WEB",
         Tx (Printf.sprintf "status: %d" err)
-    and flow_of_tcp (_vlan, _clte, clt, _srve, srv, cltp, srvp, ts, syns, ct) =
+    and flow_of_tcp (_orig, _vlan, _clte, clt, _srve, srv, cltp, srvp, ts, syns, ct) =
         ts, ts2_of_rt ts ct,
         InetAddr.to_string (fst clt), InetAddr.to_string srv,
         Printf.sprintf "SYN %d&#x2192;%d" cltp srvp,
@@ -182,7 +185,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
         let flows, peers =
             Flow.fold ~start ~stop ?vlan ~ip_src:(cidr_singleton ip_start) ?ip_dst
                       ?ip_proto ?port_src ?port_dst dbdir lods.(0)
-                      (fun ((_vl, _mac_s, _ip_s, _mac_d, ip_d, ip_prot, port_s, port_d, ts1, _ts2, _pkts, _pld) as x) (flows, ip_2_tsmin) ->
+                      (fun ((_orig, _vl, _mac_s, _ip_s, _mac_d, ip_d, ip_prot, port_s, port_d, ts1, _ts2, _pkts, _pld) as x) (flows, ip_2_tsmin) ->
                           let peer = ip_d,ip_prot,port_s,port_d
                           and ts1 = Timestamp.max start ts1 in
                           (match Hashtbl.find_option ip_2_tsmin peer with
@@ -209,7 +212,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
                 let other_dir, ts_max =
                     Flow.fold ~start:ts_min ~stop ?vlan ~ip_src:(cidr_singleton ip) ~ip_dst:(cidr_singleton ip_start)
                               ~ip_proto ~port_src ~port_dst dbdir lods.(0)
-                              (fun ((_vl, _mac_s, _ip_s, _mac_d, _ip_d, _ip_prot, _port_s, _port_d, _ts1, ts2, _pkts, _pld) as x) (flows, tsmax) ->
+                              (fun ((_orig, _vl, _mac_s, _ip_s, _mac_d, _ip_d, _ip_prot, _port_s, _port_d, _ts1, ts2, _pkts, _pld) as x) (flows, tsmax) ->
                                   let ts2 = Timestamp.min stop ts2 in
                                   flow_of_tuple (clip start stop x) :: flows, Timestamp.max tsmax ts2)
                               (fun () -> [], ts_min)

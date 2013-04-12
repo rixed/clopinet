@@ -703,8 +703,8 @@ let cidr_of_inetaddr subnets ip =
 
 let cidr_singleton ip = ip, masklen_of ip
 
-open Bitstring
 let fold_ips ((netaddr : Unix.inet_addr), mask) f p =
+    let open Bitstring in
     let net : string = Obj.magic netaddr in (* reveal the underlying string *)
     let net = bitstring_of_string net in
     let addr_bits_len = bitstring_length net in
@@ -718,8 +718,8 @@ let fold_ips ((netaddr : Unix.inet_addr), mask) f p =
         let rec aux i p =
             if i >= max_i then p else
             let ip : Unix.inet_addr =
-                Bitstring.concat [
-                    Bitstring.takebits mask net ;
+                concat [
+                    takebits mask net ;
                     (BITSTRING { i : width_bits }) ] |>
                 string_of_bitstring |>
                 Obj.magic in
@@ -1353,15 +1353,65 @@ end
 
 module VLan = Option (UInteger16)
 
+module Origin_base : DATATYPE_BASE =
+struct
+    (*$< Origin_base *)
+    type t = Iface of string | PCap of string
+
+    let name = "origin"
+    let equal = (=)
+    let compare = compare
+    let hash = Hashtbl.hash
+    let write ob = function
+        | Iface n -> ser8 ob 0 ; ser_string ob n
+        | PCap  n -> ser8 ob 1 ; ser_string ob n
+
+    let write_txt oc = function
+        | Iface n -> Output.string oc "iface " ; Output.string oc n
+        | PCap n  -> Output.string oc "pcap "  ; Output.string oc n
+
+    let read ib =
+        match deser8 ib with
+        | 0 -> Iface (deser_string ib)
+        | 1 -> PCap  (deser_string ib)
+        | _ -> assert false
+    
+    let to_imm = function
+        | Iface n -> Printf.sprintf "(Datatype.Origin.Iface %S)" n
+        | PCap n  -> Printf.sprintf "(Datatype.Origin.PCap %S)" n
+
+    let parzer ?(picky=false) =
+        ignore picky ;
+        let open Peg in
+        let nchar = cond (not % Char.is_whitespace) in
+        let iface = string "iface" ++ several blank ++ several nchar >>: (fun (_, n) -> Iface (String.of_list n))
+        and pcap  = string "pcap"  ++ several blank ++ several nchar >>: (fun (_, n) -> PCap (String.of_list n)) in
+        either [ iface ; pcap ]
+    (*$T parzer
+      parzer (String.to_list "iface eth0") = Peg.Fail |> not
+      parzer (String.to_list "pcap traces.pcap") = Peg.Fail |> not
+     *)
+
+    (*$>*)
+end
+
+module Origin : DATATYPE = 
+struct
+    include Origin_base
+    include Datatype_of(Origin_base)
+end
+
+
 (* Now that we have these, define a few related types.
  * Note: in the future, we'd like some of these merged into datatypes module so that to
  *       generate runtime code we'd merely need a list of name -> datatype module name *)
 
 type expr_type = TBool | TInteger | TFloat | TText
                | TIp | TCidr | TEthAddr | TInterval
-               | TTimestamp | TVLan
+               | TTimestamp | TVLan | TOrigin
 
 (* Fields models for templates *)
+(* TODO: define once and for all common field for origin, vlan, and most fields... *)
 
 type aggr_function = {
     zero : string ;         (* neutral 'x value *)

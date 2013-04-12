@@ -13,44 +13,46 @@ let lods = [| "queries"; "1min"; "10mins"; "1hour" |];
 
 module Dns =
 struct
-    include Altern1 (Tuple9.Make (VLan)                 (* VLAN *)
-                                 (EthAddr)              (* client MAC *)
-                                 (Cidr)                 (* client IP *)
-                                 (EthAddr)              (* server MAC *)
-                                 (InetAddr)             (* server IP *)
-                                 (Integer8)             (* err code *)
-                                 (Timestamp)            (* timestamp *)
-                                 (Distribution)         (* resp time *)
-                                 (Text)                 (* query name *))
+    include Altern1 (Tuple10.Make (Origin)               (* where the record came from *)
+                                  (VLan)                 (* VLAN *)
+                                  (EthAddr)              (* client MAC *)
+                                  (Cidr)                 (* client IP *)
+                                  (EthAddr)              (* server MAC *)
+                                  (InetAddr)             (* server IP *)
+                                  (Integer8)             (* err code *)
+                                  (Timestamp)            (* timestamp *)
+                                  (Distribution)         (* resp time *)
+                                  (Text)                 (* query name *))
     (* We'd rather have an inlined reader *)
     let read ic : t =
-        let tuple9_read ic =
-            let t0 =
+        let tuple10_read ic =
+            let t0 = Origin.read ic in
+            let t1 =
                 let o = Serial.deser8 ic in
                 if o <> 0 then (
                     assert (o = 1) ;
                     Some (UInteger16.read ic)
                 ) else None in
-            let t1 = EthAddr.read ic in
-            let t2 = Cidr.read ic in
-            let t3 = EthAddr.read ic in
-            let t4 = InetAddr.read ic in
-            let t5 = Integer8.read ic in
-            let t6 = Timestamp.read ic in
-            let t7 = Distribution.read ic in
-            let t8 = Text.read ic in
-            t0,t1,t2,t3,t4,t5,t6,t7,t8 in
+            let t2 = EthAddr.read ic in
+            let t3 = Cidr.read ic in
+            let t4 = EthAddr.read ic in
+            let t5 = InetAddr.read ic in
+            let t6 = Integer8.read ic in
+            let t7 = Timestamp.read ic in
+            let t8 = Distribution.read ic in
+            let t9 = Text.read ic in
+            t0,t1,t2,t3,t4,t5,t6,t7,t8,t9 in
         let v = Serial.deser8 ic in
         if v <> 0 then Printf.fprintf stderr "bad version: %d\n%!" v ;
         assert (v = 0) ;
-        tuple9_read ic
+        tuple10_read ic
 
     (* We hash on the server IP *)
-    let hash_on_srv (_vlan, _clte, _clt, _srve, srv, _err, _ts, _rt, _name) =
+    let hash_on_srv (_orig, _vlan, _clte, _clt, _srve, srv, _err, _ts, _rt, _name) =
         InetAddr.hash srv
 
     (* Metafile stores timestamp range *)
-    let meta_aggr (_vlan, _clte, _clt, _srve, _srv, _err, ts, _rt, _name) =
+    let meta_aggr (_orig, _vlan, _clte, _clt, _srve, _srv, _err, ts, _rt, _name) =
         Aggregator.bounds ~cmp:Timestamp.compare ts
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
@@ -62,6 +64,15 @@ struct
 
     (* Field description *)
     let fields = [
+        "origin", {
+            help = "origin of this record" ;
+            from_prevfields = "" ;
+            expr_type = TOrigin ;
+            aggrs = [] ;
+            sortable = "" ;
+            keyable = true ;
+            datatype = "Datatype.Origin" ;
+            display = "Datatype.Origin.to_string" } ;
         "vlan", {
             help = "802.1q vlan id" ;
             from_prevfields = "" ;
@@ -213,7 +224,7 @@ let plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?r
     let start, stop = min start stop, max start stop in
     let fold f i m =
         Dns.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?tx_min dbdir name
-            (fun (_vlan, _mac_clt, _clt, _mac_srv, _srv, _err, ts, rt, _name) p ->
+            (fun (_orig, _vlan, _mac_clt, _clt, _mac_srv, _srv, _err, ts, rt, _name) p ->
                 f ts rt p)
             i m in
     Plot.per_date start stop step fold
@@ -221,8 +232,8 @@ let plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?r
 let top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?error ?qname dbdir n sort_order =
     let start, stop = min start stop, max start stop in
     let fold = Dns.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?error ?qname dbdir lods.(0) in
-    let cmp (_vl1, _eclt1, _clt1, _esrv1, _srv1, _err1, _ts1, (_, _, _, rt1, _), _nm1)
-            (_vl2, _eclt2, _clt2, _esrv2, _srv2, _err2, _ts2, (_, _, _, rt2, _), _nm2) =
+    let cmp (_o1, _vl1, _eclt1, _clt1, _esrv1, _srv1, _err1, _ts1, (_, _, _, rt1, _), _nm1)
+            (_o2, _vl2, _eclt2, _clt2, _esrv2, _srv2, _err2, _ts2, (_, _, _, rt2, _), _nm2) =
         Float.compare rt1 rt2 in
     Plot.top_table n sort_order cmp fold
 
@@ -231,14 +242,14 @@ let top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_
 let plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?(prec=0.05) ?(top_nth=100) dbdir tblname =
      let fold f i m =
         Dns.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max dbdir tblname
-            (fun (_vl, _clte, _clt, _srve, srv, _err, _ts, rt, _name) p ->
+            (fun (_orig, _vl, _clte, _clt, _srve, srv, _err, _ts, rt, _name) p ->
                 let nb_queries, _, _, _, _ = rt in
                 f (srv, nb_queries) p)
             i m in
     let interm = Plot.FindSignificant.pass1 fold top_nth in
     let fold2 f i m =
         Dns.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max dbdir tblname
-            (fun (_vl, _clte, _clt, _srve, srv, _err, _ts, rt, _name) p ->
+            (fun (_orig, _vl, _clte, _clt, _srve, srv, _err, _ts, rt, _name) p ->
                 let nb_queries, _, _, avg, _ = rt in
                 (* FIXME: instead of a single [avg], return the whole distrib so that we can
                  *        later fake a (gaussian) distribution of nb_queries values, or merely
@@ -275,19 +286,19 @@ let load dbdir create fname =
     let accum3, flush3 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(3) "dns")))
                          Distribution.combine
-                         [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
-                              Table.append table3 (vlan, clte, clt, srve, srv, err, ts, distr, name) ] in
+                         [ fun (orig, vlan, clte, clt, srve, srv, err, ts, name) distr ->
+                              Table.append table3 (orig, vlan, clte, clt, srve, srv, err, ts, distr, name) ] in
 
     let table2 = Dns.table dbdir lods.(2) in
     let rti = rti_of_lod lods.(3) "dns" in
     let accum2, flush2 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(2) "dns")))
                          Distribution.combine
-                         [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
-                              Table.append table2 (vlan, clte, clt, srve, srv, err, ts, distr, name) ;
+                         [ fun (orig, vlan, clte, clt, srve, srv, err, ts, name) distr ->
+                              Table.append table2 (orig, vlan, clte, clt, srve, srv, err, ts, distr, name) ;
                               BatOption.may (fun rti ->
                                   let ts = round_timestamp rti ts in
-                                  accum3 (vlan, clte, clt, srve, srv, err, ts, "") distr)
+                                  accum3 (orig, vlan, clte, clt, srve, srv, err, ts, "") distr)
                                   rti ] in
 
     let table1 = Dns.table dbdir lods.(1) in
@@ -295,24 +306,24 @@ let load dbdir create fname =
     let accum1, flush1 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(1) "dns")))
                          Distribution.combine
-                         [ fun (vlan, clte, clt, srve, srv, err, ts, name) distr ->
-                              Table.append table1 (vlan, clte, clt, srve, srv, err, ts, distr, name) ;
+                         [ fun (orig, vlan, clte, clt, srve, srv, err, ts, name) distr ->
+                              Table.append table1 (orig, vlan, clte, clt, srve, srv, err, ts, distr, name) ;
                               BatOption.may (fun rti ->
                                   let ts = round_timestamp rti ts in
                                   (* TODO: keep only the last host name + TLD in the name *)
-                                  accum2 (vlan, clte, clt, srve, srv, err, ts, name) distr)
+                                  accum2 (orig, vlan, clte, clt, srve, srv, err, ts, name) distr)
                                   rti ] in
 
     let table0 = Dns.table dbdir lods.(0) in
     let rti = rti_of_lod lods.(1) "dns" in
-    let append0 ((vlan, clte, clt, srve, srv, err, ts, distr, name) as v) =
+    let append0 ((orig, vlan, clte, clt, srve, srv, err, ts, distr, name) as v) =
         Table.append table0 v ;
         BatOption.may (fun rti ->
             let clt, mask = clt in
             assert (mask = 32 || mask = 128) ; (* the mask is supposed to be total *)
             let clt = cidr_of_inetaddr Subnet.subnets clt
             and ts = round_timestamp rti ts in
-            accum1 (vlan, clte, clt, srve, srv, err, ts, name) distr)
+            accum1 (orig, vlan, clte, clt, srve, srv, err, ts, name) distr)
             rti in
 
     let flush_all () =

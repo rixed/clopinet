@@ -7,12 +7,12 @@ Or just run: junkie -c this_file
 			 (junkie runtime))
 
 (define nt-http (nt:compile "http-response-time"
-  '(
-    [(err-code uint)
+  '([(err-code uint)
      (client-ip ip)
      (server-ip ip)
      (client-mac mac)
      (server-mac mac)
+     (device uint)
      (vlan uint)
      (client-port uint)
      (server-port uint)
@@ -22,8 +22,8 @@ Or just run: junkie -c this_file
      (url str)
      (qry-host str)]
     [(http-answer
-       (on-entry (pass "printf(\"WEB\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t1\\t%f\\t%f\\t%f\\t0\\t%s\\t%s\\n\",
-                        (int)" vlan " == VLAN_UNSET ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+       (on-entry (pass "printf(\"WEB\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t1\\t%f\\t%f\\t%f\\t0\\t%s\\t%s\\n\",
+                        (int)" device ", (int)" vlan " == VLAN_UNSET ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "), " server-port ",
                         " qry-method ", " err-code ", timeval_2_str(" qry-start "),
@@ -42,6 +42,7 @@ Or just run: junkie -c this_file
                                          (client-port := tcp.src-port)
                                          (server-ip := ip.dst)
                                          (server-mac := eth.dst)
+                                         (device := cap.dev)
                                          (vlan := eth.vlan)
                                          (server-port := tcp.dst-port)
                                          (qry-start := cap.ts)
@@ -75,13 +76,14 @@ Or just run: junkie -c this_file
      (server-ip ip)
      (client-mac mac)
      (server-mac mac)
+     (device uint)
      (vlan uint)
      (qry-start timestamp)
      (qry-stop timestamp)
      (qry-name str)]
     [(dns-answer
-       (on-entry (pass "printf(\"DNS\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t1\\t%f\\t%f\\t%f\\t0\\t%s\\n\",
-                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+       (on-entry (pass "printf(\"DNS\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t1\\t%f\\t%f\\t%f\\t0\\t%s\\n\",
+                        (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
                         " err-code ", timeval_2_str(" qry-start "),
@@ -99,6 +101,7 @@ Or just run: junkie -c this_file
                                     (client-mac := eth.src)
                                     (server-ip := ip.dst)
                                     (server-mac := eth.dst)
+                                    (device := cap.dev)
                                     (vlan := eth.vlan)
                                     (txid := dns.txid)
                                     (qry-name := dns.name)
@@ -119,7 +122,8 @@ Or just run: junkie -c this_file
         (src-index-on (dns) dns.txid))])))
 
 (define nt-eth (nt:compile "eth-traffic"
-  '([(vlan uint)
+  '([(device uint)
+     (vlan uint)
      (eth-src mac)
      (eth-dst mac)
      (eth-proto uint)
@@ -136,8 +140,8 @@ Or just run: junkie -c this_file
      (count uint)
      (eth-mtu uint)]
     [(traffic-eth-end
-       (on-entry (pass "printf(\"TRF\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0.0.0.0\\t0.0.0.0\\t0\\t0\\t0\\t0\\t0\\n\",
-                        timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
+       (on-entry (pass "printf(\"TRF\\tiface %d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0.0.0.0\\t0.0.0.0\\t0\\t0\\t0\\t0\\t0\\n\",
+                        (int)" device ", timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
                         (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
                         " eth-pld ", " eth-mtu ");\n")))
@@ -145,8 +149,8 @@ Or just run: junkie -c this_file
        (index-size 5024)
        (timeout 0))
      (traffic-ip-end
-       (on-entry (pass "printf(\"TRF\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0\\t0\\t0\\n\",
-                        timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
+       (on-entry (pass "printf(\"TRF\\tiface %d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0\\t0\\t0\\n\",
+                        (int)" device ", timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
                         (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
                         " eth-pld ", " eth-mtu ",
@@ -155,8 +159,8 @@ Or just run: junkie -c this_file
        (index-size 5024)
        (timeout 0))
      (traffic-l4-end
-       (on-entry (pass "printf(\"TRF\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
-                        timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
+       (on-entry (pass "printf(\"TRF\\tiface %d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+                        (int)" device ", timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
                         (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
                         " eth-pld ", " eth-mtu ",
@@ -175,6 +179,7 @@ Or just run: junkie -c this_file
         (match (cap eth) (do
                            (eth-src := eth.src)
                            (eth-dst := eth.dst)
+                           (device := cap.dev)
                            (vlan := eth.vlan)
                            (eth-proto := eth.protocol)
                            (ts-start := cap.ts)
@@ -191,6 +196,7 @@ Or just run: junkie -c this_file
         (match (cap eth) (if
                            (and (eth-src == eth.src)
                                 (eth-dst == eth.dst)
+                                (device == cap.dev)
                                 (vlan == eth.vlan)
                                 (eth-proto == eth.protocol))
                            (do
@@ -210,6 +216,7 @@ Or just run: junkie -c this_file
         (match (cap eth ip) (do
                               (eth-src := eth.src)
                               (eth-dst := eth.dst)
+                              (device := cap.dev)
                               (vlan := eth.vlan)
                               (eth-proto := eth.protocol)
                               (ts-start := cap.ts)
@@ -230,6 +237,7 @@ Or just run: junkie -c this_file
         (match (cap eth ip) (if
                               (and (eth-src == eth.src)
                                    (eth-dst == eth.dst)
+                                   (device == cap.dev)
                                    (vlan == eth.vlan)
                                    (eth-proto == eth.protocol)
                                    (ip-src == ip.src)
@@ -253,6 +261,7 @@ Or just run: junkie -c this_file
         (match (cap eth ip tcp) (do
                                   (eth-src := eth.src)
                                   (eth-dst := eth.dst)
+                                  (device := cap.dev)
                                   (vlan := eth.vlan)
                                   (eth-proto := eth.protocol)
                                   (ts-start := cap.ts)
@@ -276,6 +285,7 @@ Or just run: junkie -c this_file
         (match (cap eth ip tcp) (if
                                   (and (eth-src == eth.src)
                                        (eth-dst == eth.dst)
+                                       (device == cap.dev)
                                        (vlan == eth.vlan)
                                        (eth-proto == eth.protocol)
                                        (ip-src == ip.src)
@@ -302,6 +312,7 @@ Or just run: junkie -c this_file
         (match (cap eth ip udp) (do
                                   (eth-src := eth.src)
                                   (eth-dst := eth.dst)
+                                  (device := cap.dev)
                                   (vlan := eth.vlan)
                                   (eth-proto := eth.protocol)
                                   (ts-start := cap.ts)
@@ -325,6 +336,7 @@ Or just run: junkie -c this_file
         (match (cap eth ip udp) (if
                                   (and (eth-src == eth.src)
                                        (eth-dst == eth.dst)
+                                       (device == cap.dev)
                                        (vlan == eth.vlan)
                                        (eth-proto == eth.protocol)
                                        (ip-src == ip.src)
@@ -354,21 +366,22 @@ Or just run: junkie -c this_file
      (server-mac mac)
      (client-port uint)
      (server-port uint)
+     (device uint)
      (vlan uint)
      (sock-syn timestamp)
      (sock-ack timestamp)
      (nb-syns uint)]
     [(tcp-opened
-       (on-entry (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%f\\t%f\\t%f\\t0\\n\",
-                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+       (on-entry (pass "printf(\"TCP\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%f\\t%f\\t%f\\t0\\n\",
+                        (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
                         " client-port ", " server-port ",
                         timeval_2_str(" sock-syn "), " nb-syns ",
                         " (sock-ack - sock-syn) "/1000000., " (sock-ack - sock-syn) "/1000000., " (sock-ack - sock-syn) "/1000000.);\n")))
      (tcp-connecting
-       (on-timeout (pass "printf(\"TCP\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%f\\t%f\\t%f\\t0\\n\",
-                         (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+       (on-timeout (pass "printf(\"TCP\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%f\\t%f\\t%f\\t0\\n\",
+                         (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                          eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
                          eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
                          " client-port ", " server-port ",
@@ -388,6 +401,7 @@ Or just run: junkie -c this_file
                                     (server-port := tcp.dst-port)
                                     (server-ip := ip.dst)
                                     (server-mac := eth.dst)
+                                    (device := cap.dev)
                                     (vlan := eth.vlan)
                                     (sock-syn := cap.ts)
                                     (sock-ack := cap.ts) ; FIXME: 0 instead
@@ -445,14 +459,15 @@ Or just run: junkie -c this_file
      (src-port uint)
      (dst-port uint)
      (ip-proto uint)
+     (device uint)
      (vlan uint)
      (start timestamp)
      (stop timestamp)
      (nb-pkts uint)
      (pld uint)]
     [(tcp-tx
-       (on-timeout (pass "printf(\"DT\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
-                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+       (on-timeout (pass "printf(\"DT\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+                        (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" src-mac "), ip_addr_2_str(" src-ip "),
                         eth_addr_2_str(" dst-mac "), ip_addr_2_str(" dst-ip "),
                         " ip-proto ", " src-port ", " dst-port ",
@@ -462,8 +477,8 @@ Or just run: junkie -c this_file
        ; timeout an outstanding tcp tx after 500ms
        (timeout 500000))
      (udp-tx
-       (on-timeout (pass "printf(\"DT\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
-                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+       (on-timeout (pass "printf(\"DT\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+                        (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" src-mac "), ip_addr_2_str(" src-ip "),
                         eth_addr_2_str(" dst-mac "), ip_addr_2_str(" dst-ip "),
                         " ip-proto ", " src-port ", " dst-port ",
@@ -473,8 +488,8 @@ Or just run: junkie -c this_file
        ; timeout an outstanding udp tx after 500ms
        (timeout 500000))
      (dt-end
-       (on-entry (pass "printf(\"DT\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
-                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
+       (on-entry (pass "printf(\"DT\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
+                        (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
                         eth_addr_2_str(" src-mac "), ip_addr_2_str(" src-ip "),
                         eth_addr_2_str(" dst-mac "), ip_addr_2_str(" dst-ip "),
                         " ip-proto ", " src-port ", " dst-port ",
@@ -491,6 +506,7 @@ Or just run: junkie -c this_file
                                     (dst-port := tcp.dst-port)
                                     (dst-ip := ip.dst)
                                     (dst-mac := eth.dst)
+                                    (device := cap.dev)
                                     (vlan := eth.vlan)
                                     (ip-proto := ip.proto)
                                     (start := cap.ts)
@@ -535,6 +551,7 @@ Or just run: junkie -c this_file
                                     (dst-port := udp.dst-port)
                                     (dst-ip := ip.dst)
                                     (dst-mac := eth.dst)
+                                    (device := cap.dev)
                                     (vlan := eth.vlan)
                                     (ip-proto := ip.proto)
                                     (start := cap.ts)

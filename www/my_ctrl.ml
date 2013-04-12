@@ -358,17 +358,18 @@ struct
                   "Timestamp" ;
                   "Response Time (&#x00B5s)" ;
                   "URL" ] in
-            View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, port, meth, err, ts, (_, _, _, rt, _), host, url) ->
-                [ string_of_vlan vlan ;
+            View.tops_table tops field_display_names (fun (orig, vlan, eclt, clt, esrv, srv, port, meth, err, ts, (_, _, _, rt, _), host, url) ->
+                [ Origin.to_string orig ;
+                  string_of_vlan vlan ;
                   EthAddr.to_string eclt ;
                   Cidr.to_string clt ;
-                      EthAddr.to_string esrv ;
-                      InetAddr.to_string srv ;
-                      string_of_method meth ;
-                      string_of_int err ;
-                      Timestamp.to_string ts ;
-                      string_of_float rt ;
-                      url_name host port url ])
+                  EthAddr.to_string esrv ;
+                  InetAddr.to_string srv ;
+                  string_of_method meth ;
+                  string_of_int err ;
+                  Timestamp.to_string ts ;
+                  string_of_float rt ;
+                  url_name host port url ])
         | None -> []
 
     let queries_chart_descr =
@@ -505,8 +506,9 @@ struct
                   "Server MAC" ; "Server IP" ;
                   "Error Code" ; "Timestamp" ;
                   "Response Time (&#x00B5s)" ; "Query Name" ] in
-            View.tops_table tops field_display_names (fun (vlan, eclt, clt, esrv, srv, err, ts, (_, _, _, rt, _), name) ->
-                [ string_of_vlan vlan ;
+            View.tops_table tops field_display_names (fun (orig, vlan, eclt, clt, esrv, srv, err, ts, (_, _, _, rt, _), name) ->
+                [ Origin.to_string orig ;
+                  string_of_vlan vlan ;
                   EthAddr.to_string eclt ;
                   Cidr.to_string clt ;
                   EthAddr.to_string esrv ;

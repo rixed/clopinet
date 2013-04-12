@@ -20,6 +20,7 @@ type value = Cidr of Cidr.t
            | Interval of Interval.t
            | Timestamp of Timestamp.t
            | VLan of VLan.t
+           | Origin of Origin.t
 
 and expr = Eq of expr * expr
          | Not of expr
@@ -50,6 +51,7 @@ let string_of_value = function
     | Interval v  -> Interval.to_string v
     | Timestamp v -> Timestamp.to_string v
     | VLan v      -> VLan.to_string v
+    | Origin v    -> Origin.to_string v
 
 (* This function if supposed to print back in user filter form (not OCaml code) *)
 let rec string_of_expr = function
@@ -97,7 +99,8 @@ let value =
              InetAddr.parzer ~picky:true  >>: (fun v -> InetAddr v) ;
              Cidr.parzer ~picky:true      >>: (fun v -> Cidr v) ;
              Text.parzer ~picky:true      >>: (fun v -> Text v) ;
-             VLan.parzer ~picky:true      >>: (fun v -> VLan v) ]
+             VLan.parzer ~picky:true      >>: (fun v -> VLan v) ;
+             Origin.parzer ~picky:true    >>: (fun v -> Origin v) ]
 
 (*$T value
   value (String.to_list "true") = Peg.Res (Bool true, [])
@@ -109,7 +112,7 @@ let string_of_type = function
     | TBool -> "boolean" | TInteger -> "integer" | TFloat -> "float"
     | TText -> "string"  | TIp  -> "IP address"  | TCidr -> "CIDR subnet"
     | TEthAddr -> "mac"  | TInterval -> "time interval" | TTimestamp -> "datetime"
-    | TVLan -> "vlan"
+    | TVLan -> "vlan" | TOrigin -> "origin"
 
 let fields = ref []
 
@@ -304,6 +307,7 @@ and type_of_value = function
     | Interval _  -> TInterval
     | Timestamp _ -> TTimestamp
     | VLan _      -> TVLan
+    | Origin _    -> TOrigin
 
 (* Promote ints to floats where required by adding ToFloat operations *)
 let rec promote_to_float x = match x with
@@ -406,6 +410,7 @@ and ocaml_of_value = function
     | Interval v  -> Interval.to_imm v
     | Timestamp v -> Timestamp.to_imm v
     | VLan v      -> VLan.to_imm v
+    | Origin v    -> Origin.to_imm v
 
 let () =
     Printexc.register_printer (function
