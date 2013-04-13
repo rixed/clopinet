@@ -421,7 +421,15 @@ struct
 end
 
 (* Distributions of response times: *)
-let distributions_of_response_times prec m rest_rts label_of_key =
+let distributions_of_response_times ?prec m rest_rts label_of_key =
+    (* If we gave no prec, choose one according to the rts we have *)
+    let prec = match prec with
+        | Some prec -> prec
+        | None ->
+            let fold_rts f p = Hashtbl.fold (fun _k (_, rts) p ->
+                List.fold_left f p rts) m p in
+            let mi, ma = fold_rts (fun (pmi,pma) rt -> min pmi rt, max pma rt) (max_float, -.max_float) in
+            (ma -. mi) /. Prefs.get_float "gui/chart/prefered_resolution" 200. in
     let distrib_of_rts rts =
         let mi, ma =
             List.fold_left (fun (mi, ma) rt ->

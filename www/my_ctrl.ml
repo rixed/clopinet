@@ -120,7 +120,7 @@ let distrib_help name =
 
 let timestep_of_timestamps start stop =
     let dt = Timestamp.to_unixfloat stop -. Timestamp.to_unixfloat start in
-    Interval.of_secs (dt /. float_of_int (Prefs.get_int "gui/chart/prefered_resolution" 200))
+    Interval.of_secs (dt /. Prefs.get_float "gui/chart/prefered_resolution" 200.)
 
 let default_chart_duration = Interval.of_pref "gui/chart/prefered_duration" Interval.({ zero with days = 1. })
 

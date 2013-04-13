@@ -289,7 +289,7 @@ let top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?stat
 
 (* Display in it's own color the servers that represent more than 1/top_nth share of the tot
  * number of queries *)
-let plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max ?(prec=0.05) ?(top_nth=100) dbdir tblname =
+let plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?(top_nth=100) dbdir tblname =
      let fold f i m =
         Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir tblname
             (fun (_orig, _vl, _mac_clt, _clt, _mac_srv, srv, _srvp, _met, _err, _ts, rt, _h, _u) p ->
@@ -306,7 +306,7 @@ let plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?stat
             i m
     and aggr_rts prev_rts rts = List.rev_append rts prev_rts in
     let result, _rest_count, rest_rts, _sum_v, _sum_tv = Plot.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in
-    Plot.distributions_of_response_times prec result rest_rts InetAddr.to_string
+    Plot.distributions_of_response_times ?prec result rest_rts InetAddr.to_string
 
 (* Contrary to top request which return a list of queries from the query table, here we can query freely anything *)
 type top_fun = unit -> ((string array option * string array * int * int) list) * int * string array
