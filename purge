@@ -5,6 +5,7 @@
 
 set -e
 path=$(dirname "$0")
+. "$path"/env
 
 help() {
 	echo "purge [--daemon] dbdir"

@@ -112,8 +112,11 @@ let load fname parzer append flush =
 let table_name dbdir name = dbdir ^ "/" ^ name
 
 let rti_of_lod lod metric =
-    let pname = "db/"^ metric ^"/"^ lod ^"/round" in
-    BatOption.map Interval.to_ms (Interval.of_pref_option pname)
+    let pname = "CPN_DB_"^ metric ^"_"^ lod ^"_ROUND" |> String.uppercase in
+    match Interval.of_pref_option pname with
+    | Some rti -> Some (Interval.to_ms rti)
+    | None -> Log.warning "No round time interval found for %s/%s, will skip this LoD" metric lod ;
+              None
 
 let buffer_duration_of_lod lod metric =
     let msecs = rti_of_lod lod metric in
@@ -191,7 +194,7 @@ let purge dbdir lods =
     let purge_hnum expiration tdir hnum =
         Table.iter_snums tdir hnum (fun _ -> None) (purge_file expiration tdir hnum) in
     let purge_lod lod =
-        let pname = "db/"^name^"/"^lod^"/expiration" in
+        let pname = "CPN_DB_"^name^"_"^lod^"_EXPIRATION" |> String.uppercase in
         match Interval.of_pref_option pname with
         | None ->
             Printf.printf "%s unset, skipping\n" pname

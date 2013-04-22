@@ -2,6 +2,15 @@ open Batteries
 
 exception Cannot_compile of string * string
 
+(* TODO: move this into batteries one day *)
+let unix_quote s =
+    "'"^ String.nreplace ~str:s ~sub:"'" ~by:"'\"'\"'" ^"'"
+(*$T unix_quote
+  unix_quote "foo" = "'foo'"
+  unix_quote "$1" = "'$1'"
+  unix_quote "\"l'eau\"" = "'\"l'\"'\"'eau\"'"
+*)
+
 let load_string str =
     let fname =
         File.with_temporary_out ~prefix:"clopinet_" ~suffix:".ml" ~mode:[`create;(*`delete_on_exit;*)`text]
@@ -9,11 +18,17 @@ let load_string str =
                 IO.nwrite oc str ;
                 fname) in
     let cmxs = Dynlink.adapt_filename fname in
-    let cmd = Printf.sprintf "OCAMLPATH=%s PATH=%s %s ocamlopt -o %s -package clopinet -inline 9 -shared %s"
-        (Prefs.get_string "compiler/ocamlpath" "")
-        (Prefs.get_string "compiler/path" "")
-        (Prefs.get_string "compiler/ocamlfind" "ocamlfind")
-        cmxs fname in
+    let envvars = [ "PATH"; "OCAMLRUNPARAM"; "OCAMLFIND"; "OCAMLPATH" ] in
+    let pass n =
+        try let v = Sys.getenv n in
+            Some (n ^"="^ unix_quote v)
+        with Not_found -> None in
+    let env = List.filter_map pass envvars |> String.concat " " in
+    let cmd = Printf.sprintf "%s ocamlopt -o %s -package clopinet -inline 9 -shared %s"
+        (unix_quote (Prefs.get_string "CPN_COMPILER_OCAMLFIND" "ocamlfind"))
+        (unix_quote cmxs)
+        (unix_quote fname) in
+    let cmd = env ^" "^ cmd in
     Log.info "Running: %s" cmd ;
     match Unix.system cmd with
     | Unix.WEXITED 0 ->

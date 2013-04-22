@@ -1,7 +1,25 @@
-top_srcdir = .
+builddir = @builddir@
+datadir = @datadir@
+datarootdir = @datarootdir@
+exec_prefix = @exec_prefix@
+libdir = @libdir@
+libexecdir = @libexecdir@
+localedir = @localedir@
+localstatedir = @localstatedir@
+mandir = @mandir@
+prefix = @prefix@
+sbindir = @sbindir@
+sharedstatedir = @sharedstatedir@
+srcdir = @srcdir@
+sysconfdir = @sysconfdir@
+top_build_prefix = @top_build_prefix@
+top_builddir = @top_builddir@
+top_srcdir = @top_srcdir@
+
 PKG_NAME = clopinet
 SOURCES  = \
 	log.ml \
+	environ.ml environ.mli \
 	prefs.mli prefs.ml \
 	cluster.ml \
 	serial.ml \
@@ -39,7 +57,7 @@ SOURCES  = \
 	dns.ml \
 	flow.ml
 
-C_SOURCES = ll_serial.c ll_geoip.c
+C_SOURCES = ll_serial.c ll_geoip.c ll_environ.c
 LIBS = -cclib -lpcap -cclib -lGeoIP
 
 EXAMPLES_BYTE = \
@@ -59,7 +77,7 @@ EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc
-all: $(XARCHIVE) examples www
+all: env $(XARCHIVE) examples www
 
 least63.ml:
 ifeq (@OCAML_WORD_SIZE@,64)
@@ -101,6 +119,23 @@ clopinet.top: $(ARCHIVE) $(CLIB)
 maketuple.opt: maketuple.cmx
 	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" -linkpkg $(OCAMLOPTFLAGS) $^
 
+env: Makefile env.tail
+	@echo "# Configuration options - Do not edit" > $@
+	@echo "export PREFIX='$(prefix)'" >> $@
+ifneq "@DBDIR@" ""
+	@echo "export DBDIR='@DBDIR@'" >> $@
+else
+	@echo "export DBDIR='$(localstatedir)/clopinet.db'" >> $@
+endif
+ifneq "@GEOIPDB@" ""
+	@echo "export GEOIPDB='@GEOIPDB@'" >> $@
+else
+	@echo "export GEOIPDB='$(datarootdir)/GeoIP/GeoIP.dat'" >> $@
+endif
+	@echo "export OCAMLFIND='@OCAMLFIND@'" >> $@
+	@cat env.tail >> $@
+
+
 # Dependancies on tuples can't be guessed by ocamldep
 TUPLES=tuple1.ml tuple2.ml tuple3.ml tuple4.ml tuple5.ml tuple6.ml tuple7.ml tuple8.ml tuple9.ml tuple10.ml tuple11.ml tuple12.ml tuple13.ml tuple14.ml tuple15.ml tuple16.ml tuple17.ml
 $(TUPLES): maketuple.opt
@@ -136,5 +171,5 @@ loc:
 
 .PHONY: www
 www:
-	$(MAKE) -C $(top_srcdir)/www index.cgi
+	$(MAKE) -C $(top_srcdir)/www index.opt
 

@@ -129,22 +129,22 @@ module GroupByField = struct
         let options = [| "port";"src-mac";"dst-mac";"src-ip";"dst-ip" |]
     end)
     let display_name = "group by"
-    let uniq_name = "groupby"
-    let persistant = false
+    let uniq_name = "traffic-groupby"
+    let persistant = true
 end
 module GroupByPeerField = struct
     module Type = Enum (struct let name = "key"
                                let options = [| "mac";"ip" |] end)
     let display_name = "group by"
-    let uniq_name = "groupby"
-    let persistant = false
+    let uniq_name = "peers-groupby"
+    let persistant = true
 end
 module GroupByGraphField = struct
     module Type = Enum (struct let name = "key"
                                let options = [| "mac+ip";"ip";"mac" |] end)
     let display_name = "show"
-    let uniq_name = "show-in-network"
-    let persistant = false
+    let uniq_name = "graph-groupby"
+    let persistant = true
 end
 module GroupByTopField = struct
     module Type = Enum (struct
@@ -152,39 +152,39 @@ module GroupByTopField = struct
         let options = [| "port";"src-mac";"dst-mac";"mac (both)";"src-ip";"dst-ip";"ip (both)" |]
     end)
     let display_name = "group by"
-    let uniq_name = "groupby"
-    let persistant = false
+    let uniq_name = "top-groupby"
+    let persistant = true
 end
 module PlotWhat = struct
     module Type = Enum (struct let name = "y"
                                let options = [| "volume";"packets" |] end)
     let display_name = "value"
-    let uniq_name = "Y"
-    let persistant = false
+    let uniq_name = "vol-or-count"
+    let persistant = true
 end
 module MaxGraphsField = struct
     module Type = Optional (Integer (struct let min = Some 1 let max = Some 10000 end))
     let display_name = "#series"
     let uniq_name = "series"
-    let persistant = false
+    let persistant = true
 end
 module TxMin = struct
     module Type = Optional (Integer (struct let min = Some 1 let max = None end))
     let display_name = "#tx min"
     let uniq_name = "txmin"
-    let persistant = false
+    let persistant = true
 end
 module MinRespTime = struct
     module Type = Optional (InputOfDatatype (Interval))
     let display_name = "min resp time"
     let uniq_name = "minrt"
-    let persistant = false
+    let persistant = true
 end
 module MaxRespTime = struct
     module Type = Optional (InputOfDatatype (Interval))
     let display_name = "max resp time"
     let uniq_name = "maxrt"
-    let persistant = false
+    let persistant = true
 end
 module SortOrders = struct
     let name = "selection"
@@ -194,7 +194,7 @@ module SortOrder = struct
     module Type = Enum (SortOrders)
     let display_name = "Selection"
     let uniq_name = "sort-order"
-    let persistant = false
+    let persistant = true
 end
 module DistPrecField = struct
     module Type = Optional (InputOfDatatype (Interval))
@@ -589,31 +589,31 @@ module Config = struct
     module SVGWidth = struct
         module Type = Optional (Float (NoLimit_float))
         let display_name = "graph width"
-        let uniq_name = "gui/svg/width"
+        let uniq_name = "CPN_GUI_SVG_WIDTH"
         let persistant = true
     end
     module SVGHeight = struct
         module Type = Optional (Float (NoLimit_float))
         let display_name = "graph height"
-        let uniq_name = "gui/svg/height"
+        let uniq_name = "CPN_GUI_SVG_HEIGHT"
         let persistant = true
     end
     module ResolveIp = struct
         module Type = Optional (Boolean)
         let display_name = "ip as names"
-        let uniq_name = "resolver/ip"
+        let uniq_name = "CPN_RESOLVER_IP"
         let persistant = true
     end
     module ResolveMac = struct
         module Type = Optional (Boolean)
         let display_name = "MAC as names"
-        let uniq_name = "resolver/mac"
+        let uniq_name = "CPN_RESOLVER_MAC"
         let persistant = true
     end
     module NCores = struct
         module Type = Optional (Integer (struct let min = Some 1 let max = Some 1000 end))
         let display_name = "#CPU cores"
-        let uniq_name = "db/#cores"
+        let uniq_name = "CPN_DB_NB_CORES"
         let persistant = true
     end
     module Preferences = RecordOf (ConsOf (FieldOf (SVGWidth))

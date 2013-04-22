@@ -6,5 +6,5 @@ external location : Unix.inet_addr -> string * float * float = "geoip_location"
 
 let init ?(file) () =
     match file with
-    | None   -> Prefs.get_string "geoip/database" "" |> ll_init
+    | None   -> Prefs.get_string "CPN_GEOIP_DATABASE" "" |> ll_init
     | Some f -> ll_init f

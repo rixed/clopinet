@@ -10,7 +10,6 @@ let main =
         "-create", Set create, "create db if it does not exist yet" ;
         "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
         "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
-        "-c", String Prefs.overwrite_single, "overwrite conf" ;
         "-dump", String (function tbname -> Tcp.(iter ?start:!start ?stop:!stop
                                                       ?client:!client ?server:!server ?peer:!peer
                                                       !dbdir tbname

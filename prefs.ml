@@ -21,31 +21,16 @@ let overwrite_many h =
 let overwrite_single s =
     insert_into overwrite_h s
 
-let base = ref (try Sys.getenv "CLOPINET_CONFFILE" with Not_found -> "./conf")
-let last_read = ref 0.
-let cache = Hashtbl.create 11
-
-let set_base d =
-    base := d ;
-    last_read := 0.
-
-let get_from_cached_file pname =
-    let mdate = Unix.((stat !base).st_mtime) in
-    if !last_read < mdate then (
-        (* renew cache *)
-        Hashtbl.clear cache ;
-        File.lines_of !base |>
-        Enum.iter (insert_into cache) ;
-        last_read := mdate
-    ) ;
-    (* then read from the cache *)
-    Hashtbl.find_option cache pname
+let get_from_env name =
+    (* remove all underscores, then replace '/' by '_', then put uppercase *)
+    try Some (Sys.getenv name)
+    with Not_found -> None
 
 let get_option name =
     match !overwrite_function name with
     | None ->
         (match Hashtbl.find_option overwrite_h name with
-        | None -> get_from_cached_file name
+        | None -> get_from_env name
         | x -> x)
     | x -> x
 
@@ -53,57 +38,7 @@ let get_string name default =
     get_option name |>
     Option.default default
 
-let my_float_of_string s =
-    Scanf.sscanf s "%f%s" (fun f rest ->
-        f *. match String.trim rest with
-            | "" -> 1.
-            | "k" -> 1_000.
-            | "K" -> 1_024.
-            | "M" -> 1_000_000.
-            | "G" -> 1_000_000_000.
-            | "P" -> 1_000_000_000_000.
-            | _ -> invalid_arg rest)
-
-let get_float_option name =
-    get_option name |>
-    Option.map my_float_of_string
-
-let get_float name default =
-    get_float_option name |>
-    Option.default default
-
-let my_int_of_string s =
-    int_of_float (my_float_of_string s)
-
-let get_int_option name =
-    get_option name |>
-    Option.map my_int_of_string
-
-let get_int name default =
-    get_int_option name |>
-    Option.default default
-
-let get_bool_option name =
-    get_option name |>
-    Option.map (String.lowercase %> bool_of_string)
-
-let get_bool name default =
-    get_bool_option name |>
-    Option.default default
-
-(* Conf file should probably stay read only
-let filter_file fname f =
-    let tmpfile = fname ^ (Random.int 99999 |> string_of_int) ^ ".tmp" in
-    ignore_exceptions Unix.unlink tmpfile ;
-    File.lines_of fname /@ f |> File.write_lines tmpfile ;
-    let backup = fname ^".old" in
-    ignore_exceptions Unix.unlink backup ;
-    Unix.rename fname backup ;
-    Unix.rename tmpfile fname
-*)
-
 let enum () =
     let he = Hashtbl.enum overwrite_h
-    and fe = Hashtbl.enum cache in
+    and fe = Enum.unfold 0 (fun n -> Option.map (fun e -> e, succ n) (Environ.get n)) in
     Enum.append he fe
-

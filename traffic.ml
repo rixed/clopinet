@@ -484,7 +484,7 @@ let network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_f
     res
 
 let network_map start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter dbdir name =
-    let max_ips = Prefs.get_int "geoip/max_ips" 10 in
+    let max_ips = Integer.of_pref "CPN_GEOIP_MAX_IPS" 10 in
     let start, stop = min start stop, max start stop in
     Geoip.init () ;
     let location ip =

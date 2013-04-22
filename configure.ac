@@ -26,5 +26,8 @@ fi
 
 AC_CHECK_OCAML_WORD_SIZE
 
+AC_ARG_VAR(GEOIPDB, [Location of the GeoIP database to use])
+AC_ARG_VAR(DBDIR, [Location of database])
+
 AC_CONFIG_FILES([Makefile make.common])
 AC_OUTPUT

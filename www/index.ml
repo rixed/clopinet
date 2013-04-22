@@ -33,14 +33,14 @@ let cgi_entry_point () =
             Some (decode_cookie s)
         with Not_found -> None in
     Prefs.set_overwrite_function get_from_cookie ;
+(*    Log.info "env: %a" (Enum.print (fun fmt (n,v) -> Printf.fprintf fmt "%s=%s; " n v)) (Prefs.enum ()) ;*)
     Dispatch.run (fun name getter -> get_page name getter |> View.make_app_page Ctrl.menu_entries)
 
 let cli_entry_point () =
     let action = ref "main"
     and h = Hashtbl.create 11 in
     Arg.(parse
-        [ "-action", Set_string action, "what page to render" ;
-          "-c", String Prefs.overwrite_single, "overwrite conf" ]
+        [ "-action", Set_string action, "what page to render" ]
         (fun s ->
             try let n, v = String.split ~by:"=" s in
                 Hashtbl.add h n v

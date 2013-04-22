@@ -15,12 +15,9 @@ SOURCES  = \
 REQUIRES = owww batteries bitstring bitstring.syntax dynlink parmap
 EXTRALIBS = $(top_srcdir)/clopinet.cma
 
-all: index.cgi
+all: index.opt
 
 include $(top_srcdir)/make.common
-
-index.cgi: index.opt
-	ln -f $< $@
 
 $(XOBJECTS): $(top_srcdir)/clopinet.cmxa
 

@@ -154,6 +154,10 @@ AC_DEFUN([AC_PROG_FINDLIB],
 
   # checking for ocamlfind
   AC_CHECK_TOOL([OCAMLFIND],[ocamlfind],[no])
+  if test -n "$OCAMLFIND"; then
+    # we'd rather know the absolute path
+    OCAMLFIND=$(dirname $(which "$OCAMLFIND"))/$(basename $(which "$OCAMLFIND"))
+  fi
   AC_SUBST([OCAMLFIND])
 ])
 

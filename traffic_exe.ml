@@ -14,7 +14,6 @@ let main =
         "-create", Set create, "create db if it does not exist yet" ;
         "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
         "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
-        "-c", String Prefs.overwrite_single, "overwrite conf" ;
         "-step", Set_int step, "time step for plots (default: 60)" ;
         "-sort_by", Set_string sort_by, "(DEBUG) sort_by field" ;
         "-key", String (fun s -> keys := s :: !keys), "(DEBUG) Add a key for top query" ;

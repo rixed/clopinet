@@ -47,7 +47,7 @@ let make_app_page menu_entries content =
                  msgs () ;
                  div ~cls:"page" content ]
     and head = [ title "ClopiNet" ;
-                 tag "base" ~attrs:[ "href", Prefs.get_string "gui/basehref" base_path ] [] ;
+                 tag "base" ~attrs:[ "href", Prefs.get_string "CPN_GUI_BASEHREF" base_path ] [] ;
                  tag "link" ~attrs:[ "rel", "shortcut icon" ;
                                      "href", "static/img/favicon.svg" ;
                                      "type", "image/svg+xml" ] [] ;
@@ -76,7 +76,7 @@ let remove_class name doc =
     aux doc
 
 let make_app_page_for_email url content =
-    let wwwdir = Prefs.get_string "gui/inliner/wwwdir" "www" in
+    let wwwdir = Prefs.get_string "CPN_GUI_INLINER_WWWDIR" "www" in
     make_app_page [] (content @ [ p [ tag "a" ~attrs:["href",url] [ cdata "View in browser" ] ] ]) |>
     Inliner.filter wwwdir |>
     remove_class "interactive" (* elements in this class must not be present in emails. *)
@@ -190,7 +190,7 @@ let pi = BatFloat.pi
 let to_deg rad = 180. *. rad /. pi
 
 let peers_chart ?(is_bytes=false) datasets =
-    let svg_height = Prefs.get_float "gui/svg/height" 800. in
+    let svg_height = Datatype.Float.of_pref "CPN_GUI_SVG_HEIGHT" 800. in
     let string_of_val = if is_bytes then Datatype.string_of_volume else Datatype.string_of_number in
     let inner_rad = 0.3 *. svg_height in
     let inner_x = svg_height/.2. and inner_y = svg_height/.2. in
@@ -273,8 +273,8 @@ let peers_chart ?(is_bytes=false) datasets =
                   p ~id:"selected-peer-links" [] ] ] ] ] ]
 
 let peers_graph datasets layout =
-    let svg_width  = Prefs.get_float "gui/svg/width" 1000.
-    and svg_height = Prefs.get_float "gui/svg/height" 800. in
+    let svg_width  = Datatype.Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
+    and svg_height = Datatype.Float.of_pref "CPN_GUI_SVG_HEIGHT" 800. in
     (* Get max volume *)
     let max_volume = Hashtbl.fold (fun _k1 n m ->
         Hashtbl.fold (fun _k2 y m ->
@@ -358,7 +358,7 @@ layout=\"%s\";\n"
 
 (* Dataset is a list of (ts1, ts2, peer1, peer2, descr, group), where group is used for coloring *)
 let callflow_chart start (datasets : Flow.callflow_item list) =
-    let svg_height = Prefs.get_float "gui/svg/height" 800. in
+    let svg_height = Datatype.Float.of_pref "CPN_GUI_SVG_HEIGHT" 800. in
     let left_margin = 50. and peer_width = 150.
     and first_ts = ref Int64.max_int and last_ts = ref Int64.zero
     and bw_max = ref 0. and tot_svg_height = ref svg_height
@@ -652,8 +652,8 @@ let xy_grid ?(show_vgrid=true) ?stroke ?stroke_width ?font_size ?arrow_size ?x_t
  * - we need x_offset since x values may be very far from 0. (timestamps...)
  *)
 let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
-    let svg_width  = Prefs.get_float "gui/svg/width" 1000.
-    and svg_height = Prefs.get_float "gui/svg/height" 800. in
+    let svg_width  = Datatype.Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
+    and svg_height = Datatype.Float.of_pref "CPN_GUI_SVG_HEIGHT" 800. in
     (* Graph geometry in pixels *)
     let font_size = 14. in
     let margin_bottom = 30. and margin_left = 10. and margin_top = 30. and margin_right = 10.
@@ -749,7 +749,7 @@ let distrib_chart x_label y_label (vx_step, bucket_min, bucket_max, datasets) =
         script ~attrs:["class","interactive"] ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", 'filter/minrt', 'filter/maxrt', 'filter/distr-prec');") ]
 
 let peers_map datasets =
-    let max_ips = Prefs.get_int "geoip/max_ips" 10 in
+    let max_ips = Datatype.Integer.of_pref "CPN_GEOIP_MAX_IPS" 10 in
     let max_volume = Hashtbl.fold (fun _loc1 h m ->
         Hashtbl.fold (fun _loc2 (_,_,up,down) m' ->
             max (up+down) m') h m) datasets 0 |> float_of_int in

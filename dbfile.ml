@@ -6,7 +6,7 @@ open Batteries
    So we'd rather share a large (but limited) set of them.
  *)
 
-let fds = Array.make (Prefs.get_int "db/max_opened_filedescr" 1000) None
+let fds = Array.make (Datatype.Integer.of_pref "CPN_DB_MAX_OPENED_FILEDESCR" 1000) None
 let free_fds = ref (BatList.init (Array.length fds) (fun i -> i))
 
 let dir tdir hnum =

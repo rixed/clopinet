@@ -1,7 +1,8 @@
 open Batteries
 
-let max_file_size = Prefs.get_int "db/max_file_size" 1_000_000 (* TODO: make this a function so that max file size can change in runtime? *)
-let max_hash_size = Prefs.get_int "db/max_hash_size" 1009
+let max_file_size = Datatype.Integer.of_pref "CPN_DB_MAX_FILE_SIZE" 1_000_000
+let max_hash_size = Datatype.Integer.of_pref "CPN_DB_MAX_HASH_SIZE" 1009
+let ncores = Datatype.Integer.of_pref "CPN_DB_NB_CORES" 1
 
 (* READING
    Can be done by multiple programs simultaneously,
@@ -43,7 +44,6 @@ let iter_snums tdir hnum aggr_reader f =
         with Failure _ -> ()
     and files = Sys.readdir (Dbfile.dir tdir hnum) in
     try (
-        let ncores = Prefs.get_int "db/#cores" 1 in
         if ncores > 1 then
             Parmap.pariter ~ncores iterfile (Parmap.A files)
         else
@@ -88,7 +88,6 @@ let fold_snums tdir hnum aggr_reader f start merge =
     and files = try Sys.readdir (Dbfile.dir tdir hnum)
                 with Sys_error _ -> [||] in
     try (
-        let ncores = Prefs.get_int "db/#cores" 1 in
         if ncores > 1 then
             Parmap.parfold ~ncores foldfile (Parmap.A files) start merge
         else

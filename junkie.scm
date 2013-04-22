@@ -4,6 +4,7 @@ Or just run: junkie -c this_file
 !#
 
 (use-modules ((junkie netmatch nettrack) :renamer (symbol-prefix-proc 'nt:))
+             (junkie defs)
 			 (junkie runtime))
 
 (define nt-http (nt:compile "http-response-time"
@@ -595,4 +596,10 @@ Or just run: junkie -c this_file
 (nettrack-start nt-eth)
 (nettrack-start nt-tcp)
 (nettrack-start nt-l4data)
+
+(let ((ifname (getenv "SNIFF_IFACE"))
+      (capfilter (getenv "SNIFF_CAPTURE_FILTER")))
+  (if ifname
+      (set-iface ifname #:capfilter (or capfilter ""))
+      (slog log-critical "SNIFF_IFACE not defined, don't know what to listen")))
 

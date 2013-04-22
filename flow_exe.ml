@@ -13,7 +13,6 @@ let main =
         "-create", Set create, "create db if it does not exist yet" ;
         "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
         "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
-        "-c", String Prefs.overwrite_single, "overwrite conf" ;
         "-dump", String (function tbname -> Flow.(iter ?start:!start ?stop:!stop ?ip_proto:!ip_proto
                                                        ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst
                                                        ?ip_src:!ip_src ?ip_dst:!ip_dst

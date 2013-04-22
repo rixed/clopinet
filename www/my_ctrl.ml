@@ -8,7 +8,7 @@ open Datatype
 
 include Ctrl
 
-let dbdir = Prefs.get_string "db/base_dir" "./test.db"
+let dbdir = Prefs.get_string "CPN_DB_BASE_DIR" "./test.db"
 
 let i2s ?min ?max i =
     let (>>=) = BatOption.bind in
@@ -120,14 +120,14 @@ let distrib_help name =
 
 let timestep_of_timestamps start stop =
     let dt = Timestamp.to_unixfloat stop -. Timestamp.to_unixfloat start in
-    Interval.of_secs (dt /. Prefs.get_float "gui/chart/prefered_resolution" 200.)
+    Interval.of_secs (dt /. Float.of_pref "CPN_GUI_CHART_PREFERED_RESOLUTION" 200.)
 
-let default_chart_duration = Interval.of_pref "gui/chart/prefered_duration" Interval.({ zero with days = 1. })
+let default_chart_duration = Interval.of_pref "CPN_GUI_CHART_PREFERED_DURATION" Interval.({ zero with days = 1. })
 
-let tblname_of_timestep_of_timestamps dt metric tbls =
+let tblname_of_timestep dt metric tbls =
     let nb_noblur = ref 0 in (* it's ok to have one table with no bluring, but more than that and the user got a warning *)
     (* choose the table which round parameter is greater yet below dt *)
-    let pname tbl = "db/"^ metric ^"/"^ tbl ^"/round" in
+    let pname tbl = "CPN_DB_"^ metric ^"_"^ tbl ^"_ROUND" |> String.uppercase in
     match Array.fold_left (fun ma tbl ->
         match Interval.of_pref_option (pname tbl) with
         | None ->
@@ -174,8 +174,8 @@ struct
                         max ma (Array.length a))
                         0 datasets in
                 let time_step = (Int64.to_float time_step) *. 0.001
-                and svg_width  = Prefs.get_float "gui/svg/width" 1000.
-                and svg_height = Prefs.get_float "gui/svg/height" 600. in
+                and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
+                and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in
                 let fold f init =
                     List.fold_left (fun prev (l, a) ->
                         let get i = Array.get a i |> float_of_int in
@@ -408,8 +408,8 @@ struct
                 i in
             let nb_vx = Array.length datasets in
             let time_step = (Int64.to_float time_step) *. 0.001
-            and svg_width  = Prefs.get_float "gui/svg/width" 1000.
-            and svg_height = Prefs.get_float "gui/svg/height" 600. in
+            and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
+            and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in
             Chart.xy_plot ~svg_width ~svg_height
                           ~string_of_x:string_of_date ~stacked:Chart.Stacked
                           "time" "secs"
@@ -446,8 +446,8 @@ struct
                         else float_of_int d.(i) in
                     f p label true get)
                     i datasets
-            and svg_width  = Prefs.get_float "gui/svg/width" 1000.
-            and svg_height = Prefs.get_float "gui/svg/height" 600. in
+            and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
+            and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in
             Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
                           ~vxmin_filter:"filter/minrt" ~vxmax_filter:"filter/maxrt"
                           ~vxstep_filter:"filter/distr-prec"
@@ -555,8 +555,8 @@ struct
                 i in
             let nb_vx = Array.length datasets in
             let time_step = (Int64.to_float time_step) *. 0.001
-            and svg_width  = Prefs.get_float "gui/svg/width" 1000.
-            and svg_height = Prefs.get_float "gui/svg/height" 600. in
+            and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
+            and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in
             Chart.xy_plot ~svg_width ~svg_height
                           ~string_of_x:string_of_date ~stacked:Chart.Stacked
                           "time" "secs"
@@ -594,8 +594,8 @@ struct
                         else float_of_int d.(i) in
                     f p label true get)
                     i datasets
-            and svg_width  = Prefs.get_float "gui/svg/width" 1000.
-            and svg_height = Prefs.get_float "gui/svg/height" 600. in
+            and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
+            and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in
             Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.StackedCentered
                           ~vxmin_filter:"filter/minrt" ~vxmax_filter:"filter/maxrt"
                           ~vxstep_filter:"filter/distr-prec"
@@ -654,11 +654,11 @@ struct
             let save_param n v to_string =
                 BatOption.may (fun v ->
                     Dispatch.add_cookie n (Base64.str_encode (to_string v))) v in
-            save_param "resolver/ip" resolve_ip string_of_bool ;
-            save_param "resolver/mac" resolve_mac string_of_bool ;
-            save_param "gui/svg/width" svg_width string_of_float ;
-            save_param "gui/svg/height" svg_height string_of_float ;
-            save_param "db/#cores" ncores string_of_int ;
+            save_param "CPN_RESOLVER_IP" resolve_ip string_of_bool ;
+            save_param "CPN_RESOLVER_MAC" resolve_mac string_of_bool ;
+            save_param "CPN_GUI_SVG_WIDTH" svg_width string_of_float ;
+            save_param "CPN_GUI_SVG_HEIGHT" svg_height string_of_float ;
+            save_param "CPN_DB_NB_CORES" ncores string_of_int ;
             View.add_msg [cdata "Saved"]
         | None -> ()) ;
         preferences getter
@@ -672,12 +672,11 @@ let chart_descrs = [ Traffic.bw_chart_descr ; Traffic.peer_chart_descr ;
                      Dns.queries_chart_descr ; Dns.srt_chart_descr ; Dns.distrib_chart_descr ; Dns.top_chart_descr ]
 
 let menu_entries =
-    (* TODO: get list of all defined reports... *)
     let report_names =
         Prefs.enum () //@
         (fun (n, _v) ->
-            match String.nsplit ~by:"/" n with
-            | ["report" ; name ; _ ; "title" ] -> Some name
+            match String.nsplit ~by:"_" n with
+            | ["CPN" ; "REPORT" ; name ; _ ; "TITLE" ] -> Some name
             | _ -> None) |>
         List.of_enum |>
         List.sort_unique String.compare in
@@ -699,16 +698,21 @@ struct
                          getter : string -> string list }
 
     let report_page_prefix name page_no =
-        "report/"^ name ^"/"^ string_of_int page_no
+        "CPN_REPORT_"^ name ^"_"^ string_of_int page_no
 
     let get_report_page name page_no =
-        let pn n = report_page_prefix name page_no ^"/"^ n in
+        let pn n = report_page_prefix name page_no ^"_"^ n in
+        let envvar_of_field n =
+            let n = String.nreplace n "-" "_" in
+            let n = String.nreplace n " " "_" in
+            let n = String.nreplace n "/" "_" in
+            String.uppercase n in
         { page_no ;
-          title = Prefs.get_option (pn "title") ;
-          descr = Prefs.get_option (pn "descr") ;
-          chart = Prefs.get_option (pn "chart") |> BatOption.get ;
+          title = Prefs.get_option (pn "TITLE") ;
+          descr = Prefs.get_option (pn "DESCR") ;
+          chart = Prefs.get_option (pn "CHART") |> BatOption.get ;
           getter = (fun n ->
-            match Prefs.get_option n with
+            match Prefs.get_option (envvar_of_field n) with
             | Some x -> [x]
             | None -> []) }
 

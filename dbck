@@ -2,6 +2,9 @@
 
 set -e
 
+path=$(dirname "$0")
+. "$path"/env
+
 for m in tcp dns flow web traffic; do
 	echo "Checking $m..."
 	./$m"_exe.opt" -dir test.db/$m -dbck

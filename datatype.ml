@@ -554,7 +554,7 @@ module InetAddr_base = struct
         Text.write oc str
     let write_txt oc t =
         (let open Unix in
-        if Prefs.get_bool "resolver/ip" false then
+        if Bool.of_pref "CPN_RESOLVER_IP" false then
             try cached_gethostbyaddr t
             with Not_found -> string_of_inet_addr t
         else
