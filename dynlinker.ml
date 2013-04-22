@@ -248,7 +248,7 @@ let top () =
                 f.display ^" ("^a.fin ^" rest_"^fn^"_"^an^")") |> String.concat "; ") ^" |], rest, rest ])
         ")^" |>
         List.sort (fun (_,_,v1mi,_) (_,_,v2mi,_) -> compare v2mi v1mi) in
-    let "^ (String.concat ", " (List.map (fun (fn,an) -> fn^"_"^an) aggr_fields)) ^" = stv in
+    "^ (if aggr_fields <> [] then "let "^ (String.concat ", " (List.map (fun (fn,an) -> fn^"_"^an) aggr_fields)) ^" = stv in" else "") ^"
     tbl, sv, [| "^ (aggr_fields |> List.map (fun (fn,an) ->
         let f = List.assoc fn fields in
         let a = List.assoc an f.aggrs in
@@ -335,7 +335,7 @@ let top () =
                 f.display ^" ("^a.fin ^" r_"^fn^"_"^an^")") |> String.concat "; ") ^" |], rv, rv ])
         ")^" |>
         List.sort (fun (_,_,v1mi,_) (_,_,v2mi,_) -> compare v2mi v1mi) in
-    let "^ (String.concat ", " (List.map (fun (fn,an) -> fn^"_"^an) aggr_fields)) ^" = stv in
+    "^ (if aggr_fields <> [] then "let "^ (String.concat ", " (List.map (fun (fn,an) -> fn^"_"^an) aggr_fields)) ^" = stv in" else "") ^"
     tbl, sv, [| "^ (aggr_fields |> List.map (fun (fn,an) ->
         let f = List.assoc fn fields in
         let a = List.assoc an f.aggrs in
