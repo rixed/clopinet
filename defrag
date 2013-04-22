@@ -1,5 +1,8 @@
 #!/bin/sh
 
+path=$(dirname "$0")
+. "$path"/env
+
 dbdir=$1
 
 if test -z "$dbdir" ; then

@@ -1,5 +1,8 @@
 #!/bin/sh
 
+path=$(dirname "$0")
+. "$path"/env
+
 find test.db/ -type f -exec /usr/sbin/filefrag {} \; 2>/dev/null |
 	sed -e 's/^\(.*\): \(.*\) exten.*$/\2/' |
 	sort -nr|

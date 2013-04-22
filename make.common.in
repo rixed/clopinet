@@ -29,10 +29,10 @@ $(ARCHIVE): $(SOURCES_MLI:.mli=.cmi) $(OBJECTS) $(CLIB)
 	$(OCAMLC)   -a -o $@ $(SYNTAX) -package "$(REQUIRES)" -custom -linkpkg $(OCAMLFLAGS) $(OBJECTS) -ccopt -L@prefix@/lib -cclib -l$(CLIBNAME) $(LIBS)
 $(XARCHIVE): $(SOURCES_MLI:.mli=.cmi) $(XOBJECTS) $(CLIB)
 	$(OCAMLOPT) -a -o $@ $(SYNTAX) -package "$(REQUIRES)" $(OCAMLOPTFLAGS) $(XOBJECTS) -ccopt -L@prefix@/lib -cclib -l$(CLIBNAME) $(LIBS)
-install: $(ARCHIVE) $(XARCHIVE)
+install: $(ARCHIVE) $(XARCHIVE) install-spec
 	if test -f "$(XARCHIVE)" ; then extra="$(XARCHIVE) "`basename "$(XARCHIVE)" .cmxa`.a ; fi ; \
 	@OCAMLFIND@ install "$(PKG_NAME)" *.cmi "$(ARCHIVE)" META $(CLIB) $$extra
-uninstall:
+uninstall: uninstall-spec
 	@OCAMLFIND@ remove $(PKG_NAME)
 reinstall: uninstall install
 endif

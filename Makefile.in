@@ -135,6 +135,28 @@ endif
 	@echo "export OCAMLFIND='@OCAMLFIND@'" >> $@
 	@cat env.tail >> $@
 
+PROGRAMS = \
+	dns_exe.opt web_exe.opt tcp_exe.opt traffic_exe.opt flow_exe.opt \
+	dbck defrag junkie.scm junkie2db listen purge showfrag
+CONFFILES = env
+
+install-programs: $(PROGRAMS)
+	install -d $(prefix)/bin
+	install $^ $(prefix)/bin
+
+install-conf: $(CONFFILES)
+	install -d $(prefix)/etc
+	install -m 0644 $^ $(prefix)/etc
+
+install-spec: install-programs install-conf
+
+uninstall-spec:
+	@for f in $(PROGRAMS) ; do \
+		rm "$(prefix)/bin/$f" ; \
+	done
+	@for f in $(CONFFILES) ; do \
+		rm "$(prefix)/etc/$f" ; \
+	done
 
 # Dependancies on tuples can't be guessed by ocamldep
 TUPLES=tuple1.ml tuple2.ml tuple3.ml tuple4.ml tuple5.ml tuple6.ml tuple7.ml tuple8.ml tuple9.ml tuple10.ml tuple11.ml tuple12.ml tuple13.ml tuple14.ml tuple15.ml tuple16.ml tuple17.ml
