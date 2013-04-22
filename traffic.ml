@@ -362,7 +362,7 @@ let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip
         Hashtbl.add h (label_of_key k) v)
         result ;
     Hashtbl.add h ("other","") rest ;
-    Hashtbl.map (fun _k v -> float_of_int v) h
+    Hashtbl.map (fun _k v -> float_of_int v) h (* FIXME: return ints *)
 
 let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=100) by_src what step dbdir name =
     let start, stop = min start stop, max start stop in
@@ -416,7 +416,7 @@ let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
         Hashtbl.add h (label_of_key k) v)
         result ;
     Hashtbl.add h ("other","") rest ;
-    Hashtbl.map (fun _k v -> float_of_int v) h
+    Hashtbl.map (fun _k v -> float_of_int v) h   (* FIXME: don't *)
 
 
 type top_fun = unit -> ((string array option * string array * int * int) list) * int * string array
