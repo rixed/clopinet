@@ -1420,6 +1420,7 @@ type aggr_function = {
     fin : string }          (* at the end we don't want 'xs we want our value *)
 
 type selectable_field = {
+    disp_name : string ;    (* name show in select box and so on in place of symbolic name (symbols are for ocamlopt) *)
     help : string ;
     from_prevfields : string ; (* the expression to build its value from previously defined fields, or "" if the field come from the DB *)
     expr_type : expr_type ;
@@ -1427,7 +1428,7 @@ type selectable_field = {
     sortable : string ; (* name of to_int function, or "" *)
     keyable : bool ;
     datatype : string ;
-    display : string }
+    display : string    (* function to_string *) }
 
 let is_virtual field = String.length field.from_prevfields > 0
 let is_concrete = not % is_virtual

@@ -65,6 +65,7 @@ struct
     (* Field description *)
     let fields = [
         "origin", {
+            disp_name = "origin" ;
             help = "origin of this record" ;
             from_prevfields = "" ;
             expr_type = TOrigin ;
@@ -74,6 +75,7 @@ struct
             datatype = "Datatype.Origin" ;
             display = "Datatype.Origin.to_string" } ;
         "vlan", {
+            disp_name = "VLAN" ;
             help = "802.1q vlan id" ;
             from_prevfields = "" ;
             expr_type = TVLan ;
@@ -83,6 +85,7 @@ struct
             datatype = "Datatype.VLan" ;
             display = "Datatype.VLan.to_string" } ;
         "mac_clt", {
+            disp_name = "client MAC" ;
             help = "client ethernet address" ;
             from_prevfields = "" ;
             expr_type = TEthAddr ;
@@ -92,6 +95,7 @@ struct
             datatype = "Datatype.EthAddr" ;
             display = "Datatype.EthAddr.to_string" } ;
         "ip_clt", {
+            disp_name = "client IP" ;
             help = "client IP address" ;
             from_prevfields = "" ;
             expr_type = TIp ;
@@ -101,6 +105,7 @@ struct
             datatype = "Datatype.Cidr" ;
             display = "Datatype.Cidr.to_string" } ;
         "mac_srv", {
+            disp_name = "server MAC" ;
             help = "server ethernet address" ;
             from_prevfields = "" ;
             expr_type = TEthAddr ;
@@ -110,6 +115,7 @@ struct
             datatype = "Datatype.EthAddr" ;
             display = "Datatype.EthAddr.to_string" } ;
         "ip_srv", {
+            disp_name = "server IP" ;
             help = "server IP address" ;
             from_prevfields = "" ;
             expr_type = TIp ;
@@ -119,6 +125,7 @@ struct
             datatype = "Datatype.InetAddr" ;
             display = "Datatype.InetAddr.to_string" } ;
         "error", {
+            disp_name = "error" ;
             help = "response code" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
@@ -128,6 +135,7 @@ struct
             datatype = "Datatype.Integer8" ;
             display = "Datatype.Integer8.to_string" } ;
         "start", {
+            disp_name = "start" ;
             help = "timestamp of the query" ;
             from_prevfields = "" ;
             expr_type = TTimestamp ;
@@ -137,6 +145,7 @@ struct
             datatype = "Datatype.Timestamp" ;
             display = "Datatype.Timestamp.to_string" } ;
         "resptime", {
+            disp_name = "response time" ;
             help = "response time" ;
             from_prevfields = "" ;
             expr_type = TFloat ;
@@ -146,6 +155,7 @@ struct
             datatype = "Distribution" ;
             display = "Distribution.to_string" } ;
         "queries", {
+            disp_name = "query count" ;
             help = "number of queries" ;
             from_prevfields = "Distribution.count resptime" ;
             expr_type = TInteger ;
@@ -155,6 +165,7 @@ struct
             datatype = "Least63" ;
             display = "Least63.to_string" } ;
         "name", {
+            disp_name = "name" ;
             help = "query name" ;
             from_prevfields = "" ;
             expr_type = TText ;
@@ -164,6 +175,7 @@ struct
             datatype = "Datatype.Text" ;
             display = "Datatype.Text.to_string" } ;
         "stop", {
+            disp_name = "stop" ;
             help = "timestamp of the end of the transaction" ;
             from_prevfields = "Datatype.Timestamp.add_seconds start (Distribution.max resptime)" ;
             expr_type = TTimestamp ;

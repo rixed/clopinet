@@ -94,6 +94,7 @@ struct
     (* Field description for code templates, HTML forms, etc... *)
     let fields = [
         "origin", {
+            disp_name = "origin" ;
             help = "origin of this record" ;
             from_prevfields = "" ;
             expr_type = TOrigin ;
@@ -103,6 +104,7 @@ struct
             datatype = "Datatype.Origin" ;
             display = "Datatype.Origin.to_string" } ;
         "start", {
+            disp_name = "start" ;
             help = "start time of the flow" ;
             from_prevfields = "" ;
             expr_type = TTimestamp ;
@@ -112,6 +114,7 @@ struct
             datatype = "Datatype.Timestamp" ;
             display = "Datatype.Timestamp.to_string" } ;
         "stop", {
+            disp_name = "stop" ;
             help = "timestamp of the last packet of this flow" ;
             from_prevfields = "" ;
             expr_type = TTimestamp ;
@@ -121,6 +124,7 @@ struct
             datatype = "Datatype.Timestamp" ;
             display = "Datatype.Timestamp.to_string" } ;
         "packets", {
+            disp_name = "packet count" ;
             help = "number of packets in this flow" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
@@ -130,6 +134,7 @@ struct
             datatype = "Datatype.ULeast63" ;
             display = "Datatype.string_of_inumber" } ;
         "vlan", {
+            disp_name = "VLAN" ;
             help = "802.1q vlan id" ;
             from_prevfields = "" ;
             expr_type = TVLan ;
@@ -139,6 +144,7 @@ struct
             datatype = "Datatype.VLan" ;
             display = "Datatype.VLan.to_string" } ;
         "eth_src", {
+            disp_name = "source MAC" ;
             help = "source ethernet address" ;
             from_prevfields = "" ;
             expr_type = TEthAddr ;
@@ -148,6 +154,7 @@ struct
             datatype = "Datatype.EthAddr" ;
             display = "Datatype.EthAddr.to_string" } ;
         "eth_dst", {
+            disp_name = "destination MAC" ;
             help = "destination ethernet address" ;
             from_prevfields = "" ;
             expr_type = TEthAddr ;
@@ -157,6 +164,7 @@ struct
             datatype = "Datatype.EthAddr" ;
             display = "Datatype.EthAddr.to_string" } ;
         "eth_proto", {
+            disp_name = "MAC type" ;
             help = "ethernet protocol" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
@@ -166,6 +174,7 @@ struct
             datatype = "Datatype.UInteger16" ;
             display = "Datatype.string_of_inumber" } ;
         "eth_payload", {
+            disp_name = "MAC payload" ;
             help = "total ethernet frame payload" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
@@ -175,6 +184,7 @@ struct
             datatype = "Datatype.ULeast63" ;
             display = "Datatype.string_of_inumber" } ;
         "mtu", {
+            disp_name = "MTU" ;
             help = "max observed ethernet frame payload" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
@@ -184,6 +194,7 @@ struct
             datatype = "Datatype.UInteger16" ;
             display = "Datatype.string_of_inumber" } ;
         "ip_src", {
+            disp_name = "source IP" ;
             help = "source IP address (if IP)" ;
             from_prevfields = "" ;
             expr_type = TIp ;
@@ -193,6 +204,7 @@ struct
             datatype = "Datatype.InetAddr" ;
             display = "Datatype.InetAddr.to_string" } ;
         "ip_dst", {
+            disp_name = "destination IP" ;
             help = "destination IP address (if IP)" ;
             from_prevfields = "" ;
             expr_type = TIp ;
@@ -202,6 +214,7 @@ struct
             datatype = "Datatype.InetAddr" ;
             display = "Datatype.InetAddr.to_string" } ;
         "ip_proto", {
+            disp_name = "IP protocol" ;
             help = "IP protocol (if IP)" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
@@ -211,6 +224,7 @@ struct
             datatype = "Datatype.UInteger8" ;
             display = "Datatype.string_of_inumber" } ;
         "ip_payload", {
+            disp_name = "IP payload" ;
             help = "IP payload (if IP)" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
@@ -220,6 +234,7 @@ struct
             datatype = "Datatype.ULeast63" ;
             display = "Datatype.string_of_inumber" } ;
         "port_src", {
+            disp_name = "source port" ;
             help = "source port (if UDP or TCP)" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
@@ -229,6 +244,7 @@ struct
             datatype = "Datatype.UInteger16" ;
             display = "Datatype.string_of_inumber" } ;
         "port_dst", {
+            disp_name = "destination port" ;
             help = "destination port (if UDP or TCP)" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
@@ -238,6 +254,7 @@ struct
             datatype = "Datatype.UInteger16" ;
             display = "Datatype.string_of_inumber" } ;
         "l4_payload", {
+            disp_name = "l4 payload" ;
             help = "UDP/TCP payload (if UDP or TCP)" ;
             from_prevfields = "" ;
             expr_type = TInteger ;

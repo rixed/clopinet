@@ -18,15 +18,14 @@ struct
               ~attrs:[ "multiple", "multiple" ;
                        "name", name ;
                        "size", "6" ]
-            (List.enum Conf.fields //@
+            (List.enum Conf.fields //
+            (fun (_name, descr) -> descr.keyable) /@
             (fun (name, descr) ->
-                if descr.keyable then Some name else None) /@
-            (fun name ->
                 tag "option"
                     ~attrs:(("name", name)::
                             (if List.mem name selected then ["selected", "selected"]
                                                        else []))
-                    [ cdata name ]) |>
+                    [ cdata descr.disp_name ]) |>
             List.of_enum) ]
 
     let from name getter =
