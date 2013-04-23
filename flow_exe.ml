@@ -3,21 +3,18 @@ open Datatype
 open Flow
 
 let main =
-    let dbdir = ref "./" and start = ref None and stop = ref None
+    let start = ref None and stop = ref None
     and mac_src = ref None and mac_dst = ref None and vlan = ref None
     and ip_src = ref None and ip_dst = ref None
-    and ip_proto = ref None and port_src = ref None and port_dst = ref None
-    and create = ref false in
+    and ip_proto = ref None and port_src = ref None and port_dst = ref None in
     Arg.(parse [
-        "-dir", Set_string dbdir, "database directory (or './')" ;
-        "-create", Set create, "create db if it does not exist yet" ;
-        "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
+        "-load", String (fun s -> load s), "load a CSV file" ;
         "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
         "-dump", String (function tbname -> Flow.(iter ?start:!start ?stop:!stop ?ip_proto:!ip_proto
                                                        ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst
                                                        ?ip_src:!ip_src ?ip_dst:!ip_dst
                                                        ?port_src:!port_src ?port_dst:!port_dst
-                                                       !dbdir tbname
+                                                       tbname
                                                        (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
         "-dumpf", String (function fname -> Flow.(iter_fname fname
                                                        (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this file" ;
@@ -27,8 +24,8 @@ let main =
                                                                  (Timestamp.to_string start)
                                                                  (Timestamp.to_string stop)))),
                                                          "dump this meta file" ;
-        "-dbck", Unit (fun () -> Metric.dbck !dbdir lods Flow.read Flow.meta_read), "scan the DB and try to repair it" ;
-        "-purge", Unit (fun () -> Metric.purge !dbdir lods), "purge old datafiles" ;
+        "-dbck", Unit (fun () -> Metric.dbck lods Flow.read Flow.meta_read), "scan the DB and try to repair it" ;
+        "-purge", Unit (fun () -> Metric.purge "flow" lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-vlan", String (fun s -> vlan := Some (VLan.of_string s)), "limit queries to this VLAN" ;
@@ -41,7 +38,7 @@ let main =
         "-port-dst", String (fun s -> port_dst := Some (UInteger16.of_string s)), "limit to these dest ports" ;
         "-query", String (fun s -> get_callflow (BatOption.get !start) (BatOption.get !stop)
                                           ?vlan:!vlan (InetAddr.of_string s)
-                                          ?ip_proto:!ip_proto ?port_src:!port_src ?port_dst:!port_dst !dbdir |>
+                                          ?ip_proto:!ip_proto ?port_src:!port_src ?port_dst:!port_dst |>
                                    List.iter (fun (ts1, ts2, ip1, ip2, descr, group, _spec) ->
                                            Printf.printf "%s->%s @ [%s:%s], %s (%s)\n"
                                                ip1 ip2

@@ -109,7 +109,9 @@ let load fname parzer append flush =
 
 (* misc *)
 
-let table_name dbdir name = dbdir ^ "/" ^ name
+let table_name name =
+    let dbdir = Prefs.get_string "CPN_DB_BASE_DIR" "./" in
+    dbdir ^ "/" ^ name
 
 let rti_of_lod lod metric =
     let pname = "CPN_DB_"^ metric ^"_"^ lod ^"_ROUND" |> String.uppercase in
@@ -149,7 +151,7 @@ let fix_meta e fname =
         fname (Printexc.to_string e) (Printexc.get_backtrace ()) ;
     del_file fname
 
-let dbck dbdir lods read meta_read =
+let dbck lods read meta_read =
     let ck_read tdir hnum snum last_read ic =
         try ignore (read ic) ;
             last_read := Serial.position ic
@@ -169,14 +171,13 @@ let dbck dbdir lods read meta_read =
     let ck_hnum tdir hnum =
         Table.iter_snums tdir hnum (fun _ -> None) (ck_file tdir hnum) in
     let ck_lod lod =
-        let tdir = table_name dbdir lod in
+        let tdir = table_name lod in
         Table.iter_hnums tdir (ck_hnum tdir) in
     Array.iter ck_lod lods
 
 (* Functions related to purge old dbfiles *)
 
-let purge dbdir lods =
-    let name = Filename.basename dbdir in
+let purge name lods =
     let purge_file expiration tdir hnum snum _meta =
         (* Never delete the last snum which is still written to *)
         if snum > 0 then (
@@ -200,7 +201,7 @@ let purge dbdir lods =
             Printf.printf "%s unset, skipping\n" pname
         | Some expiration ->
             let expiration = Interval.to_secs expiration in
-            let tdir = table_name dbdir lod in
+            let tdir = table_name lod in
             Table.iter_hnums tdir (purge_hnum expiration tdir) in
     Array.iter purge_lod lods
 

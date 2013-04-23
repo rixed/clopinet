@@ -2,20 +2,18 @@ open Datatype
 open Tcp
 
 let main =
-    let dbdir = ref "./" and start = ref None and stop = ref None
+    let start = ref None and stop = ref None
     and client = ref None and server = ref None
-    and peer = ref None and create = ref false in
+    and peer = ref None in
     Arg.(parse [
-        "-dir", Set_string dbdir, "database directory (or './')" ;
-        "-create", Set create, "create db if it does not exist yet" ;
-        "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
+        "-load", String (fun s -> load s), "load a CSV file" ;
         "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
         "-dump", String (function tbname -> Tcp.(iter ?start:!start ?stop:!stop
                                                       ?client:!client ?server:!server ?peer:!peer
-                                                      !dbdir tbname
+                                                      tbname
                                                       (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
-        "-dbck", Unit (fun () -> Metric.dbck !dbdir lods Tcp.read Tcp.meta_read), "scan the DB and try to repair it" ;
-        "-purge", Unit (fun () -> Metric.purge !dbdir lods), "purge old datafiles" ;
+        "-dbck", Unit (fun () -> Metric.dbck lods Tcp.read Tcp.meta_read), "scan the DB and try to repair it" ;
+        "-purge", Unit (fun () -> Metric.purge "tcp" lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-client", String (fun s -> client := Some (Cidr.of_string s)), "limit to these clients" ;

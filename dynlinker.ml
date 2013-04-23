@@ -142,7 +142,7 @@ let to_sort_int fields sort_by =
     assert (f.sortable <> "") ;
     "("^ f.sortable ^" "^ sort_by ^")"
 
-let load_top_two_pass modname fields ?start ?stop ?hash_val ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
+let load_top_two_pass modname fields ?start ?stop ?hash_val ?usr_filter ~max_graphs sort_by key_fields aggr_fields name =
     let sort_by = to_sort_int fields sort_by in
 "open "^ modname ^"
 open Batteries
@@ -156,7 +156,7 @@ let top () =
             "^ (start |> BatOption.map (fun _ -> "~start:min_start") |> BatOption.default "") ^"
             "^ (stop  |> BatOption.map (fun _ -> "~stop:max_stop") |> BatOption.default "") ^"
             "^ (hash_val|> BatOption.map (fun _ -> "~hash_val:req_ip_src") |> BatOption.default "") ^"
-            "^ Text.to_imm dbdir ^" "^ Text.to_imm name ^"
+            "^ Text.to_imm name ^"
             (fun ("^ (List.filter (is_concrete%snd) fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
                 "^ (virtual_fields fields) ^"
                 if "^ (usr_filter |> BatOption.map User_filter.ocaml_of_expr |> BatOption.default "true") ^" &&
@@ -186,7 +186,7 @@ let top () =
             "^ (start |> BatOption.map (fun _ -> "~start:min_start") |> BatOption.default "") ^"
             "^ (stop  |> BatOption.map (fun _ -> "~stop:max_stop") |> BatOption.default "") ^"
             "^ (hash_val|> BatOption.map (fun _ -> "~hash_val:req_ip_src") |> BatOption.default "") ^"
-            "^ Text.to_imm dbdir ^" "^ Text.to_imm name ^"
+            "^ Text.to_imm name ^"
             (fun ("^ (List.filter (is_concrete%snd) fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
                 "^ (virtual_fields fields) ^"
                 if "^ (usr_filter |> BatOption.map User_filter.ocaml_of_expr |> BatOption.default "true") ^" &&
@@ -259,7 +259,7 @@ let () =
     load_string
 
 
-let load_top_single_pass modname fields ?start ?stop ?hash_val ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name =
+let load_top_single_pass modname fields ?start ?stop ?hash_val ?usr_filter ~max_graphs sort_by key_fields aggr_fields name =
     let sort_by = to_sort_int fields sort_by in
 "open "^ modname ^"
 open Batteries
@@ -273,7 +273,7 @@ let top () =
             "^ (start |> BatOption.map (fun _ -> "~start:min_start") |> BatOption.default "") ^"
             "^ (stop  |> BatOption.map (fun _ -> "~stop:max_stop") |> BatOption.default "") ^"
             "^ (hash_val|> BatOption.map (fun _ -> "~hash_val:req_ip_src") |> BatOption.default "") ^"
-            "^ Text.to_imm dbdir ^" "^ Text.to_imm name ^"
+            "^ Text.to_imm name ^"
             (fun ("^ (List.filter (is_concrete%snd) fields |> List.map (fun (n,_f) -> n) |> String.concat ", ") ^") p ->
                 "^ (virtual_fields fields) ^"
                 if "^ (usr_filter |> BatOption.map User_filter.ocaml_of_expr |> BatOption.default "true") ^" &&

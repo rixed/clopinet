@@ -8,8 +8,6 @@ open Datatype
 
 include Ctrl
 
-let dbdir = Prefs.get_string "CPN_DB_BASE_DIR" "./test.db"
-
 let i2s ?min ?max i =
     let (>>=) = BatOption.bind in
     BatOption.map Interval.to_secs i >>=
@@ -147,7 +145,6 @@ let tblname_of_timestep dt metric tbls =
 module Traffic =
 struct
     include Traffic
-    let dbdir = dbdir^"/traffic"
 
     let bandwidth_chart = function
         | None ->
@@ -161,11 +158,11 @@ struct
             let what = if what = 0 then Volume else PacketCount in
             let datasets = match group_by with
                 | 1 (* src-mac *) | 2 (* dst-mac *) as sd ->
-                    eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 1) what time_step dbdir tblname
+                    eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 1) what time_step tblname
                 | 3 (* src-ip *) | 4 (* dst-ip *) as sd ->
-                    ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 3) what time_step dbdir tblname
+                    ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs (sd = 3) what time_step tblname
                 | _ (* default, apps *) ->
-                    app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what time_step dbdir tblname in
+                    app_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what time_step tblname in
             if datasets = [] then []
             else
                 let what = if what = PacketCount then "Packets" else "Bytes" in
@@ -208,9 +205,9 @@ struct
             let what = if what = 0 then Volume else PacketCount in
             let datasets = match group_by with
                 | 0 (* mac *) ->
-                    eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname
+                    eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what tblname
                 | _ (* ip *) ->
-                    ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what dbdir tblname in
+                    ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what tblname in
             if Hashtbl.is_empty datasets then
                 []
             else
@@ -235,7 +232,7 @@ struct
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
             let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep (Timestamp.sub_to_interval stop start) "traffic" Forms.Traffic.TblNames.options in
             let show_ip = group_by <> 2 and show_mac = group_by <> 1 in
-            let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter show_mac show_ip dbdir tblname in
+            let datasets = network_graph start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter show_mac show_ip tblname in
             if Hashtbl.is_empty datasets then
                 []
             else
@@ -260,7 +257,7 @@ struct
             let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
             let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep (Timestamp.sub_to_interval stop start) "traffic" Forms.Traffic.TblNames.options in
-            let datasets = get_top ~start ~stop ?ip_src ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields dbdir tblname in
+            let datasets = get_top ~start ~stop ?ip_src ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields tblname in
             View.table_of_datasets group_by aggr_fields sort_by datasets
         | None -> []
 
@@ -278,7 +275,7 @@ struct
             let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
             let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep (Timestamp.sub_to_interval stop start) "traffic" Forms.Traffic.TblNames.options in
-            let datasets = network_map start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter dbdir tblname in
+            let datasets = network_map start stop ?min_volume ?vlan ?eth_proto ?ip_proto ?port ?usr_filter tblname in
             if Hashtbl.is_empty datasets then []
             else
                 View.peers_map datasets
@@ -301,16 +298,13 @@ end
 module Flow =
 struct
     include Flow
-    let flow_dbdir = dbdir^"/flow"
 
     let callflow_chart = function
         | Some (start, (stop, (vlan, (ip_start, (ip_dst, (ip_proto, (port_src, (port_dst, ())))))))) ->
             let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
             let datasets =
-                get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
-                             ~dns_dbdir:(dbdir^"/dns") ~web_dbdir:(dbdir^"/web")
-                             ~tcp_dbdir:(dbdir^"/tcp") flow_dbdir in
+                get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst in
             View.callflow_chart (InetAddr.to_string ip_start) datasets
         | None -> []
 
@@ -334,7 +328,6 @@ end
 module Web =
 struct
     include Web
-    let dbdir = dbdir^"/web"
 
     let url_name host port url =
         host ^
@@ -349,7 +342,7 @@ struct
             let rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
             let sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
-            let tops = top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order in
+            let tops = top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max n sort_order in
             let field_display_names =
                 [ "Origin"     ; "VLAN" ;
                   "Client MAC" ; "Client IP" ;
@@ -390,7 +383,7 @@ struct
             let time_step = Interval.to_ms time_step in
             let rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
-            let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max time_step dbdir tblname in
+            let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max time_step tblname in
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
             let fold f i =
                 let i = f i "Min" true
@@ -435,7 +428,7 @@ struct
             let rt_max = i2s ?min:rt_min rt_max in
             let prec   = i2s ~min:0.00001 ~max:1. prec in
             let vx_step, bucket_min, bucket_max, datasets =
-                plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
+                plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?top_nth tblname in
             let vx_min = (float_of_int bucket_min +. 0.5) *. vx_step
             and nb_vx = bucket_max - bucket_min |> succ in
             let fold f i =
@@ -470,7 +463,7 @@ struct
             let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
             let tblname = match tblname with Some n -> Forms.Web.TblNames.options.(n) | None -> tblname_of_timestep (Timestamp.sub_to_interval stop start) "web" Forms.Web.TblNames.options in
-            let datasets = get_top ~start ~stop ?ip_srv ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields dbdir tblname in
+            let datasets = get_top ~start ~stop ?ip_srv ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields tblname in
             View.table_of_datasets group_by aggr_fields sort_by datasets
         | None -> []
 
@@ -489,7 +482,6 @@ end
 module Dns =
 struct
     include Dns
-    let dbdir = dbdir^"/dns"
 
     let queries_chart = function
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (rt_min, (rt_max, (error, (qname, (n, (sort_order, ()))))))))))))) ->
@@ -499,7 +491,7 @@ struct
             let rt_max = i2s ?min:rt_min rt_max in
             let n = BatOption.default 30 n
             and sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
-            let tops = top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?error ?qname dbdir n sort_order in
+            let tops = top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?error ?qname n sort_order in
             let field_display_names =
                 [ "Origin"     ; "VLAN" ;
                   "Client MAC" ; "Client IP" ;
@@ -537,7 +529,7 @@ struct
             let time_step = Interval.to_ms time_step in
             let rt_min = i2s ~min:0. rt_min in
             let rt_max = i2s ?min:rt_min rt_max in
-            let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?tx_min time_step dbdir tblname in
+            let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?tx_min time_step tblname in
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
             let fold f i =
                 let i = f i "Min" true
@@ -583,7 +575,7 @@ struct
             let rt_max = i2s ?min:rt_min rt_max in
             let prec   = i2s ~min:0.00001 ~max:1. prec in
             let vx_step, bucket_min, bucket_max, datasets =
-                plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?prec ?top_nth dbdir tblname in
+                plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?prec ?top_nth tblname in
             let vx_min = (float_of_int bucket_min +. 0.5) *. vx_step
             and nb_vx = bucket_max - bucket_min |> succ in
             let fold f i =
@@ -618,7 +610,7 @@ struct
             let stop  = match stop with Some t -> My_time.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
             let tblname = match tblname with Some n -> Forms.Dns.TblNames.options.(n) | None -> tblname_of_timestep (Timestamp.sub_to_interval stop start) "dns" Forms.Dns.TblNames.options in
-            let datasets = get_top ~start ~stop ?ip_srv ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields dbdir tblname in
+            let datasets = get_top ~start ~stop ?ip_srv ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields tblname in
             View.table_of_datasets group_by aggr_fields sort_by datasets
         | None -> []
 

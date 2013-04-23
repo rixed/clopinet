@@ -60,8 +60,8 @@ struct
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
 
-    let table dbdir name =
-        Table.create (table_name dbdir name)
+    let table name =
+        Table.create (table_name name)
             hash_on_src write
             meta_aggr meta_read meta_write
 
@@ -75,8 +75,8 @@ struct
 
     (* FIXME: fold_all and compilation of check function *)
     (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
-    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?ip_src ?ip_dst ?ip ?ip_proto ?port_src ?port_dst ?port dbdir name f make_fst merge =
-        let tdir = table_name dbdir name in
+    let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?ip_src ?ip_dst ?ip ?ip_proto ?port_src ?port_dst ?port name f make_fst merge =
+        let tdir = table_name name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let cmp = Timestamp.compare in
@@ -106,9 +106,9 @@ struct
                 fst merge in
         fold_using_indexed ip_src tdir fold_hnum make_fst merge
 
-    let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?ip_src ?ip_dst ?ip ?ip_proto ?port_src ?port_dst ?port dbdir name f =
+    let iter ?start ?stop ?vlan ?mac_src ?mac_dst ?ip_src ?ip_dst ?ip ?ip_proto ?port_src ?port_dst ?port name f =
         let dummy_merge _ _ = () in
-        fold ?start ?stop ?vlan ?mac_src ?mac_dst ?ip_src ?ip_dst ?ip ?ip_proto ?port_src ?port_dst ?port dbdir name (fun x _ -> f x) ignore dummy_merge
+        fold ?start ?stop ?vlan ?mac_src ?mac_dst ?ip_src ?ip_dst ?ip ?ip_proto ?port_src ?port_dst ?port name (fun x _ -> f x) ignore dummy_merge
 
 end
 
@@ -136,7 +136,7 @@ let clip start stop (x : Flow.t) =
         ) in
     clip_lo x |> clip_hi
 
-let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst ?dns_dbdir ?web_dbdir ?tcp_dbdir dbdir =
+let get_callflow start stop ?vlan ?ip_dst ?ip_proto ?port_src ?port_dst ip_start =
     let string_of_port proto port = try Unix.((getservbyport port proto).s_name) with Not_found -> string_of_int port in
     let ts2_of_rt ts1 (rt_count, _rt_min, _rt_max, rt_avg, _rt_sigma) =
         assert (rt_count = 1) ;
@@ -184,7 +184,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
         ) else
         let flows, peers =
             Flow.fold ~start ~stop ?vlan ~ip_src:(cidr_singleton ip_start) ?ip_dst
-                      ?ip_proto ?port_src ?port_dst dbdir lods.(0)
+                      ?ip_proto ?port_src ?port_dst lods.(0)
                       (fun ((_orig, _vl, _mac_s, _ip_s, _mac_d, ip_d, ip_prot, port_s, port_d, ts1, _ts2, _pkts, _pld) as x) (flows, ip_2_tsmin) ->
                           let peer = ip_d,ip_prot,port_s,port_d
                           and ts1 = Timestamp.max start ts1 in
@@ -211,7 +211,7 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
             Hashtbl.fold (fun (ip,ip_proto,port_dst (* <-inversed-> *),port_src) ts_min (flows, peers) ->
                 let other_dir, ts_max =
                     Flow.fold ~start:ts_min ~stop ?vlan ~ip_src:(cidr_singleton ip) ~ip_dst:(cidr_singleton ip_start)
-                              ~ip_proto ~port_src ~port_dst dbdir lods.(0)
+                              ~ip_proto ~port_src ~port_dst lods.(0)
                               (fun ((_orig, _vl, _mac_s, _ip_s, _mac_d, _ip_d, _ip_prot, _port_s, _port_d, _ts1, ts2, _pkts, _pld) as x) (flows, tsmax) ->
                                   let ts2 = Timestamp.min stop ts2 in
                                   flow_of_tuple (clip start stop x) :: flows, Timestamp.max tsmax ts2)
@@ -233,18 +233,18 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
         List.fold_left (fun flows (ip, start, stop) ->
             let empty_flows () = []
             and merge_flows f1 f2 = List.rev_append f2 f1 in
-            let dns_flows = BatOption.map_default (fun dbdir ->
-                Dns.Dns.fold ~start ~stop ?vlan ~ip_srv:(cidr_singleton ip) dbdir Dns.lods.(0) (fun dns flows ->
+            let dns_flows =
+                Dns.Dns.fold ~start ~stop ?vlan ~ip_srv:(cidr_singleton ip) Dns.lods.(0) (fun dns flows ->
                     flow_of_dns dns :: flows)
-                    empty_flows merge_flows) [] dns_dbdir
-            and web_flows = BatOption.map_default (fun dbdir ->
-                Web.Web.fold ~start ~stop ?vlan ~ip_srv:(cidr_singleton ip) dbdir Web.lods.(0) (fun web flows ->
+                    empty_flows merge_flows
+            and web_flows =
+                Web.Web.fold ~start ~stop ?vlan ~ip_srv:(cidr_singleton ip) Web.lods.(0) (fun web flows ->
                     flow_of_web web :: flows)
-                    empty_flows merge_flows) [] web_dbdir
-            and tcp_flows = BatOption.map_default (fun dbdir ->
-                Tcp.Tcp.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) dbdir Tcp.lods.(0) (fun tcp flows ->
+                    empty_flows merge_flows
+            and tcp_flows =
+                Tcp.Tcp.fold ~start ~stop ?vlan ~server:(cidr_singleton ip) Tcp.lods.(0) (fun tcp flows ->
                     flow_of_tcp tcp :: flows)
-                    empty_flows merge_flows) [] tcp_dbdir
+                    empty_flows merge_flows
             in
             let all_flows = List.rev_append dns_flows flows |>
                             List.rev_append web_flows |>
@@ -256,13 +256,8 @@ let get_callflow start stop ?vlan ip_start ?ip_dst ?ip_proto ?port_src ?port_dst
 
 (* Load new data into the database *)
 
-let load dbdir create fname =
-
-    if not create && not (try Sys.is_directory dbdir with Sys_error _ -> false) then (
-        failwith (Printf.sprintf "Directory %s does not exist" dbdir)
-    ) ;
-
-    let table0 = Flow.table dbdir lods.(0) in
+let load fname =
+    let table0 = Flow.table lods.(0) in
 
     let append0 = Table.append table0 in
 

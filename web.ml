@@ -79,8 +79,8 @@ struct
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
 
-    let table dbdir name =
-        Table.create (table_name dbdir name)
+    let table name =
+        Table.create (table_name name)
             hash_on_srv write
             meta_aggr meta_read meta_write
 
@@ -260,8 +260,8 @@ struct
               check tx_min    ULeast63.to_imm   "Distribution.count resptime >= %s" ]) ;
         !filter_
 
-    let fold_all ?start ?stop ?hash_val dbdir name f make_fst merge =
-        let tdir = table_name dbdir name in
+    let fold_all ?start ?stop ?hash_val name f make_fst merge =
+        let tdir = table_name name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let res =
@@ -274,29 +274,29 @@ struct
                 fst merge in
         fold_using_indexed hash_val tdir fold_hnum make_fst merge
 
-    let fold ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?methd ?status ?host ?url ?rt_min ?rt_max ?tx_min ?usr_filter dbdir name f make_fst merge =
+    let fold ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?methd ?status ?host ?url ?rt_min ?rt_max ?tx_min ?usr_filter name f make_fst merge =
         let filter = compile_filter ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?methd ?status ?host ?url ?rt_min ?rt_max ?tx_min ?usr_filter () in
-        fold_all ?start ?stop ?hash_val:ip_srv dbdir name (fun x prev ->
+        fold_all ?start ?stop ?hash_val:ip_srv name (fun x prev ->
             if filter x then f x prev else prev)
             make_fst merge
 
-    let iter ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?methd ?status ?host ?url ?rt_min ?rt_max ?tx_min ?usr_filter dbdir name f =
+    let iter ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?methd ?status ?host ?url ?rt_min ?rt_max ?tx_min ?usr_filter name f =
         let dummy_merge _ _ = () in
-        fold ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?methd ?status ?host ?url ?rt_min ?rt_max ?tx_min ?usr_filter dbdir name (fun x _ -> f x) ignore dummy_merge
+        fold ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?methd ?status ?host ?url ?rt_min ?rt_max ?tx_min ?usr_filter name (fun x _ -> f x) ignore dummy_merge
 end
 
-let plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max step dbdir name =
+let plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max step name =
     let start, stop = min start stop, max start stop in
     let fold f i m =
-        Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir name
+        Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max name
             (fun (_orig, _vlan, _mac_clt, _clt, _mac_srv, _srv, _srvp, _met, _err, ts, rt, _h, _u) p ->
                 f ts rt p)
             i m in
     Plot.per_date start stop step fold
 
-let top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir n sort_order =
+let top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max n sort_order =
     let start, stop = min start stop, max start stop in
-    let fold = Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir lods.(0) in
+    let fold = Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max lods.(0) in
     let cmp (_o1, _vl1, _ec1, _c1, _es1, _s1, _p1, _mt1, _er1, _ts1, (_, _, _, rt1, _), _h1, _u1)
             (_o2, _vl2, _ec2, _c2, _es2, _s2, _p2, _mt2, _er2, _ts2, (_, _, _, rt2, _), _h2, _u2) =
         Float.compare rt1 rt2 in
@@ -304,16 +304,16 @@ let top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?stat
 
 (* Display in it's own color the servers that represent more than 1/top_nth share of the tot
  * number of queries *)
-let plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?(top_nth=100) dbdir tblname =
+let plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max ?prec ?(top_nth=100) tblname =
      let fold f i m =
-        Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir tblname
+        Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max tblname
             (fun (_orig, _vl, _mac_clt, _clt, _mac_srv, srv, _srvp, _met, _err, _ts, rt, _h, _u) p ->
                 let nb_queries, _, _, _, _ = rt in
                 f (srv, nb_queries) p)
             i m in
     let interm = Plot.FindSignificant.pass1 fold top_nth in
     let fold2 f i m =
-        Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max dbdir tblname
+        Web.fold ~start ~stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max tblname
             (fun (_orig, _vl, _mac_clt, _clt, _mac_srv, srv, _srvp, _met, _err, _ts, rt, _h, _u) p ->
                 let nb_queries, _, _, avg, _ = rt in
                 (* TODO: instead of a single [avg], fake a distribution of nb_queries values *)
@@ -326,11 +326,11 @@ let plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?stat
 (* Contrary to top request which return a list of queries from the query table, here we can query freely anything *)
 type top_fun = unit -> ((string array option * string array * int * int) list) * int * string array
 let dyn_top : top_fun ref = ref (fun () -> failwith "Cannot specialize top function")
-let get_top ?start ?stop ?ip_srv ?usr_filter ?(max_graphs=20) ?(single_pass=true) sort_by key_fields aggr_fields dbdir name =
+let get_top ?start ?stop ?ip_srv ?usr_filter ?(max_graphs=20) ?(single_pass=true) sort_by key_fields aggr_fields name =
     let start = optmin start stop
     and stop = optmax start stop in
     let aggr_fields = List.map (fun n -> BatString.split n ".") aggr_fields in
-    Dynlinker.((if single_pass then load_top_single_pass else load_top_two_pass) "Web" Web.fields ?start ?stop ?hash_val:ip_srv ?usr_filter ~max_graphs sort_by key_fields aggr_fields dbdir name) ;
+    Dynlinker.((if single_pass then load_top_single_pass else load_top_two_pass) "Web" Web.fields ?start ?stop ?hash_val:ip_srv ?usr_filter ~max_graphs sort_by key_fields aggr_fields name) ;
     !dyn_top ()
 
 
@@ -340,20 +340,15 @@ let get_top ?start ?stop ?ip_srv ?usr_filter ?(max_graphs=20) ?(single_pass=true
 
 (* Load new data into the database *)
 
-let load dbdir create fname =
-
-    if not create && not (try Sys.is_directory dbdir with Sys_error _ -> false) then (
-        failwith (Printf.sprintf "Directory %s does not exist" dbdir)
-    ) ;
-
-    let table3 = Web.table dbdir lods.(3) in
+let load fname =
+    let table3 = Web.table lods.(3) in
     let accum3, flush3 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(3) "web")))
                          Distribution.combine
                          [ fun (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
                               Table.append table3 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ] in
 
-    let table2 = Web.table dbdir lods.(2) in
+    let table2 = Web.table lods.(2) in
     let rti = rti_of_lod lods.(2) "web" in
     let accum2, flush2 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(2) "web")))
@@ -365,7 +360,7 @@ let load dbdir create fname =
                                   accum3 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
                                   rti ] in
 
-    let table1 = Web.table dbdir lods.(1) in
+    let table1 = Web.table lods.(1) in
     let rti = rti_of_lod lods.(2) "web" in
     let accum1, flush1 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(1) "web")))
@@ -382,7 +377,7 @@ let load dbdir create fname =
             String.sub s 0 i
         with Not_found -> s in
 
-    let table0 = Web.table dbdir lods.(0) in
+    let table0 = Web.table lods.(0) in
     let rti = rti_of_lod lods.(1) "web" in
     let append0 ((orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) as v) =
         Table.append table0 v ;

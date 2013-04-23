@@ -2,17 +2,15 @@ open Datatype
 open Traffic
 
 let main =
-    let dbdir = ref "./" and start = ref None and stop = ref None
+    let start = ref None and stop = ref None
     and mac_src = ref None and mac_dst = ref None and vlan = ref None
     and eth_proto = ref None and ip_src = ref None and ip_dst = ref None
     and ip = ref None and port = ref None
-    and ip_proto = ref None and create = ref false and step = ref 60
+    and ip_proto = ref None and step = ref 60
     and usr_filter = ref None and sort_by = ref "mac_pld"
     and keys = ref [] and aggrs = ref [] and max_graphs = ref 20 in
     Arg.(parse [
-        "-dir", Set_string dbdir, "database directory (or './')" ;
-        "-create", Set create, "create db if it does not exist yet" ;
-        "-load", String (fun s -> load !dbdir !create s), "load a CSV file" ;
+        "-load", String (fun s -> load s), "load a CSV file" ;
         "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
         "-step", Set_int step, "time step for plots (default: 60)" ;
         "-sort_by", Set_string sort_by, "(DEBUG) sort_by field" ;
@@ -24,12 +22,12 @@ let main =
                                     ?ip_src:!ip_src ?usr_filter:!usr_filter
                                     ~max_graphs:!max_graphs
                                     !sort_by !keys !aggrs
-                                    !dbdir tbname |> Plot.print_tops), "(DEBUG) run `top` on this table" ;
+                                    tbname |> Plot.print_tops), "(DEBUG) run `top` on this table" ;
         "-dump", String (function tbname -> Traffic.(iter ?start:!start ?stop:!stop ?eth_proto:!eth_proto ?ip_proto:!ip_proto
                                                           ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst
                                                           ?ip_src:!ip_src ?ip_dst:!ip_dst ?usr_filter:!usr_filter
                                                           ?ip:!ip ?port:!port
-                                                          !dbdir tbname
+                                                          tbname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
         "-dumpf", String (function fname -> Traffic.(iter_fname fname
                                                           (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this file" ;
@@ -39,8 +37,8 @@ let main =
                                                                     (Timestamp.to_string start)
                                                                     (Timestamp.to_string stop)))),
                                                             "dump this meta file" ;
-        "-dbck", Unit (fun () -> Metric.dbck !dbdir lods Traffic.read Traffic.meta_read), "scan the DB and try to repair it" ;
-        "-purge", Unit (fun () -> Metric.purge !dbdir lods), "purge old datafiles" ;
+        "-dbck", Unit (fun () -> Metric.dbck lods Traffic.read Traffic.meta_read), "scan the DB and try to repair it" ;
+        "-purge", Unit (fun () -> Metric.purge "traffic" lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
         "-vlan", String (fun s -> vlan := Some (VLan.of_string s)), "limit queries to this VLAN" ;

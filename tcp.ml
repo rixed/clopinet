@@ -57,15 +57,15 @@ struct
     let meta_read = BoundsTS.read
     let meta_write = BoundsTS.write
 
-    let table dbdir name =
-        Table.create (table_name dbdir name)
+    let table name =
+        Table.create (table_name name)
             hash_on_srv write
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual sockets *)
     (* Add min_count, server port *)
-    let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer dbdir name f make_fst merge =
-        let tdir = table_name dbdir name in
+    let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer name f make_fst merge =
+        let tdir = table_name name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let cmp = Timestamp.compare in
@@ -90,9 +90,9 @@ struct
                 fst merge in
         fold_using_indexed server tdir fold_hnum make_fst merge
 
-    let iter ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer dbdir name f =
+    let iter ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer name f =
         let dummy_merge _ _ = () in
-        fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer dbdir name (fun x _ -> f x) ignore dummy_merge
+        fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer name (fun x _ -> f x) ignore dummy_merge
 end
 
 (* Lod1: cleared client_port, rounded start_date (to 1min) *)
@@ -101,26 +101,21 @@ end
 
 (* Load new data into the database *)
 
-let load dbdir create fname =
-
+let load fname =
     let aggreg_all ((syns, ct) as x) = function
         | 0, (0, _, _, _, _) -> x
         | syns', ct' ->
             syns + syns',
             Distribution.combine ct ct' in
 
-    if not create && not (try Sys.is_directory dbdir with Sys_error _ -> false) then (
-        failwith (Printf.sprintf "Directory %s does not exist" dbdir)
-    ) ;
-
-    let table3 = Tcp.table dbdir lods.(3) in
+    let table3 = Tcp.table lods.(3) in
     let accum3, flush3 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(3) "tcp")))
             aggreg_all
             [ fun (orig, vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ->
                 Table.append table3 (orig, vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct) ] in
 
-    let table2 = Tcp.table dbdir lods.(2) in
+    let table2 = Tcp.table lods.(2) in
     let rti = rti_of_lod lods.(3) "tcp" in
     let accum2, flush2 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(2) "tcp")))
@@ -132,7 +127,7 @@ let load dbdir create fname =
                     accum3 (orig, vlan, clte, clt, srve, srv, srvp, ts) (syns, ct))
                     rti ] in
 
-    let table1 = Tcp.table dbdir lods.(1) in
+    let table1 = Tcp.table lods.(1) in
     let rti = rti_of_lod lods.(2) "tcp" in
     let accum1, flush1 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(1) "tcp")))
@@ -146,7 +141,7 @@ let load dbdir create fname =
                     accum2 (orig, vlan, clte, clt, srve, srv, srvp, ts) (syns, ct))
                     rti ] in
 
-    let table0 = Tcp.table dbdir lods.(0) in
+    let table0 = Tcp.table lods.(0) in
     let rti = rti_of_lod lods.(1) "tcp" in
     let append0 ((orig, vlan, clte, clt, srve, srv, _cltp, srvp, ts, syns, ct) as v) =
         Table.append table0 v ;
