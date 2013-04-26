@@ -9,7 +9,6 @@ let main =
     and ip_proto = ref None and port_src = ref None and port_dst = ref None in
     Arg.(parse [
         "-load", String (fun s -> load s), "load a CSV file" ;
-        "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
         "-dump", String (function tbname -> Flow.(iter ?start:!start ?stop:!stop ?ip_proto:!ip_proto
                                                        ?vlan:!vlan ?mac_src:!mac_src ?mac_dst:!mac_dst
                                                        ?ip_src:!ip_src ?ip_dst:!ip_dst
@@ -24,7 +23,7 @@ let main =
                                                                  (Timestamp.to_string start)
                                                                  (Timestamp.to_string stop)))),
                                                          "dump this meta file" ;
-        "-dbck", Unit (fun () -> Metric.dbck lods Flow.read Flow.meta_read), "scan the DB and try to repair it" ;
+        "-dbck", Unit (fun () -> Metric.dbck "flow" lods Flow.read Flow.meta_read), "scan the DB and try to repair it" ;
         "-purge", Unit (fun () -> Metric.purge "flow" lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;

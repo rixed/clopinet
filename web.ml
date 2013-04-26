@@ -4,8 +4,6 @@ open Metric
 
 (* FIXME: factorize all this with DNS *)
 
-let verbose = ref false
-
 (* Convert from junkie's integer to strings *)
 let http_methods = [| "GET"; "HEAD"; "POST"; "CONNECT"; "PUT";
                       "OPTIONS"; "TRACE"; "DELETE" |]
@@ -80,7 +78,7 @@ struct
     let meta_write = BoundsTS.write
 
     let table name =
-        Table.create (table_name name)
+        Table.create (table_name "web" name)
             hash_on_srv write
             meta_aggr meta_read meta_write
 
@@ -261,7 +259,7 @@ struct
         !filter_
 
     let fold_all ?start ?stop ?hash_val name f make_fst merge =
-        let tdir = table_name name in
+        let tdir = table_name "web" name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let res =
@@ -390,7 +388,6 @@ let load fname =
             rti in
 
     let flush_all () =
-        if !verbose then Printf.printf "Flushing...\n" ;
         flush1 () ;
         flush2 () ;
         flush3 () ;

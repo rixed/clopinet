@@ -8,6 +8,7 @@ localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 prefix = @prefix@
+bindir = @bindir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -77,7 +78,7 @@ EXAMPLES = $(EXAMPLES_BYTE) $(EXAMPLES_OPT)
 SYNTAX=-syntax camlp4o
 
 .PHONY: all loc
-all: env $(XARCHIVE) examples www
+all: clopinet.conf $(XARCHIVE) examples www
 
 least63.ml:
 ifeq (@OCAML_WORD_SIZE@,64)
@@ -119,7 +120,7 @@ clopinet.top: $(ARCHIVE) $(CLIB)
 maketuple.opt: maketuple.cmx
 	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" -linkpkg $(OCAMLOPTFLAGS) $^
 
-env: Makefile env.tail
+clopinet.conf: Makefile clopinet.conf.tail
 	@echo "# Configuration options - Do not edit" > $@
 	@echo "export PREFIX='$(prefix)'" >> $@
 ifneq "@DBDIR@" ""
@@ -133,20 +134,23 @@ else
 	@echo "export GEOIPDB='$(datarootdir)/GeoIP/GeoIP.dat'" >> $@
 endif
 	@echo "export OCAMLFIND='@OCAMLFIND@'" >> $@
-	@cat env.tail >> $@
+	@echo "export CPN_LOG_DIR='$(localstatedir)/log'" >> $@
+	@echo "export CPN_CONF_DIR='$(sysconfdir)'" >> $@
+	@echo "export CPN_BIN_DIR='$(bindir)'" >> $@
+	@cat clopinet.conf.tail >> $@
 
 PROGRAMS = \
 	dns_exe.opt web_exe.opt tcp_exe.opt traffic_exe.opt flow_exe.opt \
-	dbck defrag junkie.scm junkie2db listen purge showfrag
-CONFFILES = env
+	clopinet
+CONFFILES = clopinet.conf junkie.scm
 
 install-programs: $(PROGRAMS)
-	install -d $(prefix)/bin
-	install $^ $(prefix)/bin
+	install -d $(bindir)
+	install $^ $(bindir)
 
 install-conf: $(CONFFILES)
-	install -d $(prefix)/etc
-	install -m 0644 $^ $(prefix)/etc
+	install -d $(sysconfdir)
+	install -m 0644 $^ $(sysconfdir)
 
 install-spec: install-programs install-conf
 

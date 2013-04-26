@@ -7,7 +7,7 @@ set -a
 #
 
 # We will listen any interface which name match this regular expression:
-SNIFF_IFACES="eth.*"
+SNIFF_IFACES="(eth|wlan).*"
 
 # We will capture only packets matching this BPF expression (see man pcap-filter)
 SNIFF_CAPTURE_FILTER=""

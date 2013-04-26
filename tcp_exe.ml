@@ -7,12 +7,11 @@ let main =
     and peer = ref None in
     Arg.(parse [
         "-load", String (fun s -> load s), "load a CSV file" ;
-        "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
         "-dump", String (function tbname -> Tcp.(iter ?start:!start ?stop:!stop
                                                       ?client:!client ?server:!server ?peer:!peer
                                                       tbname
                                                       (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
-        "-dbck", Unit (fun () -> Metric.dbck lods Tcp.read Tcp.meta_read), "scan the DB and try to repair it" ;
+        "-dbck", Unit (fun () -> Metric.dbck "tcp" lods Tcp.read Tcp.meta_read), "scan the DB and try to repair it" ;
         "-purge", Unit (fun () -> Metric.purge "tcp" lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;

@@ -1,8 +1,6 @@
 (* Functions commonly used in metrics *)
 open Datatype
 
-let verbose = ref false
-
 (* Functions related to META files that are formed by start and stop timestamps *)
 module BoundsTS = Tuple2.Make (Timestamp) (Timestamp)
 
@@ -67,7 +65,7 @@ let string_starts_with e s =
 
 let fold_using_indexed ip tdir fold_hnum make_fst merge = match ip with
     | Some cidr when subnet_size cidr < Table.max_hash_size ->
-        if !verbose then Printf.fprintf stderr "Using index\n" ;
+        Log.debug "Using index" ;
         (* We have an index for this! Build the list of hnums *)
         let visited = Hashtbl.create Table.max_hash_size in
         let hnums = fold_ips cidr (fun ip p ->
@@ -86,12 +84,15 @@ let fold_using_indexed ip tdir fold_hnum make_fst merge = match ip with
 
 let load fname parzer append flush =
     Sys.(List.iter
-        (fun s -> set_signal s (Signal_handle (fun _ -> flush ())))
+        (fun s -> set_signal s (Signal_handle (fun _ -> Log.info "Flushing..." ; flush ())))
         [ sigabrt; sigfpe; sigill; sigint;
           sigpipe; sigquit; sigsegv; sigterm ]) ;
 
     let lineno = ref 0 in
+    let last_line = ref "" in
+    let save_line l = last_line := l in
     (try File.lines_of fname /@
+        tap save_line /@
         String.to_list /@
         Peg.(parzer ++ eof) |>
         Enum.iter (function
@@ -100,18 +101,20 @@ let load fname parzer append flush =
                 append v ;
                 incr lineno
             | Peg.Fail -> Peg.parse_error ())
-    with e ->
-        Printf.fprintf stderr "Error at line %d\n" !lineno ;
-        flush () ;
-        raise e) ;
-    if !verbose then Printf.fprintf stderr "Inserted %d lines\n" !lineno ;
+    with Peg.Parse_error err ->
+        Log.error "Error at line %d: %s" !lineno (Peg.string_of_error ~input:!last_line err)
+    |  e ->
+        Log.error "Error at line %d: %s" !lineno (Printexc.to_string e) ;
+        Log.error "%s" (Printexc.get_backtrace ())) ;
+    Log.info "Inserted %d lines" !lineno ;
+    Log.info "Flushing..." ;
     flush ()
 
 (* misc *)
 
-let table_name name =
+let table_name dbname lodname =
     let dbdir = Prefs.get_string "CPN_DB_BASE_DIR" "./" in
-    dbdir ^ "/" ^ name
+    dbdir ^"/"^ dbname ^"/"^ lodname
 
 let rti_of_lod lod metric =
     let pname = "CPN_DB_"^ metric ^"_"^ lod ^"_ROUND" |> String.uppercase in
@@ -138,7 +141,7 @@ let del_file fname =
     Unix.unlink fname
 
 let fix_data e fname pos =
-    Printf.printf "Data file '%s' unreadable after offset %Ld:\n%s %s\n%!"
+    Log.notice "Data file '%s' unreadable after offset %Ld:\n%s %s%!"
         fname pos (Printexc.to_string e) (Printexc.get_backtrace ()) ;
     save_backup fname ;
     Unix.LargeFile.truncate fname pos ;
@@ -147,11 +150,11 @@ let fix_data e fname pos =
     raise File_truncated
 
 let fix_meta e fname =
-    Printf.printf "Meta file '%s' unreadable:\n%s %s%!"
+    Log.notice "Meta file '%s' unreadable:\n%s %s%!"
         fname (Printexc.to_string e) (Printexc.get_backtrace ()) ;
     del_file fname
 
-let dbck lods read meta_read =
+let dbck dbname lods read meta_read =
     let ck_read tdir hnum snum last_read ic =
         try ignore (read ic) ;
             last_read := Serial.position ic
@@ -171,13 +174,13 @@ let dbck lods read meta_read =
     let ck_hnum tdir hnum =
         Table.iter_snums tdir hnum (fun _ -> None) (ck_file tdir hnum) in
     let ck_lod lod =
-        let tdir = table_name lod in
+        let tdir = table_name dbname lod in
         Table.iter_hnums tdir (ck_hnum tdir) in
     Array.iter ck_lod lods
 
 (* Functions related to purge old dbfiles *)
 
-let purge name lods =
+let purge dbname lods =
     let purge_file expiration tdir hnum snum _meta =
         (* Never delete the last snum which is still written to *)
         if snum > 0 then (
@@ -186,7 +189,7 @@ let purge name lods =
             try (
                 let last_write_age = time () -. (stat fname).st_mtime in
                 if last_write_age > expiration then (
-                    Printf.printf "Deleting %s\n" fname ;
+                    Log.info "Deleting %s" fname ;
                     unlink fname ;
                     ignore_exceptions unlink (fname ^".meta")
                 )
@@ -195,13 +198,13 @@ let purge name lods =
     let purge_hnum expiration tdir hnum =
         Table.iter_snums tdir hnum (fun _ -> None) (purge_file expiration tdir hnum) in
     let purge_lod lod =
-        let pname = "CPN_DB_"^name^"_"^lod^"_EXPIRATION" |> String.uppercase in
+        let pname = "CPN_DB_"^dbname^"_"^lod^"_EXPIRATION" |> String.uppercase in
         match Interval.of_pref_option pname with
         | None ->
-            Printf.printf "%s unset, skipping\n" pname
+            Log.warning "%s unset, skipping" pname
         | Some expiration ->
             let expiration = Interval.to_secs expiration in
-            let tdir = table_name lod in
+            let tdir = table_name dbname lod in
             Table.iter_hnums tdir (purge_hnum expiration tdir) in
     Array.iter purge_lod lods
 

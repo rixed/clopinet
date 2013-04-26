@@ -1,0 +1,240 @@
+#!/bin/sh
+# This program provides the glue between all components
+
+set -e
+
+die() {
+	echo $* 1>&2
+	exit 1
+}
+
+get_param() {
+	pname="$1"
+	pvalue=$(eval echo '$'$pname)
+	if test -z "$pvalue" ; then
+		die "$pname not defined. Did you source clopinet.conf?"
+	fi
+	echo "$pvalue"
+}
+
+help() {
+	echo "clopinet [--help] [--daemon] purge|check|defrag|showfrag|start|stop|status"
+	echo
+	echo "  exemple: clopinet --daemon purge start"
+}
+
+pidfile="/var/run/clopinet.pid"
+if ! test -w $(dirname $pidfile) ; then
+	pidfile="/tmp/clopinet.pid"
+fi
+
+is_running="no"
+
+# remove stale pidfile
+if test -e "$pidfile" ; then
+	pids=$(cat "$pidfile" | xargs echo)
+	if ! ps -p $pids >/dev/null 2>&1 ; then
+		echo "Deleting stale pid file $pidfile"
+		rm -f "$pidfile"
+	else
+		is_running="yes"
+	fi
+fi
+
+killpids() {
+	pids=$*
+	for proc in $pids ; do
+		echo "Killing $proc..."
+		kill $proc >/dev/null 2>&1 || true
+	done
+	sleep 1
+	for proc in $pids ; do
+		kill -9 $proc >/dev/null 2>&1 ||true
+	done
+}
+
+killpidfile() {
+	killpids $(cat "$pidfile" 2>/dev/null)
+	rm -f "$pidfile"
+}
+
+killjobs() {
+	killpids $(jobs -p)
+}
+
+if test $is_running = "no" ; then
+	trap killjobs INT QUIT EXIT
+fi
+
+daemonize="no"
+do_purge="no"
+do_dbck="no"
+do_defrag="no"
+do_showfrag="no"
+do_start="no"
+do_stop="no"
+do_status="no"
+
+while test -n "$1" ; do case $1 in
+	(-h|help)
+		help
+		shift ;;
+	(-d|--daemon)
+		daemonize="yes"
+		shift ;;
+	(purge)
+		do_purge="yes"
+		shift ;;
+	(check)
+		do_dbck="yes"
+		shift ;;
+	(defrag)
+		do_defrag="yes"
+		shift ;;
+	(showfrag)
+		do_showfrag="yes"
+		shift ;;
+	(start)
+		do_start="yes"
+		shift ;;
+	(stop)
+		do_stop="yes"
+		shift ;;
+	(status)
+		do_status="yes"
+		shift ;;
+	(*)
+		echo "unknown command $1"
+		help
+		exit 1 ;;
+esac ; done
+
+run() {
+	cmd="$1"
+	sleep_duration="$2"
+	if test "$daemonize" = "no" || test -z "$sleep_duration"; then
+		$cmd
+	else
+		logdir=$(get_param CPN_LOG_DIR)
+		mkdir -p "$logdir"
+		(while true ; do
+			$cmd >> "$logdir/clopinet.log" 2>&1
+			sleep "$sleep_duration"
+		done &
+		echo $! >> "$pidfile") &
+	fi
+}
+
+METRICS="tcp dns flow web traffic"
+
+ensure_stopped() {
+	if test $is_running = "yes" ; then
+		die "Pid file $pidfile found. Is clopinet still running?"
+	fi
+}
+
+purge() {
+	bindir=$(get_param CPN_BIN_DIR)
+	for m in $METRICS; do
+		echo "Purging $m..."
+		"$bindir/$m"_exe.opt -purge
+	done
+}
+
+dbck() {
+	ensure_stopped
+	bindir=$(get_param CPN_BIN_DIR)
+	for m in $METRICS; do
+		echo "Checking $m..."
+		"$bindir/$m"_exe.opt -dbck
+	done
+}
+
+defrag() {
+	ensure_stopped
+	dbdir=$(get_param CPN_DB_BASE_DIR)
+	if test -z "$dbdir" ; then
+		die "CPN_DB_BASE_DIR ($dbdir) does not exist"
+	fi
+	tmp="$dbdir""_"
+	if test -e "$tmp" ; then
+		die "File $tmp already exist. Make sure that no other defrag is running and delete it."
+	fi
+	echo "Defragmenting $dbdir..."
+	cp -r "$dbdir" "$tmp"
+	rm -rf "$dbdir"
+	mv "$tmp" "$dbdir"
+}
+
+showfrag() {
+	dbdir=$(get_param CPN_DB_BASE_DIR)
+	if ! test -x /usr/sbin/filefrag ; then
+		die "Can't find /usr/sbin/filefrag"
+	fi
+	find "$dbdir" -type f -exec /usr/sbin/filefrag {} \; 2>/dev/null |
+		sed -e 's/^\(.*\): \(.*\) exten.*$/\2/' |
+		sort -nr |
+		uniq -c
+}
+
+start() {
+	ensure_stopped
+	dbdir=$(get_param CPN_DB_BASE_DIR)
+	logdir=$(get_param CPN_LOG_DIR)
+	mkdir -p "$logdir"
+	confdir=$(get_param CPN_CONF_DIR)
+	bindir=$(get_param CPN_BIN_DIR)
+	for m in $METRICS ; do
+		if ! test -d "$dbdir/$m" ; then
+			echo "Creating $dbdir/$m"
+			mkdir -p "$dbdir/$m"
+		fi
+		rm -f "$dbdir/$m.fifo"
+		mkfifo "$dbdir/$m.fifo"
+		"$bindir/$m"_exe.opt -load "$dbdir/$m.fifo" &
+		echo $! >> "$pidfile"
+	done
+	exec "$bindir"/junkie -c "$confdir/junkie.scm" &
+	echo $! >> "$pidfile"
+	wait # will wait for all processes to crash before restarting :-/
+}
+
+stop() {
+	if test $is_running = "no" ; then
+		die "clopinet does not seams to be running"
+	fi
+
+	killpidfile
+}
+
+status() {
+	if test $is_running = "yes" ; then
+		echo "clopinet is running"
+	else
+		echo "clopinet is not running"
+	fi
+}
+
+if test $do_purge = "yes" ; then
+	run purge 3600
+fi
+if test $do_dbck = "yes" ; then
+	run dbck
+fi
+if test $do_defrag = "yes" ; then
+	run defrag
+fi
+if test $do_showfrag = "yes" ; then
+	run showfrag
+fi
+if test $do_start = "yes" ; then
+	run start 0
+fi
+if test $do_stop = "yes" ; then
+	run stop
+fi
+if test $do_status = "yes" ; then
+	run status
+fi
+wait
+

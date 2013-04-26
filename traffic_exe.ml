@@ -11,7 +11,6 @@ let main =
     and keys = ref [] and aggrs = ref [] and max_graphs = ref 20 in
     Arg.(parse [
         "-load", String (fun s -> load s), "load a CSV file" ;
-        "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
         "-step", Set_int step, "time step for plots (default: 60)" ;
         "-sort_by", Set_string sort_by, "(DEBUG) sort_by field" ;
         "-key", String (fun s -> keys := s :: !keys), "(DEBUG) Add a key for top query" ;
@@ -37,7 +36,7 @@ let main =
                                                                     (Timestamp.to_string start)
                                                                     (Timestamp.to_string stop)))),
                                                             "dump this meta file" ;
-        "-dbck", Unit (fun () -> Metric.dbck lods Traffic.read Traffic.meta_read), "scan the DB and try to repair it" ;
+        "-dbck", Unit (fun () -> Metric.dbck "traffic" lods Traffic.read Traffic.meta_read), "scan the DB and try to repair it" ;
         "-purge", Unit (fun () -> Metric.purge "traffic" lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;

@@ -26,6 +26,7 @@ include BatLog.Make (Config)
 let nolog fmt = Printf.ifprintf Config.out fmt (* is optimized out *)
 let debug = nolog
 let info = logf
+let notice = logf
 let warn = logf
 let err = logf
 let error = err

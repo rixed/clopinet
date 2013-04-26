@@ -3,9 +3,91 @@
 Or just run: junkie -c this_file
 !#
 
+(define-module (clopinet))
 (use-modules ((junkie netmatch nettrack) :renamer (symbol-prefix-proc 'nt:))
              (junkie defs)
-			 (junkie runtime))
+             (junkie tools)
+             (junkie runtime))
+
+(set-log-file (string-append (getenv "CPN_LOG_DIR") "/junkie.log"))
+;(set-log-level log-debug)
+;(set-log-level log-err "mutex")
+;(set-log-level log-err "proto")
+
+; find all the FIFOs in which we are supposed to write
+(define fifodir (getenv "CPN_DB_BASE_DIR"))
+(define (get-fifo name)
+  (let ((fname (string-append fifodir "/" name ".fifo")))
+    (open-file fname "alb"))) ; append, line buffered, binary
+
+(define tcp-fifo (get-fifo "tcp"))
+(define dns-fifo (get-fifo "dns"))
+(define flow-fifo (get-fifo "flow"))
+(define web-fifo (get-fifo "web"))
+(define traffic-fifo (get-fifo "traffic"))
+
+(define (dump out next . rest)
+  (display next out)
+  (if (null? rest) (write-char #\newline out)
+      (begin (write-char #\tab out)
+             (apply dump out rest))))
+
+(define (iface device)
+  (string-append "iface " (number->string device)))
+(define (vlan vlan-id)
+  (if (> vlan-id 4095)
+      "None"
+      (string-append "Some " (number->string vlan-id))))
+
+(define-public (print-web device vlan-id client-mac client-ip server-mac server-ip server-port qry-method err-code qry-start dt qry-host url)
+  (dump web-fifo
+        (iface device)
+        (vlan vlan-id)
+        (eth->string client-mac) (ip->string client-ip)
+        (eth->string server-mac) (ip->string server-ip) server-port
+        qry-method err-code
+        (timestamp->string qry-start) 1 dt dt dt 0
+        qry-host url))
+
+(define-public (print-dns device vlan-id client-mac client-ip server-mac server-ip err-code qry-start dt qry-name)
+  (dump dns-fifo
+        (iface device)
+        (vlan vlan-id)
+        (eth->string client-mac) (ip->string client-ip)
+        (eth->string server-mac) (ip->string server-ip)
+        err-code
+        (timestamp->string qry-start) 1 dt dt dt 0
+        qry-name))
+
+(define-public (print-traffic device vlan-id ts-start ts-stop count eth-src eth-dst eth-proto eth-pld eth-mtu ip-src ip-dst ip-proto ip-pld port-src port-dst l4-pld)
+  (dump traffic-fifo
+        (iface device)
+        (timestamp->string ts-start) (timestamp->string ts-stop) count
+        (vlan vlan-id)
+        (eth->string eth-src) (eth->string eth-dst) eth-proto eth-pld eth-mtu
+        (if ip-src (ip->string ip-src) "0.0.0.0")
+        (if ip-dst (ip->string ip-dst) "0.0.0.0")
+        ip-proto ip-pld
+        port-src port-dst l4-pld))
+
+(define-public (print-tcp device vlan-id client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns dt)
+  (dump tcp-fifo
+        (iface device)
+        (vlan vlan-id)
+        (eth->string client-mac) (ip->string client-ip)
+        (eth->string server-mac) (ip->string server-ip)
+        client-port server-port
+        (timestamp->string sock-syn) nb-syns 1 dt dt dt 0))
+
+(define-public (print-flow device vlan-id eth-src ip-src eth-dst ip-dst ip-proto port-src port-dst ts-start ts-stop count pld)
+  (dump flow-fifo
+        (iface device)
+        (vlan vlan-id)
+        (eth->string eth-src) (ip->string ip-src)
+        (eth->string eth-dst) (ip->string ip-dst)
+        ip-proto port-src port-dst
+        (timestamp->string ts-start) (timestamp->string ts-stop)
+        count pld))
 
 (define nt-http (nt:compile "http-response-time"
   '([(err-code uint)
@@ -23,13 +105,7 @@ Or just run: junkie -c this_file
      (url str)
      (qry-host str)]
     [(http-answer
-       (on-entry (pass "printf(\"WEB\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t1\\t%f\\t%f\\t%f\\t0\\t%s\\t%s\\n\",
-                        (int)" device ", (int)" vlan " == VLAN_UNSET ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                        eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
-                        eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "), " server-port ",
-                        " qry-method ", " err-code ", timeval_2_str(" qry-start "),
-                        " (qry-stop - qry-start) "/1000000., " (qry-stop - qry-start) "/1000000., " (qry-stop - qry-start) "/1000000.,
-                        " qry-host ", " url ");\n")))
+       (on-entry (apply (clopinet) print-web device vlan client-mac client-ip server-mac server-ip server-port qry-method err-code qry-start (- qry-stop qry-start) qry-host url)))
      (web-qry
        (index-size 5024)
        (timeout 60000000))]
@@ -71,8 +147,7 @@ Or just run: junkie -c this_file
         (src-index-on (tcp) tcp.dst-port))])))
 
 (define nt-dns (nt:compile "dns-response-time"
-  '(
-    [(err-code uint)
+  '([(err-code uint)
      (client-ip ip)
      (server-ip ip)
      (client-mac mac)
@@ -83,13 +158,7 @@ Or just run: junkie -c this_file
      (qry-stop timestamp)
      (qry-name str)]
     [(dns-answer
-       (on-entry (pass "printf(\"DNS\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t1\\t%f\\t%f\\t%f\\t0\\t%s\\n\",
-                        (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                        eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
-                        eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
-                        " err-code ", timeval_2_str(" qry-start "),
-                        " (qry-stop - qry-start) "/1000000., " (qry-stop - qry-start) "/1000000., " (qry-stop - qry-start) "/1000000.,
-                        " qry-name ");\n")))
+       (on-entry (apply (clopinet) print-dns device vlan client-mac client-ip server-mac server-ip err-code qry-start (- qry-stop qry-start) qry-name)))
      (dns-query
        (index-size 5024)
        (timeout 10000000))]
@@ -110,7 +179,7 @@ Or just run: junkie -c this_file
                                     #t)))
         (dst-index-on () txid)
         spawn)
-	 (dns-query dns-answer
+     (dns-query dns-answer
         (match (cap ip dns) (if
                               (and
                                 (ip.src == server-ip)
@@ -141,32 +210,17 @@ Or just run: junkie -c this_file
      (count uint)
      (eth-mtu uint)]
     [(traffic-eth-end
-       (on-entry (pass "printf(\"TRF\\tiface %d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0.0.0.0\\t0.0.0.0\\t0\\t0\\t0\\t0\\t0\\n\",
-                        (int)" device ", timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
-                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                        eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
-                        " eth-pld ", " eth-mtu ");\n")))
+       (on-entry (apply (clopinet) print-traffic device vlan ts-start ts-stop count eth-src eth-dst eth-proto eth-pld eth-mtu #f #f 0 0 0 0 0)))
      (traffic-eth
        (index-size 5024)
        (timeout 0))
      (traffic-ip-end
-       (on-entry (pass "printf(\"TRF\\tiface %d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t0\\t0\\t0\\n\",
-                        (int)" device ", timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
-                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                        eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
-                        " eth-pld ", " eth-mtu ",
-                        ip_addr_2_str(" ip-src "), ip_addr_2_str(" ip-dst "), " ip-proto ", " ip-pld ");\n")))
+       (on-entry (apply (clopinet) print-traffic device vlan ts-start ts-stop count eth-src eth-dst eth-proto eth-pld eth-mtu ip-src ip-dst ip-proto ip-pld 0 0 0)))
      (traffic-ip
        (index-size 5024)
        (timeout 0))
      (traffic-l4-end
-       (on-entry (pass "printf(\"TRF\\tiface %d\\t%s\\t%s\\t%\"PRIuPTR\"\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
-                        (int)" device ", timeval_2_str(" ts-start "), timeval_2_str(" ts-stop "), " count ",
-                        (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                        eth_addr_2_str(" eth-src "), eth_addr_2_str(" eth-dst "), " eth-proto ",
-                        " eth-pld ", " eth-mtu ",
-                        ip_addr_2_str(" ip-src "), ip_addr_2_str(" ip-dst "), " ip-proto ", " ip-pld ",
-                        " port-src ", " port-dst ", " l4-pld ");\n")))
+       (on-entry (apply (clopinet) print-traffic device vlan ts-start ts-stop count eth-src eth-dst eth-proto eth-pld eth-mtu ip-src ip-dst ip-proto ip-pld port-src port-dst l4-pld)))
      (traffic-tcp
        (index-size 8192)
        (timeout 0))
@@ -373,21 +427,9 @@ Or just run: junkie -c this_file
      (sock-ack timestamp)
      (nb-syns uint)]
     [(tcp-opened
-       (on-entry (pass "printf(\"TCP\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%f\\t%f\\t%f\\t0\\n\",
-                        (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                        eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
-                        eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
-                        " client-port ", " server-port ",
-                        timeval_2_str(" sock-syn "), " nb-syns ",
-                        " (sock-ack - sock-syn) "/1000000., " (sock-ack - sock-syn) "/1000000., " (sock-ack - sock-syn) "/1000000.);\n")))
+       (on-entry (apply (clopinet) print-tcp device vlan client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns (sock-ack - sock-syn))))
      (tcp-connecting
-       (on-timeout (pass "printf(\"TCP\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%\"PRIuPTR\"\\t1\\t%f\\t%f\\t%f\\t0\\n\",
-                         (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                         eth_addr_2_str(" client-mac "), ip_addr_2_str(" client-ip "),
-                         eth_addr_2_str(" server-mac "), ip_addr_2_str(" server-ip "),
-                         " client-port ", " server-port ",
-                         timeval_2_str(" sock-syn "), " nb-syns ",
-                         " (sock-ack - sock-syn) "/1000000., " (sock-ack - sock-syn) "/1000000., " (sock-ack - sock-syn) "/1000000.);\n"))
+       (on-timeout (apply (clopinet) print-tcp device vlan client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns (sock-ack - sock-syn)))
        (index-size 20000)
        ; timeout an outstanding SYN after 80s
        (timeout 80000000))]
@@ -452,7 +494,7 @@ Or just run: junkie -c this_file
         grab)])))
 
 ; To report all TCP/UDP data transfers (for callflow)
-(define nt-l4data (nt:compile "l4-data"
+(define nt-flow (nt:compile "l4-data"
   '([(src-ip ip)
      (dst-ip ip)
      (src-mac mac)
@@ -467,35 +509,17 @@ Or just run: junkie -c this_file
      (nb-pkts uint)
      (pld uint)]
     [(tcp-tx
-       (on-timeout (pass "printf(\"DT\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
-                        (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                        eth_addr_2_str(" src-mac "), ip_addr_2_str(" src-ip "),
-                        eth_addr_2_str(" dst-mac "), ip_addr_2_str(" dst-ip "),
-                        " ip-proto ", " src-port ", " dst-port ",
-                        timeval_2_str(" start "), timeval_2_str(" stop "),
-                        " nb-pkts ", " pld ");\n"))
+       (on-timeout (apply (clopinet) print-flow device vlan src-mac src-ip dst-mac dst-ip ip-proto src-port dst-port start stop nb-pkts pld))
        (index-size 20000)
        ; timeout an outstanding tcp tx after 500ms
        (timeout 500000))
      (udp-tx
-       (on-timeout (pass "printf(\"DT\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
-                        (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                        eth_addr_2_str(" src-mac "), ip_addr_2_str(" src-ip "),
-                        eth_addr_2_str(" dst-mac "), ip_addr_2_str(" dst-ip "),
-                        " ip-proto ", " src-port ", " dst-port ",
-                        timeval_2_str(" start "), timeval_2_str(" stop "),
-                        " nb-pkts ", " pld ");\n"))
+       (on-timeout (apply (clopinet) print-flow device vlan src-mac src-ip dst-mac dst-ip ip-proto src-port dst-port start stop nb-pkts pld))
        (index-size 20000)
        ; timeout an outstanding udp tx after 500ms
        (timeout 500000))
      (dt-end
-       (on-entry (pass "printf(\"DT\\tiface %d\\t%s\\t%s\\t%s\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\t%s\\t%s\\t%\"PRIuPTR\"\\t%\"PRIuPTR\"\\n\",
-                        (int)" device ", (int)" vlan " == -1 ? \"None\" : tempstr_printf(\"Some %d\", (int)" vlan "),
-                        eth_addr_2_str(" src-mac "), ip_addr_2_str(" src-ip "),
-                        eth_addr_2_str(" dst-mac "), ip_addr_2_str(" dst-ip "),
-                        " ip-proto ", " src-port ", " dst-port ",
-                        timeval_2_str(" start "), timeval_2_str(" stop "),
-                        " nb-pkts ", " pld ");\n")))]
+       (on-entry (apply (clopinet) print-flow device vlan src-mac src-ip dst-mac dst-ip ip-proto src-port dst-port start stop nb-pkts pld)))]
     ; edges
     [(root tcp-tx
         (match (cap eth ip tcp) (if
@@ -595,11 +619,15 @@ Or just run: junkie -c this_file
 (nettrack-start nt-dns)
 (nettrack-start nt-eth)
 (nettrack-start nt-tcp)
-(nettrack-start nt-l4data)
+(nettrack-start nt-flow)
 
-(let ((ifname (getenv "SNIFF_IFACE"))
+(start-repl-server)
+
+(let ((ifaces (getenv "SNIFF_IFACES"))
       (capfilter (getenv "SNIFF_CAPTURE_FILTER")))
-  (if ifname
-      (set-iface ifname #:capfilter (or capfilter ""))
-      (slog log-critical "SNIFF_IFACE not defined, don't know what to listen")))
+  (if ifaces
+      (set-ifaces ifaces #:capfilter (or capfilter ""))
+      (slog log-crit "SNIFF_IFACES not defined, don't know what to listen"))
+  (if (null? (iface-names))
+      (slog log-crit "It seams SNIFF_IFACES (~a) matches no ifaces" ifaces)))
 

@@ -2,8 +2,6 @@ open Batteries
 open Datatype
 open Metric
 
-let verbose = ref false
-
 let lods = [| "sockets"; "1min"; "10mins"; "1hour" |];
 
 (* Lod0: the full socket record *)
@@ -58,14 +56,14 @@ struct
     let meta_write = BoundsTS.write
 
     let table name =
-        Table.create (table_name name)
+        Table.create (table_name "tcp" name)
             hash_on_srv write
             meta_aggr meta_read meta_write
 
     (* Function to query the Lod0, ie select a set of individual sockets *)
     (* Add min_count, server port *)
     let fold ?start ?stop ?vlan ?mac_clt ?client ?mac_srv ?server ?peer name f make_fst merge =
-        let tdir = table_name name in
+        let tdir = table_name "tcp" name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let cmp = Timestamp.compare in
@@ -151,7 +149,6 @@ let load fname =
             rti in
 
     let flush_all () =
-        if !verbose then Printf.printf "Flushing...\n" ;
         flush1 () ;
         flush2 () ;
         flush3 () ;

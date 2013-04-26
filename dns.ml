@@ -2,8 +2,6 @@ open Batteries
 open Datatype
 open Metric
 
-let verbose = ref false
-
 let string_of_err err =
     if err = 0 then "" else Printf.sprintf "err: %d" err
 
@@ -58,7 +56,7 @@ struct
     let meta_write = BoundsTS.write
 
     let table name =
-        Table.create (table_name name)
+        Table.create (table_name "dns" name)
             hash_on_srv write
             meta_aggr meta_read meta_write
 
@@ -207,7 +205,7 @@ struct
         !filter_
 
     let fold_all ?start ?stop ?hash_val name f make_fst merge =
-        let tdir = table_name name in
+        let tdir = table_name "dns" name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let res =
@@ -334,7 +332,6 @@ let load fname =
             rti in
 
     let flush_all () =
-        if !verbose then Printf.printf "Flushing...\n" ;
         flush1 () ;
         flush2 () ;
         flush3 () ;

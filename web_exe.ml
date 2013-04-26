@@ -8,13 +8,12 @@ let main =
     and peer = ref None and methd = ref None in
     Arg.(parse [
         "-load", String (fun s -> load s), "load a CSV file" ;
-        "-verbose", Unit (fun () -> verbose := true; Metric.verbose := true), "verbose" ;
         "-dump", String (function tbname -> Web.(iter ?start:!start ?stop:!stop ?rt_min:!rt_min
                                                       ?ip_clt:!ip_clt ?ip_srv:!ip_srv ?peer:!peer
                                                       ?methd:!methd ?host:!host
                                                       ?url:!url ?status:!status tbname
                                                       (fun x -> write_txt Output.stdout x ; print_newline ()))), "dump this table" ;
-        "-dbck", Unit (fun () -> Metric.dbck lods Web.read Web.meta_read), "scan the DB and try to repair it" ;
+        "-dbck", Unit (fun () -> Metric.dbck "web" lods Web.read Web.meta_read), "scan the DB and try to repair it" ;
         "-purge", Unit (fun () -> Metric.purge "web" lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;

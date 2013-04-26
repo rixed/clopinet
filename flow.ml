@@ -2,8 +2,6 @@ open Batteries
 open Datatype
 open Metric
 
-let verbose = ref false
-
 let lods = [| "flows" |];
 
 (* Lod0 (and only): Individual l4 flows
@@ -61,7 +59,7 @@ struct
     let meta_write = BoundsTS.write
 
     let table name =
-        Table.create (table_name name)
+        Table.create (table_name "flow" name)
             hash_on_src write
             meta_aggr meta_read meta_write
 
@@ -76,7 +74,7 @@ struct
     (* FIXME: fold_all and compilation of check function *)
     (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
     let fold ?start ?stop ?vlan ?mac_src ?mac_dst ?ip_src ?ip_dst ?ip ?ip_proto ?port_src ?port_dst ?port name f make_fst merge =
-        let tdir = table_name name in
+        let tdir = table_name "flow" name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let cmp = Timestamp.compare in
@@ -262,7 +260,6 @@ let load fname =
     let append0 = Table.append table0 in
 
     let flush_all () =
-        if !verbose then Printf.printf "Flushing...\n" ;
         Table.close table0 in
 
     load fname Flow.parzer append0 flush_all

@@ -6,8 +6,6 @@ let (|?) = BatOption.(|?)
 
 (* FIXME: factorize all this with DNS, or generate this? *)
 
-let verbose = ref false
-
 (* Lod0: Traffic stats for periods of 30s, with fields:
   TS1, TS2, count, vlan, src mac, dst mac, proto, eth payload, eth mtu, src ip, dst ip, ip proto, ip payload, src port, dst port, l4 payload *)
 
@@ -70,7 +68,7 @@ struct
     let meta_write = BoundsTS.write
 
     let table name =
-        Table.create (table_name name)
+        Table.create (table_name "traffic" name)
             hash_on_src write
             meta_aggr meta_read meta_write
 
@@ -284,7 +282,7 @@ struct
 
     (* We look for semi-closed time interval [start;stop[, but tuples timestamps are closed [ts1;ts2] *)
     let fold_all ?start ?stop ?hash_val name f make_fst merge =
-        let tdir = table_name name in
+        let tdir = table_name "traffic" name in
         let fold_hnum hnum fst =
             Table.fold_snums tdir hnum meta_read (fun snum bounds prev ->
                 let res =
@@ -570,7 +568,6 @@ let load fname =
             rti in
 
     let flush_all () =
-        if !verbose then Printf.printf "Flushing...\n" ;
         flush1 () ;
         flush2 () ;
         Table.close table0 ;
