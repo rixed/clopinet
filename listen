@@ -1,8 +1,0 @@
-#!/bin/sh
-
-path=$(dirname "$0")
-. "$path"/env
-
-intf="$1"
-
-exec junkie -c junkie.scm -l junkie.log -i "$intf" | ./junkie2db test.db

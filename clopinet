@@ -18,9 +18,9 @@ get_param() {
 }
 
 help() {
-	echo "clopinet [--help] [--daemon] purge|check|defrag|showfrag|start|stop|status"
+	echo "clopinet [--help] purge|check|defrag|showfrag|start|stop|status"
 	echo
-	echo "  exemple: clopinet --daemon purge start"
+	echo "  exemple: clopinet purge start"
 }
 
 pidfile="/var/run/clopinet.pid"
@@ -66,7 +66,6 @@ if test $is_running = "no" ; then
 	trap killjobs INT QUIT EXIT
 fi
 
-daemonize="no"
 do_purge="no"
 do_dbck="no"
 do_defrag="no"
@@ -78,9 +77,6 @@ do_status="no"
 while test -n "$1" ; do case $1 in
 	(-h|help)
 		help
-		shift ;;
-	(-d|--daemon)
-		daemonize="yes"
 		shift ;;
 	(purge)
 		do_purge="yes"
@@ -112,7 +108,7 @@ esac ; done
 run() {
 	cmd="$1"
 	sleep_duration="$2"
-	if test "$daemonize" = "no" || test -z "$sleep_duration"; then
+	if test -z "$sleep_duration"; then
 		$cmd
 	else
 		logdir=$(get_param CPN_LOG_DIR)
