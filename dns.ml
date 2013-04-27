@@ -5,7 +5,7 @@ open Metric
 let string_of_err err =
     if err = 0 then "" else Printf.sprintf "err: %d" err
 
-let lods = [| "queries"; "1min"; "10mins"; "1hour" |];
+let lods = [| "queries"; "1min"; "1hour" |];
 
 (* Lod0: the full request record *)
 
@@ -287,24 +287,12 @@ let get_top ?start ?stop ?ip_srv ?usr_filter ?(max_graphs=20) ?(single_pass=true
 (* Load new data into the database *)
 
 let load fname =
-    let table3 = Dns.table lods.(3) in
-    let accum3, flush3 =
-        Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(3) "dns")))
-                         Distribution.combine
-                         [ fun (orig, vlan, clte, clt, srve, srv, err, ts, name) distr ->
-                              Table.append table3 (orig, vlan, clte, clt, srve, srv, err, ts, distr, name) ] in
-
     let table2 = Dns.table lods.(2) in
-    let rti = rti_of_lod lods.(3) "dns" in
     let accum2, flush2 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(2) "dns")))
                          Distribution.combine
                          [ fun (orig, vlan, clte, clt, srve, srv, err, ts, name) distr ->
-                              Table.append table2 (orig, vlan, clte, clt, srve, srv, err, ts, distr, name) ;
-                              BatOption.may (fun rti ->
-                                  let ts = round_timestamp rti ts in
-                                  accum3 (orig, vlan, clte, clt, srve, srv, err, ts, "") distr)
-                                  rti ] in
+                              Table.append table2 (orig, vlan, clte, clt, srve, srv, err, ts, distr, name) ] in
 
     let table1 = Dns.table lods.(1) in
     let rti = rti_of_lod lods.(2) "dns" in
@@ -334,11 +322,9 @@ let load fname =
     let flush_all () =
         flush1 () ;
         flush2 () ;
-        flush3 () ;
         Table.close table0 ;
         Table.close table1 ;
-        Table.close table2 ;
-        Table.close table3 in
+        Table.close table2 in
 
     load fname Dns.parzer append0 flush_all
 

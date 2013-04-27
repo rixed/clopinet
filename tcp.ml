@@ -2,7 +2,7 @@ open Batteries
 open Datatype
 open Metric
 
-let lods = [| "sockets"; "1min"; "10mins"; "1hour" |];
+let lods = [| "sockets"; "1hour" |];
 
 (* Lod0: the full socket record *)
 
@@ -106,38 +106,12 @@ let load fname =
             syns + syns',
             Distribution.combine ct ct' in
 
-    let table3 = Tcp.table lods.(3) in
-    let accum3, flush3 =
-        Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(3) "tcp")))
-            aggreg_all
-            [ fun (orig, vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ->
-                Table.append table3 (orig, vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct) ] in
-
-    let table2 = Tcp.table lods.(2) in
-    let rti = rti_of_lod lods.(3) "tcp" in
-    let accum2, flush2 =
-        Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(2) "tcp")))
-            aggreg_all
-            [ fun (orig, vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ->
-                Table.append table2 (orig, vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct) ;
-                BatOption.may (fun rti ->
-                    let ts = round_timestamp rti ts in
-                    accum3 (orig, vlan, clte, clt, srve, srv, srvp, ts) (syns, ct))
-                    rti ] in
-
     let table1 = Tcp.table lods.(1) in
-    let rti = rti_of_lod lods.(2) "tcp" in
     let accum1, flush1 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(1) "tcp")))
             aggreg_all
             [ fun (orig, vlan, clte, clt, srve, srv, srvp, ts) (syns, ct) ->
-                Table.append table1 (orig, vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct) ;
-                BatOption.may (fun rti ->
-                    let ts = round_timestamp rti ts
-                    and clt, _mask = clt in
-                    let clt = cidr_of_inetaddr Subnet.subnets clt in
-                    accum2 (orig, vlan, clte, clt, srve, srv, srvp, ts) (syns, ct))
-                    rti ] in
+                Table.append table1 (orig, vlan, clte, clt, srve, srv, 0, srvp, ts, syns, ct) ] in
 
     let table0 = Tcp.table lods.(0) in
     let rti = rti_of_lod lods.(1) "tcp" in
@@ -145,17 +119,14 @@ let load fname =
         Table.append table0 v ;
         BatOption.may (fun rti ->
             let ts = round_timestamp rti ts in
+            (* We also clear client port *)
             accum1 (orig, vlan, clte, clt, srve, srv, srvp, ts) (syns, ct))
             rti in
 
     let flush_all () =
         flush1 () ;
-        flush2 () ;
-        flush3 () ;
         Table.close table0 ;
-        Table.close table1 ;
-        Table.close table2 ;
-        Table.close table3 in
+        Table.close table1 in
 
     load fname Tcp.parzer append0 flush_all
 

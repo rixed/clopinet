@@ -21,7 +21,7 @@ let string_of_request ?max_len meth host url =
 let string_of_err err =
     if err = 200 then "" else Printf.sprintf "err: %d" err
 
-let lods = [| "queries"; "1min"; "10mins"; "1hour" |];
+let lods = [| "queries"; "1min"; "1hour" |];
 
 (* Lod0: the full request record: client, server, method (int), status-code, ts, rt, host, url *)
 
@@ -339,24 +339,12 @@ let get_top ?start ?stop ?ip_srv ?usr_filter ?(max_graphs=20) ?(single_pass=true
 (* Load new data into the database *)
 
 let load fname =
-    let table3 = Web.table lods.(3) in
-    let accum3, flush3 =
-        Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(3) "web")))
-                         Distribution.combine
-                         [ fun (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
-                              Table.append table3 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ] in
-
     let table2 = Web.table lods.(2) in
-    let rti = rti_of_lod lods.(2) "web" in
     let accum2, flush2 =
         Aggregator.(accum (now_and_then (buffer_duration_of_lod lods.(2) "web")))
                          Distribution.combine
                          [ fun (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr ->
-                              Table.append table2 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ;
-                              BatOption.may (fun rti ->
-                                  let ts = round_timestamp rti ts in
-                                  accum3 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, host, url) distr)
-                                  rti ] in
+                              Table.append table2 (orig, vlan, clte, clt, srve, srv, srvp, met, err, ts, distr, host, url) ] in
 
     let table1 = Web.table lods.(1) in
     let rti = rti_of_lod lods.(2) "web" in
@@ -390,11 +378,9 @@ let load fname =
     let flush_all () =
         flush1 () ;
         flush2 () ;
-        flush3 () ;
         Table.close table0 ;
         Table.close table1 ;
-        Table.close table2 ;
-        Table.close table3 in
+        Table.close table2 in
 
     load fname Web.parzer append0 flush_all
 
