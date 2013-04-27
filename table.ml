@@ -12,7 +12,7 @@ let ncores = Datatype.Integer.of_pref "CPN_DB_NB_CORES" 1
 (* The meta file, which accompany every dbfile, stores the aggregation result *)
 let read_meta_fname fname aggr_reader =
     try Some (Serial.with_file_in fname aggr_reader)
-    with Sys_error _ -> None
+    with Sys_error _ | End_of_file -> None
 
 let read_meta tdir hnum snum aggr_reader =
     let fname = Dbfile.path tdir hnum snum ^ ".meta" in
