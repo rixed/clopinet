@@ -18,9 +18,9 @@ get_param() {
 }
 
 help() {
-	echo "clopinet [--help] purge|check|defrag|showfrag|start|stop|status"
+	echo "clopinet [--help] check|defrag|showfrag|start|stop|status"
 	echo
-	echo "  exemple: clopinet purge start"
+	echo "  exemple: clopinet start"
 }
 
 pidfile="/var/run/clopinet.pid"
@@ -66,7 +66,6 @@ if test $is_running = "no" ; then
 	trap killjobs INT QUIT EXIT
 fi
 
-do_purge="no"
 do_dbck="no"
 do_defrag="no"
 do_showfrag="no"
@@ -77,9 +76,6 @@ do_status="no"
 while test -n "$1" ; do case $1 in
 	(-h|help)
 		help
-		shift ;;
-	(purge)
-		do_purge="yes"
 		shift ;;
 	(check)
 		do_dbck="yes"
@@ -129,13 +125,6 @@ ensure_stopped() {
 	fi
 }
 
-purge() {
-	bindir=$(get_param CPN_BIN_DIR)
-	for m in $METRICS; do
-		"$bindir/$m"_exe.opt -purge
-	done
-}
-
 dbck() {
 	ensure_stopped
 	bindir=$(get_param CPN_BIN_DIR)
@@ -179,6 +168,11 @@ start() {
 	mkdir -p "$logdir"
 	confdir=$(get_param CPN_CONF_DIR)
 	bindir=$(get_param CPN_BIN_DIR)
+	wwwdir=$(get_param CPN_WWW_DIR)
+	if test -n "$CPN_RUN_THTTPD_ON_PORT" ; then
+		# Start it first as it overwrite pidfile
+		"$bindir/thttpd" -p "$CPN_RUN_THTTPD_ON_PORT" -d "$wwwdir" -c index.cgi -l "$logdir/thttpd.log" -i "$pidfile"
+	fi
 	for m in $METRICS ; do
 		if ! test -d "$dbdir/$m" ; then
 			echo "Creating $dbdir/$m"
@@ -187,6 +181,8 @@ start() {
 		rm -f "$dbdir/$m.fifo"
 		mkfifo "$dbdir/$m.fifo"
 		"$bindir/$m"_exe.opt -load "$dbdir/$m.fifo" &
+		echo $! >> "$pidfile"
+		"$bindir/$m"_exe.opt -purge &
 		echo $! >> "$pidfile"
 	done
 	exec "$bindir"/junkie -c "$confdir/junkie.scm" &
@@ -210,9 +206,6 @@ status() {
 	fi
 }
 
-if test $do_purge = "yes" ; then
-	run purge 3600
-fi
 if test $do_dbck = "yes" ; then
 	run dbck
 fi

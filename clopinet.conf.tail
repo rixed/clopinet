@@ -36,6 +36,10 @@ CPN_COMPILER_OCAMLFIND="$OCAMLFIND"
 # GUI
 #
 
+# Should we run thttpd as an HTTP server?
+# (undefine to prevent running thttpd)
+CPN_RUN_THTTPD_ON_PORT="8080"
+
 # Dimension of SVG graphs
 ## CPN_GUI_SVG_WIDTH="1000"
 ## CPN_GUI_SVG_HEIGHT="800"
@@ -78,7 +82,7 @@ CPN_DB_BASE_DIR="$DBDIR"
 ## CPN_DB_MAX_HASH_SIZE="1009"
 
 # Number of days to keep datafiles once full
-# (will not purge anything if not defined)
+# (will not purge if left undefined)
 
 CPN_DB_TRAFFIC_1HOUR_MAX_AGE="370 days"
 CPN_DB_TRAFFIC_1HOUR_ROUND="1h"
@@ -104,6 +108,8 @@ CPN_DB_TCP_SOCKETS_MAX_AGE="4 days"
 
 CPN_DB_FLOW_FLOWS_MAX_AGE="3 days"
 
+# Run the purge every hour
+CPN_DB_PURGE_PERIOD="1 hour"
 
 # How many cores to scan database
 # Increase only if you have many!

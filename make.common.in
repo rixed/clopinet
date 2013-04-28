@@ -12,6 +12,25 @@ override CPPFLAGS      += @CPPFLAGS@ -I @prefix@/include -I $(CAMLINCLUDE) -I $(
 override CFLAGS        += @CFLAGS@ -O2 -std=c99 -W -Wall
 override LDFLAGS       += @LDFLAGS@ -L@prefix@/lib
 
+builddir = @builddir@
+datadir = @datadir@
+wwwdir = @datadir@/www
+datarootdir = @datarootdir@
+exec_prefix = @exec_prefix@
+libdir = @libdir@
+libexecdir = @libexecdir@
+localedir = @localedir@
+localstatedir = @localstatedir@
+mandir = @mandir@
+prefix = @prefix@
+bindir = @bindir@
+sbindir = @sbindir@
+sharedstatedir = @sharedstatedir@
+srcdir = @srcdir@
+sysconfdir = @sysconfdir@
+top_build_prefix = @top_build_prefix@
+top_builddir = @top_builddir@
+
 .PHONY: opt clean clean-spec install uninstall reinstall doc clear dep dep-spec
 
 SOURCES_ML = $(filter %.ml, $(SOURCES))

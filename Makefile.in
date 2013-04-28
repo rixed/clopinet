@@ -1,20 +1,3 @@
-builddir = @builddir@
-datadir = @datadir@
-datarootdir = @datarootdir@
-exec_prefix = @exec_prefix@
-libdir = @libdir@
-libexecdir = @libexecdir@
-localedir = @localedir@
-localstatedir = @localstatedir@
-mandir = @mandir@
-prefix = @prefix@
-bindir = @bindir@
-sbindir = @sbindir@
-sharedstatedir = @sharedstatedir@
-srcdir = @srcdir@
-sysconfdir = @sysconfdir@
-top_build_prefix = @top_build_prefix@
-top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 
 PKG_NAME = clopinet
@@ -137,6 +120,7 @@ endif
 	@echo "export CPN_LOG_DIR='$(localstatedir)/log'" >> $@
 	@echo "export CPN_CONF_DIR='$(sysconfdir)'" >> $@
 	@echo "export CPN_BIN_DIR='$(bindir)'" >> $@
+	@echo "export CPN_WWW_DIR='$(wwwdir)'" >> $@
 	@cat clopinet.conf.tail >> $@
 
 PROGRAMS = \
@@ -153,14 +137,16 @@ install-conf: $(CONFFILES)
 	install -m 0644 $^ $(sysconfdir)
 
 install-spec: install-programs install-conf
+	$(MAKE) -C www install
 
 uninstall-spec:
 	@for f in $(PROGRAMS) ; do \
-		rm "$(prefix)/bin/$f" ; \
+		rm "$(prefix)/bin/$$f" ; \
 	done
 	@for f in $(CONFFILES) ; do \
-		rm "$(prefix)/etc/$f" ; \
+		rm "$(prefix)/etc/$$f" ; \
 	done
+	$(MAKE) -C www uninstall
 
 # Dependancies on tuples can't be guessed by ocamldep
 TUPLES=tuple1.ml tuple2.ml tuple3.ml tuple4.ml tuple5.ml tuple6.ml tuple7.ml tuple8.ml tuple9.ml tuple10.ml tuple11.ml tuple12.ml tuple13.ml tuple14.ml tuple15.ml tuple16.ml tuple17.ml

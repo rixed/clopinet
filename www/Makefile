@@ -25,6 +25,21 @@ $(XOBJECTS): $(top_srcdir)/clopinet.cmxa
 index.opt: $(XOBJECTS) $(top_srcdir)/clopinet.cmxa
 	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" -ccopt -L$(top_srcdir) clopinet.cmxa $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $(XOBJECTS)
 
-.PHONY: httpd
-httpd:
-	/usr/local/sbin/mini_httpd -p 8080 -c '*.cgi'
+index.cgi:
+	@echo '#!/bin/sh' > $@
+	@echo 'export PATH="$(bindir):$$PATH"' >> $@
+	@echo '. "$(sysconfdir)/clopinet.conf"' >> $@
+	@echo 'exec "$(bindir)/index.opt"' >> $@
+	@chmod a+x $@
+
+install: index.opt index.cgi
+	install -d "$(wwwdir)"
+	install index.opt "$(bindir)"
+	install index.cgi "$(wwwdir)"
+	cp -r static "$(wwwdir)/static"
+
+uninstall:
+	rm -f "$(bindir)/index.opt"
+	rm -f "$(wwwdir)/index.cgi"
+	rm -rf "$(wwwdir)/static"
+

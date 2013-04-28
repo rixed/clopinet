@@ -180,7 +180,7 @@ let dbck dbname lods read meta_read =
 
 (* Functions related to purge old dbfiles *)
 
-let purge dbname lods =
+let rec purge dbname lods =
     let purge_lod lod =
         let tdir = table_name dbname lod in
         (* Get a list of all deletable files (as filename, age) *)
@@ -224,5 +224,15 @@ let purge dbname lods =
                 ignore_exceptions Unix.unlink (fname ^".meta")
             )
         ) files in
-    Array.iter purge_lod lods
+    let period =
+        Interval.of_pref_option "CPN_DB_PURGE_PERIOD" |>
+        Option.map Interval.to_secs |>
+        Option.map Int.of_float in
+    Array.iter purge_lod lods ;
+    (* loop *)
+    match period with
+    | Some p ->
+        Unix.sleep p ;
+        purge dbname lods
+    | None -> ()
 
