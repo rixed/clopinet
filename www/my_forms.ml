@@ -123,15 +123,6 @@ module TimeStepField = struct
     let uniq_name = "tstep"
     let persistant = true
 end
-module GroupByField = struct
-    module Type = Enum (struct
-        let name = "key"
-        let options = [| "port";"src-mac";"dst-mac";"src-ip";"dst-ip" |]
-    end)
-    let display_name = "group by"
-    let uniq_name = "traffic-groupby"
-    let persistant = true
-end
 module GroupByPeerField = struct
     module Type = Enum (struct let name = "key"
                                let options = [| "mac";"ip" |] end)
@@ -258,6 +249,15 @@ module Traffic = struct
         module Type = Selector.MakeSort (Traffic.Traffic)
         let display_name = "sort by"
         let uniq_name = "traffic-tops-sort"
+        let persistant = true
+    end
+    module GroupByField = struct
+        module Type = Enum (struct
+            let name = "key"
+            let options = [| "port";"src-mac";"dst-mac";"src-ip";"dst-ip" |]
+        end)
+        let display_name = "group by"
+        let uniq_name = "traffic-groupby"
         let persistant = true
     end
 

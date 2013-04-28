@@ -38,18 +38,18 @@ function peer_links(peer_name)
 {
     if (peer_name.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
         document.getElementById('selected-peer-links').innerHTML =
-            '<a href="?action=Traffic%2Fcallflow&filter.ip-start=' + encodeURI(peer_name) + '">Callflow</a>' +
-            '<a href="?action=Traffic%2Fbandwidth&filter.ip=' + encodeURI(peer_name) + '">Bandwidth</a>';
+            '<a href="?action=Traffic%2FCall%20Flow&filter%2Fip-start=' + encodeURI(peer_name) + '">Callflow</a>' +
+            '<a href="?action=Traffic%2FBandwidth%20Evolution%2Fshow&filter%2Fip=' + encodeURI(peer_name) + '&filter%2Ftraffic-groupby=0&filter%2Fvol-or-count=0">Bandwidth</a>';
     }
 }
 
 function link_links(peer1, peer2)
 {
     document.getElementById('selected-peer-links').innerHTML =
-        '<a href="?action=Traffic%2Fcallflow&filter.ip-start=' + encodeURI(peer1) + '">Callflow '+peer1+'</a>' +
-        '<a href="?action=Traffic%2Fcallflow&filter.ip-start=' + encodeURI(peer2) + '">Callflow '+peer2+'</a>' +
-        '<a href="?action=Traffic%2Fbandwidth&filter.ip-src=' + encodeURI(peer1) + '&filter.ip-dst=' + encodeURI(peer2) + '">Bandwidth '+ peer1 +'&rarr;'+ peer2 +'</a>' +
-        '<a href="?action=Traffic%2Fbandwidth&filter.ip-src=' + encodeURI(peer2) + '&filter.ip-dst=' + encodeURI(peer1) + '">Bandwidth '+ peer2 +'&rarr;'+ peer1 +'</a>';
+        '<a href="?action=Traffic%2FCall%20Flow&filter%2Fip-start=' + encodeURI(peer1) + '">Callflow '+peer1+'</a>' +
+        '<a href="?action=Traffic%2FCall%20Flow&filter%2Fip-start=' + encodeURI(peer2) + '">Callflow '+peer2+'</a>' +
+        '<a href="?action=Traffic%2FBandwidth%20Evolution%2Fshow&filter%2Fip-src=' + encodeURI(peer1) + '&filter%2Fip-dst=' + encodeURI(peer2) + '&filter%2Ftraffic-groupby=0&filter%2Fvol-or-count=0">Bandwidth '+ peer1 +'&rarr;'+ peer2 +'</a>' +
+        '<a href="?action=Traffic%2FBandwidth%20Evolution%2Fshow&filter%2Fip-src=' + encodeURI(peer2) + '&filter%2Fip-dst=' + encodeURI(peer1) + '&filter%2Ftraffic-groupby=0&filter%2Fvol-or-count=0">Bandwidth '+ peer2 +'&rarr;'+ peer1 +'</a>';
 }
 
 /* function for SVG circle-graph */
