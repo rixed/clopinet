@@ -22,7 +22,9 @@ val iter : string -> (Serial.ibuf -> 'a) -> ('a -> unit) -> unit
 val fold_file : string -> int -> int -> (Serial.ibuf -> 'a) -> ('a -> 'b -> 'b) -> 'b -> 'b
 
 (** [fold_snums dir hnum reader f start merge] will call f for each snum file
- * with the starting value [start] and will combine all partial results using [merge]. *)
+ * with the starting value [start] and will combine all partial results using [merge].
+ * This is unspecified whether all [f] will receive the same [start] or if the [f]
+ * will be piped together (depends on nb cores in practice). *)
 val fold_snums : string -> int -> (Serial.ibuf -> 'a) -> (int -> 'a option -> 'b -> 'b) -> 'b -> ('b -> 'b -> 'b) -> 'b
 
 (** [fold_hnums dir f start merge] runs [f hnum (start ())] for each hnum directory in [dir],
@@ -40,6 +42,8 @@ val fold_hnums : string -> (int -> 'b -> 'b) -> (unit -> 'b) -> ('b -> 'b -> 'b)
 (** Same as above but looks only in these hnums *)
 val fold_some_hnums : int list -> (int -> 'b -> 'b) -> (unit -> 'b) -> ('b -> 'b -> 'b) -> 'b
 
+(** [fold tdir reader f start merge] calls [f] on every records (which deserializer is [reader]),
+ * using [start] and [merge] as required to build initial values and merging temporary results *)
 val fold : string -> (Serial.ibuf -> 'a) -> ('a -> 'b -> 'b) -> (unit -> 'b) -> ('b -> 'b -> 'b) -> 'b
 
 (** {2} Writing *)

@@ -132,7 +132,6 @@ ensure_stopped() {
 purge() {
 	bindir=$(get_param CPN_BIN_DIR)
 	for m in $METRICS; do
-		echo "Purging $m..."
 		"$bindir/$m"_exe.opt -purge
 	done
 }

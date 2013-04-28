@@ -1,0 +1,13 @@
+FAQ
+===
+
+* How come the database is already XXGb big after only a few hours?
+
+DB size grows fast at the begenning and much slower afterward.
+This is because many small files are preallocated to several Megabytes.
+So what you see is preallocation.
+In the beginning you should use `du -b` to estimate growth.
+
+If you want less preallocation you can reduce CPN_DB_MAX_FILE_SIZE
+and/or CPN_DB_MAX_HASH_SIZE.
+

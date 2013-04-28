@@ -181,31 +181,48 @@ let dbck dbname lods read meta_read =
 (* Functions related to purge old dbfiles *)
 
 let purge dbname lods =
-    let purge_file expiration tdir hnum snum _meta =
-        (* Never delete the last snum which is still written to *)
-        if snum > 0 then (
-            let open Unix in
-            let fname = Dbfile.path tdir hnum (pred snum) in
-            try (
-                let last_write_age = time () -. (stat fname).st_mtime in
-                if last_write_age > expiration then (
-                    Log.info "Deleting %s" fname ;
-                    unlink fname ;
-                    ignore_exceptions unlink (fname ^".meta")
-                )
-            ) with Unix_error (ENOENT, "stat", _) -> ()
-        ) in
-    let purge_hnum expiration tdir hnum =
-        Table.iter_snums tdir hnum (fun _ -> None) (purge_file expiration tdir hnum) in
     let purge_lod lod =
-        let pname = "CPN_DB_"^dbname^"_"^lod^"_EXPIRATION" |> String.uppercase in
-        match Interval.of_pref_option pname with
-        | None ->
-            Log.warning "%s unset, skipping" pname
-        | Some expiration ->
-            let expiration = Interval.to_secs expiration in
-            let tdir = table_name dbname lod in
-            Table.iter_hnums tdir (purge_hnum expiration tdir) in
+        let tdir = table_name dbname lod in
+        (* Get a list of all deletable files (as filename, age) *)
+        let files =
+            Table.fold_hnums tdir (fun hnum first ->
+                Table.fold_snums tdir hnum ignore (fun snum _ lst ->
+                    (* Add the *previous* snum to our list (thus avoiding deletion of
+                     * the last snum which is still written to) *)
+                    if snum > 0 then (
+                        let snum = pred snum in
+                        let fname = Dbfile.path tdir hnum snum in
+                        let open Unix in
+                        try (
+                            let age = time () -. (stat fname).st_mtime in
+                            (fname, age) :: lst
+                        ) with Unix_error (ENOENT, "stat", _) -> lst
+                    ) else lst
+                ) first List.rev_append
+            ) (fun () -> []) List.rev_append in
+        (* order files according to age (descending) so that we have older files first *)
+        let files =
+            List.sort (fun (_, a1) (_, a2) -> ~- (compare a1 a2)) files in
+        (* now delete files until we met date/space constraints *)
+        let max_age_pname  = "CPN_DB_"^dbname^"_"^lod^"_MAX_AGE"  |> String.uppercase
+        and max_size_pname = "CPN_DB_"^dbname^"_"^lod^"_MAX_SIZE" |> String.uppercase in
+        let max_age =
+            Interval.of_pref_option max_age_pname |>
+            Option.map Interval.to_secs
+        and max_size =
+            Integer.of_pref_option max_size_pname in
+        if max_age  = None then Log.notice "%s unset, skipping purge by age"  max_age_pname ;
+        if max_size = None then Log.notice "%s unset, skipping purge by size" max_size_pname ;
+        let tot_size = ref (Table.max_file_size * List.length files) in
+        List.iter (fun (fname, age) ->
+            if (match max_age with Some max -> age > max | _ -> false) ||
+               (match max_size with Some max -> !tot_size > max | _ -> false)
+            then (
+                Log.info "Deleting %s" fname ;
+                tot_size := !tot_size - Table.max_file_size ;
+                Unix.unlink fname ;
+                ignore_exceptions Unix.unlink (fname ^".meta")
+            )
+        ) files in
     Array.iter purge_lod lods
-
 
