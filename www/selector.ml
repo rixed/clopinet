@@ -22,7 +22,7 @@ struct
             (fun (_name, descr) -> descr.keyable) /@
             (fun (name, descr) ->
                 tag "option"
-                    ~attrs:(("name", name)::
+                    ~attrs:(("value", name)::
                             (if List.mem name selected then ["selected", "selected"]
                                                        else []))
                     [ cdata descr.disp_name ]) |>
@@ -77,7 +77,7 @@ struct
                 if descr.sortable <> "" then Some n else None) /@
             (fun n ->
                 tag "option"
-                    ~attrs:(("name", n)::
+                    ~attrs:(("value", n)::
                             (if List.mem n (getter name) then ["selected", "selected"] else []))
                     [ cdata n ]) |>
             List.of_enum) ]
