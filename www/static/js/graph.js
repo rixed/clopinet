@@ -36,9 +36,11 @@ function refresh_chart(form) {
 
 function peer_links(peer_name)
 {
-    document.getElementById('selected-peer-links').innerHTML =
-        '<a href="?action=Traffic%2Fcallflow&filter.ip-start=' + encodeURI(peer_name) + '">Callflow</a>' +
-        '<a href="?action=Traffic%2Fbandwidth&filter.ip=' + encodeURI(peer_name) + '">Bandwidth</a>';
+    if (peer_name.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
+        document.getElementById('selected-peer-links').innerHTML =
+            '<a href="?action=Traffic%2Fcallflow&filter.ip-start=' + encodeURI(peer_name) + '">Callflow</a>' +
+            '<a href="?action=Traffic%2Fbandwidth&filter.ip=' + encodeURI(peer_name) + '">Bandwidth</a>';
+    }
 }
 
 function link_links(peer1, peer2)
