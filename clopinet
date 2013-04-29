@@ -101,22 +101,6 @@ while test -n "$1" ; do case $1 in
 		exit 1 ;;
 esac ; done
 
-run() {
-	cmd="$1"
-	sleep_duration="$2"
-	if test -z "$sleep_duration"; then
-		$cmd
-	else
-		logdir=$(get_param CPN_LOG_DIR)
-		mkdir -p "$logdir"
-		(while true ; do
-			$cmd >> "$logdir/clopinet.log" 2>&1
-			sleep "$sleep_duration"
-		done &
-		echo $! >> "$pidfile") &
-	fi
-}
-
 METRICS="tcp dns flow web traffic"
 
 ensure_stopped() {
@@ -173,6 +157,7 @@ start() {
 		# Start it first as it overwrite pidfile
 		"$bindir/thttpd" -p "$CPN_RUN_THTTPD_ON_PORT" -d "$wwwdir" -c index.cgi -l "$logdir/thttpd.log" -i "$pidfile"
 	fi
+
 	for m in $METRICS ; do
 		if ! test -d "$dbdir/$m" ; then
 			echo "Creating $dbdir/$m"
@@ -180,14 +165,13 @@ start() {
 		fi
 		rm -f "$dbdir/$m.fifo"
 		mkfifo "$dbdir/$m.fifo"
-		"$bindir/$m"_exe.opt -load "$dbdir/$m.fifo" &
-		echo $! >> "$pidfile"
-		"$bindir/$m"_exe.opt -purge &
-		echo $! >> "$pidfile"
+		("$bindir/$m"_exe.opt -load "$dbdir/$m.fifo" &
+		echo $! >> "$pidfile") &
+		("$bindir/$m"_exe.opt -purge &
+		echo $! >> "$pidfile") &
 	done
-	exec "$bindir"/junkie -c "$confdir/junkie.scm" &
-	echo $! >> "$pidfile"
-	wait # will wait for all processes to crash before restarting :-/
+	("$bindir"/junkie -c "$confdir/junkie.scm" &
+	echo $! >> "$pidfile") &
 }
 
 stop() {
@@ -207,22 +191,22 @@ status() {
 }
 
 if test $do_dbck = "yes" ; then
-	run dbck
+	dbck
 fi
 if test $do_defrag = "yes" ; then
-	run defrag
+	defrag
 fi
 if test $do_showfrag = "yes" ; then
-	run showfrag
+	showfrag
 fi
 if test $do_start = "yes" ; then
-	run start 0
+	start
 fi
 if test $do_stop = "yes" ; then
-	run stop
+	stop
 fi
 if test $do_status = "yes" ; then
-	run status
+	status
 fi
 wait
 
