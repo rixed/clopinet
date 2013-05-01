@@ -116,6 +116,11 @@ ifneq "@GEOIPDB@" ""
 else
 	@echo "export GEOIPDB='$(datarootdir)/GeoIP/GeoIP.dat'" >> $@
 endif
+ifneq "@ADD_PATH@" ""
+	@echo 'export PATH="@ADD_PATH@:$(bindir):$$PATH"' >> $@
+else
+	@echo 'export PATH="$(bindir):$$PATH"' >> $@
+endif
 	@echo "export OCAMLFIND='@OCAMLFIND@'" >> $@
 	@echo "export CPN_LOG_DIR='$(localstatedir)/log'" >> $@
 	@echo "export CPN_CONF_DIR='$(sysconfdir)'" >> $@

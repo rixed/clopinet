@@ -27,7 +27,6 @@ index.opt: $(XOBJECTS) $(top_srcdir)/clopinet.cmxa
 
 index.cgi:
 	@echo '#!/bin/sh' > $@
-	@echo 'export PATH="$(bindir):$$PATH"' >> $@
 	@echo 'export LD_LIBRARY_PATH="$(libdir)"' >> $@
 	@echo '. "$(sysconfdir)/clopinet.conf"' >> $@
 	@echo 'exec "$(bindir)/index.opt"' >> $@
