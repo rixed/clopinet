@@ -114,7 +114,8 @@ let distrib_help name =
                  users. Different servers are shown in different colors." ] ;
       p [ cdata "Basically, the X coordinate gives a response time and the height of the plot \
                  at that location represents the number of queries which were answered that fast. \
-                 You will probably want to zoom in to have a closer view of the clusters." ] ]
+                 You will probably want to zoom in to have a closer view of the clusters. You can \
+                 select the time range to display using the mouse." ] ]
 
 let timestep_of_timestamps start stop =
     let dt = Timestamp.to_unixfloat stop -. Timestamp.to_unixfloat start in
