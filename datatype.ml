@@ -22,6 +22,8 @@ sig
     (* picky is when you are not sure the value may be of the correct type (false by default);
      * useful when the value is surrounded by other text, like in a more complex expression *)
     val parzer    : ?picky:bool -> (t, char) Peg.parzer
+    val samples   : string list (* List of sample values *)
+    (* TODO: check automatically that all sample values are parsable *)
 end
 
 module type DATATYPE =
@@ -113,6 +115,7 @@ module Bool_base = struct
     let write_txt oc t = Output.char oc (if t then 't' else 'f')
     let read = deser1
     let to_imm = function true -> "true" | false -> "false"
+    let samples = [ "true" ; "false" ]
 
     let parzer ?(picky=false) =
         ignore picky ;
@@ -143,6 +146,7 @@ module Void_base = struct
     let write_txt _ _ = ()
     let read _ = ()
     let to_imm _ = "()"
+    let samples = []
     let parzer ?(picky=false) =
         ignore picky ;
         Peg.return ()
@@ -165,6 +169,7 @@ module Text_base = struct
     let read ic =
         deser_string ic
     let to_imm t = "\""^ String.escaped t ^"\""
+    let samples = [ "some text" ; "lorem ipsum..." ; "the quick frown box jumps over the lazy god" ]
     let parzer ?(picky=false) =
         let open Peg in
         if picky then (
@@ -195,6 +200,7 @@ module Float_base = struct
     let read ic =
         deser64 ic |> Int64.float_of_bits
     let to_imm t = "("^ Float.to_string t ^")"    (* need parenths for negative values *)
+    let samples = [ "3.14159265359" ; "2.718281828459" ]
 
     let parzer ?(picky=false) =
         ignore picky ;
@@ -355,6 +361,7 @@ module Integer_base = struct
         )
     let read = deser_varint
     let to_imm t = "("^ Int.to_string t ^")"    (* need parenths for negative numbers *)
+    let samples = [ "17" ; "42" ; "666" ]
 
     let parzer ?(picky=false) =
         let open Peg in
@@ -390,12 +397,13 @@ end
 module UInteger : NUMBER with type t = int =
 struct
     include Integer
+    let samples = [ "42" ; "17" ]
 end
 
 (* FIXME: use phantom types to prevent this uint8 to be compatible with an uint16? *)
 module UInteger8 : NUMBER with type t = int =
 struct
-    include Integer
+    include UInteger
     let name = "uint8"
     let write = ser8
     let read = deser8
@@ -407,6 +415,7 @@ end
 module Integer8 : NUMBER with type t = int =
 struct
     include Integer
+    let samples = [ "42" ; "-17" ]
     let name = "int8"
     let write = ser8
     let read ic =
@@ -419,7 +428,7 @@ end
 
 module UInteger16 : NUMBER with type t = int =
 struct
-    include Integer
+    include UInteger
     let name = "uint16"
     let write = ser16
     let read = deser16
@@ -432,6 +441,7 @@ module Integer16 : NUMBER with type t = int =
 struct
     include UInteger16
     let name = "int16"
+    let samples = [ "42" ; "-1234" ]
     let read ic =
         let n = deser16 ic in
         if n < 32768 then n else n-65536
@@ -444,6 +454,7 @@ module UInteger32_base = struct
     (*$< UInteger32_base *)
     type t = Int32.t
     let name = "int32"
+    let samples = [ "42" ; "1234" ]
     let equal (a:t) (b:t) = a = b
     let compare (a:t) (b:t) = if a = b then 0 else if a < b then -1 else 1
     let hash = Int32.to_int
@@ -479,6 +490,7 @@ end
 module Integer32 : NUMBER with type t = Int32.t =
 struct
     include UInteger32
+    let samples = [ "42" ; "-1234" ]
     let name = "uint32"
     let write_txt oc i = Printf.sprintf "%ld" i |> Output.string oc
     (* TODO: check overflow *)
@@ -488,6 +500,7 @@ module UInteger64_base = struct
     (*$< UInteger64_base *)
     type t = Int64.t
     let name = "int64"
+    let samples = [ "42" ; "1234" ; "1.5k" ]
     let equal (a:t) (b:t) = a = b
     let compare (a:t) (b:t) = if a = b then 0 else if a < b then -1 else 1
     let hash = Int64.to_int
@@ -525,6 +538,7 @@ end
 module Integer64 : NUMBER with type t = Int64.t =
 struct
     include UInteger64
+    let samples = [ "42" ; "-1234" ]
     let name = "uint64"
     let write_txt oc i = Printf.sprintf "%Ld" i |> Output.string oc
     (* TODO: check overflow *)
@@ -545,6 +559,7 @@ let cached_gethostbyaddr addr =
 module InetAddr_base = struct
     (*$< InetAddr_base *)
     type t = Unix.inet_addr
+    let samples = [ "192.168.1.42" ; "www.wikipedia.org" ]
     let name = "inetAddr"
     let equal = (=)
     let compare = compare
@@ -625,6 +640,7 @@ module Cidr_base = struct
     (*$< Cidr_base *)
     type t = InetAddr.t * UInteger8.t
     let name = "cidr"
+    let samples = [ "192.168.0.0/24" ; "www.wikipedia.org/16" ]
     let equal (n1,m1) (n2,m2) =
         n1 = n2 && m1 = m2
     let compare = compare
@@ -739,6 +755,7 @@ module EthAddr_base = struct
     (*$< EthAddr_base *)
     type t = char * char * char * char * char * char
     let name = "ethAddr"
+    let samples = [ "00:23:8b:eb:aa:99" ; "12:34:56:78:9A:BC" ]
     let equal (a:t) (b:t) = a = b
     let compare (a1,a2,a3,a4,a5,a6) (b1,b2,b3,b4,b5,b6) =
         let c = int_of_char b1 - int_of_char a1 in if c <> 0 then c else
@@ -800,6 +817,7 @@ module Interval_base = struct
                secs  : float ; msecs  : float }
 
     let name = "interval"
+    let samples = [ "2 years" ; "1 week" ; "7 days" ; "24h" ; "6h 25mins" ; "1.2s" ; "310ms" ]
 
     let compare t1 t2 =
         (* We do not try to equals different units when their equivalence is not trivial. *)
@@ -982,6 +1000,7 @@ module Timestamp = struct
     (*$< Timestamp *)
     include UInteger64 (* for number of milliseconds *)
     let name = "timestamp"
+    let samples = [ "2013-01-28" ; "2013-01-28 12:43" ; "2013-01-28 12:43:52.1" ]
 
     let seconds t = Int64.div t 1000L
     let milliseconds t = Int64.rem t 1000L
@@ -1190,6 +1209,7 @@ module ListOf_base (T : DATATYPE) = struct
     let hash = Hashtbl.hash (* Hum no! should use the T.hash function on the first elements *)
 
     let name = "(listof " ^ T.name ^ ")"
+    let samples = [ "["^ String.concat "; " T.samples ^"]" ]
 
     let write oc t =
         VarInt.write oc (List.length t) ;
@@ -1245,6 +1265,7 @@ module Altern1_base (T: DATATYPE) = struct
     let compare = T.compare
     let hash = T.hash
     let name = "V1of1 of "^T.name
+    let samples = T.samples
     let write oc t1 =
         ser8 oc 0 ; (* So that we will be able to decode it later when we add version *)
         T.write oc t1
@@ -1298,6 +1319,10 @@ module Altern2_base (T1 : DATATYPE) (T2 : DATATYPE) = struct
         let open Peg in
         either [ string "v1:" ++ T1.parzer >>: (fun (_,v) -> V1of2 v) ;
                  string "v2:" ++ T2.parzer >>: (fun (_,v) -> V2of2 v) ]
+    let samples =
+        List.map (fun s -> "v1:"^s) T1.samples @
+        List.map (fun s -> "v2:"^s) T1.samples
+
 end
 module Altern2 (T1:DATATYPE) (T2:DATATYPE) :
     DATATYPE with type t = (T1.t, T2.t) versions_2 =
@@ -1341,6 +1366,7 @@ module Option_base (T : DATATYPE) = struct
         let open Peg in
         either [ none (istring "none") ;
                  some (istring "some " ++ T.parzer >>: snd) ]
+    let samples = "none" :: List.map (fun s -> "some "^s) T.samples
 end
 module Option (T:DATATYPE) :
     DATATYPE with type t = T.t option =
@@ -1391,6 +1417,8 @@ struct
       parzer (String.to_list "iface eth0") = Peg.Fail |> not
       parzer (String.to_list "pcap traces.pcap") = Peg.Fail |> not
      *)
+
+    let samples = [ "iface eth0" ; "pcap test.pcap" ]
 
     (*$>*)
 end

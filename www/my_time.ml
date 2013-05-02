@@ -1,4 +1,5 @@
 (* Absolute or relative (to now) timestamp *)
+open Batteries
 open Input.Ops
 module Timestamp = Datatype.Timestamp
 module Interval = Datatype.Interval
@@ -13,10 +14,16 @@ let to_timeval = function
     | Abs ts -> ts
     | Rel iv -> Timestamp.add_interval (Timestamp.now ()) iv
 
+let random_sample () =
+    Datatype.Interval.samples @ Datatype.Timestamp.samples |>
+    List.enum |>
+    Random.choice
+
 let to_edit name getter =
     [ Html.input
         [ "name", name ;
-          "value", input_text_of name getter ] ]
+          "value", input_text_of name getter ;
+          "placeholder", random_sample () ] ]
 
 let from name getter =
     match getter name with

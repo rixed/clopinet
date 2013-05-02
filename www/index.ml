@@ -52,6 +52,7 @@ let cli_entry_point () =
     List.iter (Html.print stdout)
 
 let _ =
+    Random.self_init () ;
     let is_envvar_set s =
         try ignore (Sys.getenv s) ; true
         with Not_found -> false in

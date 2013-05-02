@@ -29,6 +29,7 @@ let maketuple n =
     printf "    let name = " ;
     foreach (fun i -> if i > 0 then printf "^\"*\"^" ; printf "T%d.name" i) ;
     printf "\n" ;
+    printf "    let samples = []\n" ;
     printf "    let write oc (%s) =\n" (parms 't') ;
     foreach (fun i -> printf "        " ; if i > 0 then printf "; " ; printf "T%d.write oc t%d\n" i i) ;
     printf "    let write_txt oc (%s) =\n" (parms 't') ;

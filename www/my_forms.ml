@@ -10,7 +10,8 @@ struct
     type t = D.t
     let to_edit name getter =
         [ input [ "name", name ;
-                  "value", input_text_of name getter ] ]
+                  "value", input_text_of name getter ;
+                  "placeholder", Random.choice (List.enum D.samples) ] ]
     let from name getter =
         let s = String.from name getter in
         try D.of_string s
@@ -52,7 +53,7 @@ module MacDstField = struct
     let persistant = false
 end
 module EthProtoField = struct
-    module Type = Optional (InputOfDatatype(Integer16))
+    module Type = Optional (InputOfDatatype(UInteger16))
     let display_name = "Eth proto"
     let uniq_name = "eth-proto"
     let persistant = false
@@ -94,25 +95,25 @@ module IpStartField = struct
     let persistant = true
 end
 module IpProtoField = struct
-    module Type = Optional (InputOfDatatype(Integer8))
+    module Type = Optional (InputOfDatatype(UInteger8))
     let display_name = "IP proto"
     let uniq_name = "ip-proto"
     let persistant = false
 end
 module L4SrcPortField = struct
-    module Type = Optional (InputOfDatatype(Integer16))
+    module Type = Optional (InputOfDatatype(UInteger16))
     let display_name = "src port"
     let uniq_name = "src-port"
     let persistant = true
 end
 module L4DstPortField = struct
-    module Type = Optional (InputOfDatatype(Integer16))
+    module Type = Optional (InputOfDatatype(UInteger16))
     let display_name = "dst port"
     let uniq_name = "dst-port"
     let persistant = true
 end
 module L4PortField = struct
-    module Type = Optional (InputOfDatatype(Integer16))
+    module Type = Optional (InputOfDatatype(UInteger16))
     let display_name = "port"
     let uniq_name = "port"
     let persistant = true
