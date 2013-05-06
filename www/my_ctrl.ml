@@ -727,12 +727,18 @@ struct
                              tag "i" [ cdata page.chart ] ] ]
 
     let build report_name _args =
-        get_report report_name /@
-        (fun page ->
-            let chart = chart_of report_name page in
-            View.make_report_page page.page_no page.title page.descr chart) |>
-        List.of_enum |> List.concat |>
-        List.cons (h1 report_name)
+        let reports = get_report report_name in
+        if Enum.is_empty reports then (
+            View.add_err [ cdata @@ "No such report '"^ report_name ^"'" ] ;
+            []
+        ) else (
+            reports /@
+            (fun page ->
+                let chart = chart_of report_name page in
+                View.make_report_page page.page_no page.title page.descr chart) |>
+            List.of_enum |> List.concat |>
+            List.cons (h1 report_name)
+        )
 
 end
 
