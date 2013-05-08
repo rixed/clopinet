@@ -126,7 +126,7 @@ module TimeStepField = struct
 end
 module GroupByPeerField = struct
     module Type = Enum (struct let name = "key"
-                               let options = [| "mac";"ip" |] end)
+                               let options = [| "ip";"mac" |] end)
     let display_name = "group by"
     let uniq_name = "peers-groupby"
     let persistant = true

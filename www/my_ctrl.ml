@@ -205,10 +205,10 @@ struct
             let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep (Timestamp.sub_to_interval stop start) "traffic" Forms.Traffic.TblNames.options in
             let what = if what = 0 then Volume else PacketCount in
             let datasets = match group_by with
-                | 0 (* mac *) ->
-                    eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what tblname
-                | _ (* ip *) ->
-                    ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what tblname in
+                | 0 (* ip *) ->
+                    ip_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what tblname
+                | _ (* mac *) ->
+                    eth_plot_vol_tot ~start ~stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?max_graphs what tblname in
             if Hashtbl.is_empty datasets then
                 []
             else
