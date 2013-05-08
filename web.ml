@@ -227,7 +227,7 @@ struct
         "stop", {
             disp_name = "stop" ;
             help = "timestamp of the end of the transaction" ;
-            from_prevfields = "Datatype.Timestamp.add_seconds start (Distribution.max resptime)" ;
+            from_prevfields = "Datatype.Timestamp.add_secs start (Distribution.max resptime)" ;
             expr_type = TTimestamp ;
             aggrs = [] ;
             sortable = "" ;

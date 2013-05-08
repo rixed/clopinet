@@ -1018,8 +1018,8 @@ module Timestamp = struct
         Int64.mul t i64
     let mul _ _ = failwith "Cannot mul timestamps!"
 
-    let add_seconds t s =
-        add t (s /. 1000. |> Int64.of_float) (* TODO: better rounding woudnt hurt *)
+    let add_secs t s =
+        add t (s *. 1000. |> Int64.of_float) (* TODO: better rounding woudnt hurt *)
 
     (* Used here and there - just in case in future generic max is not good enough *)
     let min = min
@@ -1401,7 +1401,7 @@ struct
         | 0 -> Iface (deser_string ib)
         | 1 -> PCap  (deser_string ib)
         | _ -> assert false
-    
+
     let to_imm = function
         | Iface n -> Printf.sprintf "(Datatype.Origin.Iface %S)" n
         | PCap n  -> Printf.sprintf "(Datatype.Origin.PCap %S)" n
@@ -1423,7 +1423,7 @@ struct
     (*$>*)
 end
 
-module Origin : DATATYPE = 
+module Origin : DATATYPE =
 struct
     include Origin_base
     include Datatype_of(Origin_base)
