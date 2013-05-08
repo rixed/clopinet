@@ -105,7 +105,7 @@ Or just run: junkie -c this_file
      (url str)
      (qry-host str)]
     [(http-answer
-       (on-entry (apply (clopinet) print-web device vlan client-mac client-ip server-mac server-ip server-port qry-method err-code qry-start (- qry-stop qry-start) qry-host url)))
+       (on-entry (apply (clopinet) print-web device vlan client-mac client-ip server-mac server-ip server-port qry-method err-code qry-start (/ (- qry-stop qry-start) 1000000.) qry-host url)))
      (web-qry
        (index-size 5024)
        (timeout 60000000))]
@@ -158,7 +158,7 @@ Or just run: junkie -c this_file
      (qry-stop timestamp)
      (qry-name str)]
     [(dns-answer
-       (on-entry (apply (clopinet) print-dns device vlan client-mac client-ip server-mac server-ip err-code qry-start (- qry-stop qry-start) qry-name)))
+       (on-entry (apply (clopinet) print-dns device vlan client-mac client-ip server-mac server-ip err-code qry-start (/ (- qry-stop qry-start) 1000000.) qry-name)))
      (dns-query
        (index-size 5024)
        (timeout 10000000))]
@@ -427,9 +427,9 @@ Or just run: junkie -c this_file
      (sock-ack timestamp)
      (nb-syns uint)]
     [(tcp-opened
-       (on-entry (apply (clopinet) print-tcp device vlan client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns (sock-ack - sock-syn))))
+       (on-entry (apply (clopinet) print-tcp device vlan client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns (/ (sock-ack - sock-syn) 1000000.))))
      (tcp-connecting
-       (on-timeout (apply (clopinet) print-tcp device vlan client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns (sock-ack - sock-syn)))
+       (on-timeout (apply (clopinet) print-tcp device vlan client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns (/ (sock-ack - sock-syn) 1000000.)))
        (index-size 20000)
        ; timeout an outstanding SYN after 80s
        (timeout 80000000))]
