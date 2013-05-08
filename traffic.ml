@@ -337,7 +337,7 @@ let eth_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_
     Plot.per_time ?max_graphs start stop step fold label_of_eth_key "others"
 
 (* Returns traffic per pair of MACs *)
-let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) what name =
+let eth_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=200) what name =
     let start, stop = optmin start stop, optmax start stop in
     let label_of_key (vlan, mac_src, mac_dst) =
         label_of_eth_key (vlan, mac_src),
@@ -391,7 +391,7 @@ let ip_plot_vol_time start stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_d
     (* FIXME: pass2 should return the same as pass2 |> arrays_of_volume_chunks... *)
 
 (* Returns traffic per pair of IPs *)
-let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=20) what name =
+let ip_plot_vol_tot ?start ?stop ?vlan ?mac_src ?mac_dst ?eth_proto ?ip_src ?ip_dst ?ip ?ip_proto ?port ?usr_filter ?(max_graphs=200) what name =
     let start, stop = optmin start stop, optmax start stop in
     let label_of_key (mac_proto, src, dst) =
         label_of_ip_key mac_proto src,
