@@ -216,7 +216,7 @@ module Traffic = struct
         module Type = Optional (InputOfDatatype (ULeast63))
         let display_name = "volume min"
         let uniq_name = "volume-min"
-        let persistant = false
+        let persistant = true
     end
     module LayoutType = struct
         let name = "layout"
