@@ -122,11 +122,13 @@ let fraction_interval start stop n =
     Interval.of_secs (dt /. n)
 
 let fixed_timestep time_step start stop =
-    match time_step with
+    let t = match time_step with
     | Some t ->
         Interval.min t (fraction_interval start stop 5.)
     | None ->
-        fraction_interval start stop (Float.of_pref "CPN_GUI_CHART_PREFERED_RESOLUTION" 200.)
+        fraction_interval start stop (Float.of_pref "CPN_GUI_CHART_PREFERED_RESOLUTION" 200.) in
+    (* prevent too many timesteps *)
+    Interval.max t (fraction_interval start stop 1000.)
 
 let default_chart_duration = Interval.of_pref "CPN_GUI_CHART_PREFERED_DURATION" Interval.({ zero with days = 1. })
 
