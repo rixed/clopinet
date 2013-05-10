@@ -85,7 +85,7 @@ struct
         | count', eth_pld', mtu', ip_pld', l4_pld' ->
             count + count',
             eth_pld + eth_pld',
-            max mtu mtu',
+            Pervasives.max mtu mtu',
             ip_pld + ip_pld',
             l4_pld + l4_pld'
 

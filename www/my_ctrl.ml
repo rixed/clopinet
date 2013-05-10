@@ -117,9 +117,16 @@ let distrib_help name =
                  You will probably want to zoom in to have a closer view of the clusters. You can \
                  select the time range to display using the mouse." ] ]
 
-let timestep_of_timestamps start stop =
+let fraction_interval start stop n =
     let dt = Timestamp.to_unixfloat stop -. Timestamp.to_unixfloat start in
-    Interval.of_secs (dt /. Float.of_pref "CPN_GUI_CHART_PREFERED_RESOLUTION" 200.)
+    Interval.of_secs (dt /. n)
+
+let fixed_timestep time_step start stop =
+    match time_step with
+    | Some t ->
+        Interval.min t (fraction_interval start stop 5.)
+    | None ->
+        fraction_interval start stop (Float.of_pref "CPN_GUI_CHART_PREFERED_RESOLUTION" 200.)
 
 let default_chart_duration = Interval.of_pref "CPN_GUI_CHART_PREFERED_DURATION" Interval.({ zero with days = 1. })
 
@@ -153,7 +160,7 @@ struct
         | Some (start, (stop, (vlan, (mac_src, (mac_dst, (eth_proto, (ip_src, (ip_dst, (ip, (ip_proto, (port, (usr_filter, (time_step, (tblname, (what, (group_by, (max_graphs, ()))))))))))))))))) ->
             let stop  = match stop with Some t -> My_time.Base.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.Base.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
-            let time_step = match time_step with Some t -> t | None -> timestep_of_timestamps start stop in
+            let time_step = fixed_timestep time_step start stop in
             let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep time_step "traffic" Forms.Traffic.TblNames.options in
             let time_step = Interval.to_ms time_step in
             let what = if what = 0 then Volume else PacketCount in
@@ -379,7 +386,7 @@ struct
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (methd, (status, (host, (url, (rt_min, (rt_max, (time_step, (tblname, ()))))))))))))))) ->
             let stop  = match stop with Some t -> My_time.Base.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.Base.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
-            let time_step = match time_step with Some t -> t | None -> timestep_of_timestamps start stop in
+            let time_step = fixed_timestep time_step start stop in
             let tblname = match tblname with Some n -> Forms.Web.TblNames.options.(n) | None -> tblname_of_timestep time_step "web" Forms.Web.TblNames.options in
             let time_step = Interval.to_ms time_step in
             let rt_min = i2s ~min:0. rt_min in
@@ -388,7 +395,7 @@ struct
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
             let fold f i =
                 let i = f i "Min" true
-                    (fun i -> Distribution.min datasets.(i)) in
+                    (fun i -> Distribution.mini datasets.(i)) in
                 let i = f i "Avg-&sigma;" true
                     (fun i -> max 0. Distribution.(avg datasets.(i) -. std_dev datasets.(i))) in
                 let i = f i "Avg" true
@@ -396,7 +403,7 @@ struct
                 let i = f i "Avg+&sigma;" true
                     (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
                 let i = f i "Max" true
-                    (fun i -> Distribution.max datasets.(i)) in
+                    (fun i -> Distribution.maxi datasets.(i)) in
                 let i = f i "Transactions" false
                     (fun i -> Distribution.count datasets.(i) |> float_of_int) in
                 i in
@@ -525,7 +532,7 @@ struct
         | Some (start, (stop, (vlan, (mac_clt, (mac_srv, (ip_clt, (ip_srv, (tx_min, (rt_min, (rt_max, (time_step, (tblname, ())))))))))))) ->
             let stop  = match stop with Some t -> My_time.Base.to_timeval t | None -> Timestamp.now () in
             let start = match start with Some t -> My_time.Base.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
-            let time_step = match time_step with Some t -> t | None -> timestep_of_timestamps start stop in
+            let time_step = fixed_timestep time_step start stop in
             let tblname = match tblname with Some n -> Forms.Dns.TblNames.options.(n) | None -> tblname_of_timestep time_step "dns" Forms.Dns.TblNames.options in
             let time_step = Interval.to_ms time_step in
             let rt_min = i2s ~min:0. rt_min in
@@ -534,7 +541,7 @@ struct
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
             let fold f i =
                 let i = f i "Min" true
-                    (fun i -> Distribution.min datasets.(i)) in
+                    (fun i -> Distribution.mini datasets.(i)) in
                 let i = f i "Avg-&sigma;" true
                     (fun i -> max 0. Distribution.(avg datasets.(i) -. std_dev datasets.(i))) in
                 let i = f i "Avg" true
@@ -542,7 +549,7 @@ struct
                 let i = f i "Avg+&sigma;" true
                     (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
                 let i = f i "Max" true
-                    (fun i -> Distribution.max datasets.(i)) in
+                    (fun i -> Distribution.maxi datasets.(i)) in
                 let i = f i "Transactions" false
                     (fun i -> Distribution.count datasets.(i) |> float_of_int) in
                 i in

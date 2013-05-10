@@ -34,6 +34,9 @@ sig
     val of_string : string -> t
     val to_string : t -> string
 
+    val min : t -> t -> t
+    val max : t -> t -> t
+
     val of_pref_option : string -> t option
     val of_pref : string -> t -> t
 end
@@ -50,6 +53,9 @@ struct
         let buf = Buffer.create 32 in
         B.write_txt (Output.of_buffer buf) t ;
         Buffer.contents buf
+
+    let min t1 t2 = let c = B.compare t1 t2 in if c <= 0 then t1 else t2
+    let max t1 t2 = let c = B.compare t1 t2 in if c >= 0 then t1 else t2
 
     let of_pref_option name =
         Option.map of_string (Prefs.get_option name)
@@ -823,21 +829,21 @@ module Interval_base = struct
         (* We do not try to equals different units when their equivalence is not trivial. *)
         (* FIXME: try to compute the overall ms number and if the diff is big
          * enought use it *)
-        let w_2_ms t =     t.msecs
-              +. 1_000. *. t.secs
-             +. 60_000. *. t.mins
-          +. 3_600_000. *. t.hours
-         +. 86_400_000. *. t.days
-        +. 604_800_000. *. t.weeks in
         let y_2_m t = t.years *. 12. +. t.months in
         let m1 = y_2_m t1 and m2 = y_2_m t2 in
         if m1 > m2 then 1 else
         if m1 < m2 then -1 else
         if t1.weeks > t2.weeks then 1 else
         if t1.weeks < t2.weeks then -1 else
+        let w_2_ms t =     t.msecs
+              +. 1_000. *. t.secs
+             +. 60_000. *. t.mins
+          +. 3_600_000. *. t.hours
+         +. 86_400_000. *. t.days
+        +. 604_800_000. *. t.weeks in
         let ms1 = w_2_ms t1 and ms2 = w_2_ms t2 in
         if ms1 > ms2 then 1 else
-        if ms2 < ms1 then -1 else
+        if ms1 < ms2 then -1 else
         0
 
     let equal t1 t2 =
@@ -1020,10 +1026,6 @@ module Timestamp = struct
 
     let add_secs t s =
         add t (s *. 1000. |> Int64.of_float) (* TODO: better rounding woudnt hurt *)
-
-    (* Used here and there - just in case in future generic max is not good enough *)
-    let min = min
-    let max = max
 
     (* Helper to build a Timestamp.t from a user friendly string *)
     exception Invalid_date of (int * int * int * int * int * float)

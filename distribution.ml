@@ -21,8 +21,8 @@ let distr x = function
         let xd = x -. avg in
         let avg' = avg +. (xd /. float_of_int n') in
         n',
-        min x mi,
-        max x ma,
+        Pervasives.min x mi,
+        Pervasives.max x ma,
         avg',
         v +. (xd *. (x -. avg'))
 
@@ -48,8 +48,8 @@ let combine ((n, mi, ma, avg, v) as x) = function
                 half_fn *. (sq(s1 -. comb_avg) +. sq(s2 -. comb_avg)) +.
                 half_fn'*. (sq(s1'-. comb_avg) +. sq(s2'-. comb_avg)) in
             n+n',
-            min mi mi',
-            max ma ma',
+            Pervasives.min mi mi',
+            Pervasives.max ma ma',
             comb_avg,
             comb_q
         )
@@ -60,8 +60,8 @@ let std_dev (c, _mi, _ma, _avg, v) =
 
 (* Various accessors *)
 let count (c, _mi, _ma, _avg, _v) = c
-let min   (_c, mi, _ma, _avg, _v) = mi
-let max   (_c, _mi, ma, _avg, _v) = ma
+let mini  (_c, mi, _ma, _avg, _v) = mi
+let maxi  (_c, _mi, ma, _avg, _v) = ma
 let avg   (_c, _mi, _ma, avg, _v) = avg
 let var   (_c, _mi, _ma, _avg, v) = v
 
