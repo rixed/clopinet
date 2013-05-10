@@ -7,7 +7,8 @@ Or just run: junkie -c this_file
 (use-modules ((junkie netmatch nettrack) :renamer (symbol-prefix-proc 'nt:))
              (junkie defs)
              (junkie tools)
-             (junkie runtime))
+             (junkie runtime)
+             (ice-9 threads))
 
 (set-log-file (string-append (getenv "CPN_LOG_DIR") "/junkie.log"))
 ;(set-log-level log-debug)
@@ -26,11 +27,18 @@ Or just run: junkie -c this_file
 (define web-fifo (get-fifo "web"))
 (define traffic-fifo (get-fifo "traffic"))
 
-(define (dump out next . rest)
+(define (ll-dump out next . rest)
+  (slog log-info "Write ~S" next)
   (display next out)
   (if (null? rest) (write-char #\newline out)
       (begin (write-char #\tab out)
-             (apply dump out rest))))
+             (apply ll-dump out rest))))
+
+; damn ports still not thread safe
+(define dump-lock (make-mutex))
+(define (dump . args)
+  (with-mutex dump-lock
+              (apply ll-dump args)))
 
 (define (iface device)
   (string-append "iface " (number->string device)))
