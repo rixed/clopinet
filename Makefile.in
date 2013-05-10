@@ -188,5 +188,5 @@ loc:
 
 .PHONY: www
 www:
-	$(MAKE) -C $(top_srcdir)/www index.opt
+	$(MAKE) -C $(top_srcdir)/www
 

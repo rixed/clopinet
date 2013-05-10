@@ -15,7 +15,7 @@ SOURCES  = \
 REQUIRES = owww batteries bitstring bitstring.syntax dynlink parmap
 EXTRALIBS = $(top_srcdir)/clopinet.cma
 
-all: index.opt
+all: index.cgi
 
 include $(top_srcdir)/make.common
 
@@ -25,7 +25,7 @@ $(XOBJECTS): $(top_srcdir)/clopinet.cmxa
 index.opt: $(XOBJECTS) $(top_srcdir)/clopinet.cmxa
 	$(OCAMLOPT) -o $@ $(SYNTAX) -package "$(REQUIRES)" -ccopt -L$(top_srcdir) clopinet.cmxa $(EXTRALIBS:.cma=.cmxa) -linkpkg $(OCAMLOPTFLAGS) $(XOBJECTS)
 
-index.cgi:
+index.cgi: index.opt
 	@echo '#!/bin/sh' > $@
 	@echo 'export LD_LIBRARY_PATH="$(libdir)"' >> $@
 	@echo '. "$(sysconfdir)/clopinet.conf"' >> $@
@@ -43,3 +43,5 @@ uninstall:
 	rm -f "$(wwwdir)/index.cgi"
 	rm -rf "$(wwwdir)/static"
 
+clean-spec:
+	rm index.cgi
