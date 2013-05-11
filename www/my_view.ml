@@ -1,7 +1,6 @@
 open Batteries
 open Metric
 module Timestamp = Datatype.Timestamp
-module UInteger64 = Datatype.UInteger64
 
 open Html
 include View

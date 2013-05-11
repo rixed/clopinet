@@ -188,7 +188,7 @@ end
 module Text : DATATYPE with type t = string =
 struct
     include Text_base
-    include Datatype_of(Text_base)
+    include Datatype_of (Text_base)
 end
 
 module Float_base = struct
@@ -274,7 +274,7 @@ end
 module Float : NUMBER with type t = float =
 struct
     include Float_base
-    include Datatype_of(Float_base)
+    include Datatype_of (Float_base)
     let zero = 0.
     let add = (+.)
     let sub = (-.)
@@ -391,7 +391,7 @@ end
 module Integer : NUMBER with type t = int =
 struct
     include Integer_base
-    include Datatype_of(Integer_base)
+    include Datatype_of (Integer_base)
     let zero = 0
     let add = (+)
     let sub = (-)
@@ -445,9 +445,12 @@ end
 
 module Integer16 : NUMBER with type t = int =
 struct
-    include UInteger16
+    include Integer
     let name = "int16"
     let samples = [ "42" ; "-1234" ]
+    let write oc n =
+        let n = if n >= 0 then n else n+65536 in
+        ser16 oc n
     let read ic =
         let n = deser16 ic in
         if n < 32768 then n else n-65536
@@ -456,83 +459,45 @@ struct
         of_string s |> checked
 end
 
-module UInteger32_base = struct
-    (*$< UInteger32_base *)
-    type t = Int32.t
-    let name = "int32"
-    let samples = [ "42" ; "1234" ]
-    let equal (a:t) (b:t) = a = b
-    let compare (a:t) (b:t) = if a = b then 0 else if a < b then -1 else 1
-    let hash = Int32.to_int
-    let write = ser32
-    let write_txt oc i = Printf.sprintf "%lu" i |> Output.string oc
-    let read = deser32
-    let to_imm t = "("^ Int32.to_string t ^"l)"
-
-    let parzer ?(picky=false) =
-        ignore picky ;
-        let open Peg in
-        Number32.c_like_number ++ numeric_suffix_int >>:
-        fun (n,s) -> Int32.mul n (Int32.of_int s)
-
-    (*$T parzer
-      parzer ['1';'2';'k'] = Peg.Res (12_000l, [])
-     *)
-
-    (*$>*)
-end
-module UInteger32 : NUMBER with type t = Int32.t =
-struct
-    include UInteger32_base
-    include Datatype_of(UInteger32_base)
-    let zero = 0l
-    let add = Int32.add
-    let sub = Int32.sub
-    let idiv t i = Int32.div t (Int32.of_int i)
-    let imul t i = Int32.mul t (Int32.of_int i)
-    let mul = Int32.mul
-end
-
-module Integer32 : NUMBER with type t = Int32.t =
-struct
-    include UInteger32
-    let samples = [ "42" ; "-1234" ]
-    let name = "uint32"
-    let write_txt oc i = Printf.sprintf "%ld" i |> Output.string oc
-    (* TODO: check overflow *)
-end
-
-module UInteger64_base = struct
-    (*$< UInteger64_base *)
+module Integer64_base = struct
+    (*$< Integer64_base *)
     type t = Int64.t
     let name = "int64"
-    let samples = [ "42" ; "1234" ; "1.5k" ]
+    let samples = [ "42" ; "1234" ; "15k" ; "-7M" ]
     let equal (a:t) (b:t) = a = b
     let compare (a:t) (b:t) = if a = b then 0 else if a < b then -1 else 1
     let hash = Int64.to_int
     let write = ser64
-    let write_txt oc i = Printf.sprintf "%Lu" i |> Output.string oc
+    let write_txt oc i = Printf.sprintf "%Ld" i |> Output.string oc
     let read = deser64
     let to_imm t = "("^ Int64.to_string t ^"L)"
 
     let parzer ?(picky=false) =
-        ignore picky ;
         let open Peg in
-        Number64.c_like_number ++ numeric_suffix_int >>:
-        fun (n,s) -> Int64.mul n (Int64.of_int s)
+        let make ((s,n),suf) =
+            let v = Int64.mul n (Int64.of_int suf) in
+            if s then Int64.neg v else v in
+        let sign =
+            optional (either [ item '-' ; item '+' ]) >>: function Some '-' -> true | _ -> false in
+        if picky then (
+            sign ++ Number64.c_like_number ++ numeric_suffix_int ++
+            check (either [ eof ; ign (cond (fun c -> c <> '.')) ]) >>:
+            (make % fst)
+        ) else (
+            sign ++ Number64.c_like_number ++ numeric_suffix_int >>:
+            make
+        )
 
     (*$T parzer
       parzer ['1';'2';'k'] = Peg.Res (12_000L, [])
      *)
 
     (*$>*)
-
-
 end
-module UInteger64 : NUMBER with type t = Int64.t =
+module Integer64 : NUMBER with type t = Int64.t =
 struct
-    include UInteger64_base
-    include Datatype_of (UInteger64_base)
+    include Integer64_base
+    include Datatype_of (Integer64_base)
     let zero = 0L
     let add = Int64.add
     let sub = Int64.sub
@@ -541,14 +506,82 @@ struct
     let mul = Int64.mul
 end
 
-module Integer64 : NUMBER with type t = Int64.t =
+module Integer32_base =
 struct
-    include UInteger64
+    (*$< Integer32_base *)
+    type t = Int32.t
+    let name = "int32"
     let samples = [ "42" ; "-1234" ]
-    let name = "uint64"
-    let write_txt oc i = Printf.sprintf "%Ld" i |> Output.string oc
-    (* TODO: check overflow *)
+    let equal (a:t) (b:t) = a = b
+    let compare (a:t) (b:t) = if a = b then 0 else if a < b then -1 else 1
+    let hash = Int32.to_int
+    let write = ser32
+    let write_txt oc i = Printf.sprintf "%ld" i |> Output.string oc
+    let read = deser32
+    let to_imm t = "("^ Int32.to_string t ^"l)"
+
+    let parzer ?(picky=false) =
+        let open Peg in
+        let make ((s,n),suf) =
+            let v = Int32.mul n (Int32.of_int suf) in
+            if s then Int32.neg v else v in
+        let sign =
+            optional (either [ item '-' ; item '+' ]) >>: function Some '-' -> true | _ -> false in
+        if picky then (
+            sign ++ Number32.c_like_number ++ numeric_suffix_int ++
+            check (either [ eof ; ign (cond (fun c -> c <> '.')) ]) >>:
+            (make % fst)
+        ) else (
+            sign ++ Number32.c_like_number ++ numeric_suffix_int >>:
+            make
+        )
+
+    (*$T parzer
+      parzer ['1';'2';'k'] = Peg.Res (12_000l, [])
+     *)
+
+    (*$>*)
 end
+module Integer32 : NUMBER with type t = Int32.t =
+struct
+    include Integer32_base
+    include Datatype_of (Integer32_base)
+    let zero = 0l
+    let add = Int32.add
+    let sub = Int32.sub
+    let idiv t i = Int32.div t (Int32.of_int i)
+    let imul t i = Int32.mul t (Int32.of_int i)
+    let mul = Int32.mul
+end
+
+(* The very same as Integer32 but written/read differently *)
+module UInteger32_base =
+struct
+    include Integer32_base
+    let samples = [ "42" ; "1234" ]
+    let name = "uint32"
+    let write_txt oc n =
+        let n64 = Int64.of_int32 n in
+        let n64 = if n64 >= 0L then n64 else Int64.add 0x1_0000_0000L n64 in
+        Printf.sprintf "%Lu" n64 |> Output.string oc
+    let parzer ?picky =
+        let open Peg in
+        Integer64.parzer ?picky >>: (fun n64 ->
+            if n64 > 0xffff_ffffL || n64 < 0L then raise Overflow ;
+            Int64.to_int32 n64)
+end
+module UInteger32 : NUMBER with type t = Int32.t =
+struct
+    include UInteger32_base
+    include Datatype_of (UInteger32_base)
+    let zero = 0l
+    let add = Int32.add
+    let sub = Int32.sub
+    let idiv t i = Int32.div t (Int32.of_int i)
+    let imul t i = Int32.mul t (Int32.of_int i)
+    let mul = Int32.mul
+end
+
 
 (* FIXME: purge old entries *)
 (* FIXME: use a reentrant resolver *)
@@ -599,6 +632,11 @@ module InetAddr_base = struct
             Unix.inet_addr_of_string s
          | _ -> assert false)
 
+    (*$T dotted_ip_addr
+      dotted_ip_addr (String.to_list "123.123.123.123") = \
+        Peg.Res (Unix.inet_addr_of_string "123.123.123.123", [])
+     *)
+
     let hostname =
         let open Peg in
         let namechar = either [ alphanum ; item '-' ] in
@@ -630,8 +668,6 @@ module InetAddr_base = struct
         Peg.Res (Unix.inet_addr_of_string "123.123.123.123", [])
       parzer (String.to_list "eneide.happyleptic.org") = \
         Peg.Res (Unix.inet_addr_of_string "213.251.171.101", [])
-      dotted_ip_addr (String.to_list "123.123.123.123") = \
-        Peg.Res (Unix.inet_addr_of_string "123.123.123.123", [])
      *)
 
     (*$>*)
@@ -639,7 +675,7 @@ end
 module InetAddr : DATATYPE with type t = Unix.inet_addr =
 struct
     include InetAddr_base
-    include Datatype_of(InetAddr_base)
+    include Datatype_of (InetAddr_base)
 end
 
 module Cidr_base = struct
@@ -807,7 +843,7 @@ end
 module EthAddr : DATATYPE with type t = char * char * char * char * char * char =
 struct
     include EthAddr_base
-    include Datatype_of(EthAddr_base)
+    include Datatype_of (EthAddr_base)
 end
 
 (**
@@ -972,7 +1008,7 @@ module Interval : sig
     end =
 struct
     include Interval_base
-    include Datatype_of(Interval_base)
+    include Datatype_of (Interval_base)
 
     let zero = Interval_base.zero
 
@@ -1004,7 +1040,7 @@ end
 
 module Timestamp = struct
     (*$< Timestamp *)
-    include UInteger64 (* for number of milliseconds *)
+    include Integer64 (* for number of milliseconds *)
     let name = "timestamp"
     let samples = [ "2013-01-28" ; "2013-01-28 12:43" ; "2013-01-28 12:43:52.1" ]
 
@@ -1143,11 +1179,11 @@ module Timestamp = struct
                 istring "now" >>: (fun _ -> now ()) ]
         and junkie = (* junkie's format *)
             either [
-                UInteger64.parzer ++ string "s " ++ Integer.parzer ++ string "us" >>:
+                Integer64.parzer ++ string "s " ++ Integer.parzer ++ string "us" >>:
                 (fun (((s,_),us),_) ->
                     Int64.add (Int64.mul s 1000L)
                               (Int64.of_int ((499 + us) / 1000))) ;
-                UInteger64.parzer ++ item 's' ++ check (either [ eof ; no alphanum ]) >>:
+                Integer64.parzer ++ item 's' ++ check (either [ eof ; no alphanum ]) >>:
                 (fun ((s,_),_) -> Int64.mul s 1000L) ]
         and unix_ts = Float.parzer >>: fun ts -> Int64.of_float (1000.*.ts) in
         (* We can't accept junkie format (ressembling time interval) nor mere unix timestamp when picky *)
@@ -1258,7 +1294,7 @@ module ListOf (T : DATATYPE) :
     DATATYPE with type t = T.t list =
 struct
     include ListOf_base (T)
-    include Datatype_of(ListOf_base (T))
+    include Datatype_of (ListOf_base (T))
 end
 
 module Altern1_base (T: DATATYPE) = struct
@@ -1284,7 +1320,7 @@ module Altern1 (T:DATATYPE) :
     DATATYPE with type t = T.t =
 struct
     include Altern1_base (T)
-    include Datatype_of(Altern1_base (T))
+    include Datatype_of (Altern1_base (T))
 end
 
 type ('a, 'b) versions_2 = V1of2 of 'a | V2of2 of 'b
@@ -1330,7 +1366,7 @@ module Altern2 (T1:DATATYPE) (T2:DATATYPE) :
     DATATYPE with type t = (T1.t, T2.t) versions_2 =
 struct
     include Altern2_base (T1) (T2)
-    include Datatype_of(Altern2_base (T1) (T2))
+    include Datatype_of (Altern2_base (T1) (T2))
 end
 
 module Option_base (T : DATATYPE) = struct
@@ -1374,7 +1410,7 @@ module Option (T:DATATYPE) :
     DATATYPE with type t = T.t option =
 struct
     include Option_base (T)
-    include Datatype_of(Option_base (T))
+    include Datatype_of (Option_base (T))
 end
 
 (* Used pervasively *)
@@ -1428,7 +1464,7 @@ end
 module Origin : DATATYPE =
 struct
     include Origin_base
-    include Datatype_of(Origin_base)
+    include Datatype_of (Origin_base)
 end
 
 

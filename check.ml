@@ -181,8 +181,7 @@ let check_prefs () =
 
 let check_expressions () =
     let open User_filter in
-    let open Datatype in
-    let inet s = Value (InetAddr (Datatype.InetAddr.of_string s)) in
+    let inet s = Value (InetAddr (InetAddr.of_string s)) in
     assert_exc (Peg.Parse_error ("Failure: Unknown field 'prout'", 0)) (expression TBool []) "1 == prout" ;
     assert_exc (Peg.Parse_error ("Failure: Unknown field 'prout'", 5)) (expression TBool []) "prout == 1" ;
     assert (expression TBool [] "( 10.0.0.2 == 10.0.0.1) || true" =
@@ -196,6 +195,37 @@ let check_expressions () =
     assert (match expression TInteger [] "1 * 2 + 3" with Add (Mul (Value (Integer 1), Value (Integer 2)), Value (Integer 3)) -> true | _ -> false) ;
     assert (match expression TInteger [] "1 + 2 * 3" with Add (Value (Integer 1), Mul (Value (Integer 2), Value (Integer 3))) -> true | _ -> false) ;
     assert (expression TBool Traffic.Traffic.fields "ip_src == 213.251.171.101" = Eq (Field "ip_src", inet "213.251.171.101"))
+
+module TestList = ListOf (Integer)
+module TestAltern = Altern2 (Integer) (Float)
+let check_samples () =
+    let c samples of_string =
+        List.iter (fun s ->
+            assert (try ignore (of_string s) ; true with _ -> false))
+            samples in
+    Bool.(c samples of_string) ;
+    Void.(c samples of_string) ;
+    Text.(c samples of_string) ;
+    Float.(c samples of_string) ;
+    Integer.(c samples of_string) ;
+    UInteger.(c samples of_string) ;
+    Integer8.(c samples of_string) ;
+    UInteger8.(c samples of_string) ;
+    Integer16.(c samples of_string) ;
+    UInteger16.(c samples of_string) ;
+    Integer32.(c samples of_string) ;
+    UInteger32.(c samples of_string) ;
+    Integer64.(c samples of_string) ;
+    InetAddr.(c samples of_string) ;
+    Cidr.(c samples of_string) ;
+    EthAddr.(c samples of_string) ;
+    Interval.(c samples of_string) ;
+    Timestamp.(c samples of_string) ;
+    TestList.(c samples of_string) ;
+    TestAltern.(c samples of_string) ;
+    TestOption.(c samples of_string) ;
+    VLan.(c samples of_string) ;
+    Origin.(c samples of_string)
 
 let ok = ref true
 let check name f =
@@ -221,4 +251,5 @@ let () =
     check "disp_numbers" check_disp_numbers ;
     check "prefs" check_prefs ;
     check "expressions" check_expressions ;
+    check "sample values" check_samples ;
     exit (if !ok then 0 else 1)
