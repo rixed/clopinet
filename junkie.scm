@@ -28,7 +28,6 @@ Or just run: junkie -c this_file
 (define traffic-fifo (get-fifo "traffic"))
 
 (define (ll-dump out next . rest)
-  (slog log-info "Write ~S" next)
   (display next out)
   (if (null? rest) (write-char #\newline out)
       (begin (write-char #\tab out)
@@ -48,24 +47,26 @@ Or just run: junkie -c this_file
       (string-append "Some " (number->string vlan-id))))
 
 (define-public (print-web device vlan-id client-mac client-ip server-mac server-ip server-port qry-method err-code qry-start dt qry-host url)
-  (dump web-fifo
-        (iface device)
-        (vlan vlan-id)
-        (eth->string client-mac) (ip->string client-ip)
-        (eth->string server-mac) (ip->string server-ip) server-port
-        qry-method err-code
-        (timestamp->string qry-start) 1 dt dt dt 0
-        qry-host url))
+  (let ((dt (/ dt 1000000.))) ; convert microsecs to secs
+    (dump web-fifo
+          (iface device)
+          (vlan vlan-id)
+          (eth->string client-mac) (ip->string client-ip)
+          (eth->string server-mac) (ip->string server-ip) server-port
+          qry-method err-code
+          (timestamp->string qry-start) 1 dt dt dt 0
+          qry-host url)))
 
 (define-public (print-dns device vlan-id client-mac client-ip server-mac server-ip err-code qry-start dt qry-name)
-  (dump dns-fifo
-        (iface device)
-        (vlan vlan-id)
-        (eth->string client-mac) (ip->string client-ip)
-        (eth->string server-mac) (ip->string server-ip)
-        err-code
-        (timestamp->string qry-start) 1 dt dt dt 0
-        qry-name))
+  (let ((dt (/ dt 1000000.))) ; convert microsecs to secs
+    (dump dns-fifo
+          (iface device)
+          (vlan vlan-id)
+          (eth->string client-mac) (ip->string client-ip)
+          (eth->string server-mac) (ip->string server-ip)
+          err-code
+          (timestamp->string qry-start) 1 dt dt dt 0
+          qry-name)))
 
 (define-public (print-traffic device vlan-id ts-start ts-stop count eth-src eth-dst eth-proto eth-pld eth-mtu ip-src ip-dst ip-proto ip-pld port-src port-dst l4-pld)
   (dump traffic-fifo
@@ -79,13 +80,14 @@ Or just run: junkie -c this_file
         port-src port-dst l4-pld))
 
 (define-public (print-tcp device vlan-id client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns dt)
-  (dump tcp-fifo
-        (iface device)
-        (vlan vlan-id)
-        (eth->string client-mac) (ip->string client-ip)
-        (eth->string server-mac) (ip->string server-ip)
-        client-port server-port
-        (timestamp->string sock-syn) nb-syns 1 dt dt dt 0))
+  (let ((dt (/ dt 1000000.))) ; convert microsecs to secs
+    (dump tcp-fifo
+          (iface device)
+          (vlan vlan-id)
+          (eth->string client-mac) (ip->string client-ip)
+          (eth->string server-mac) (ip->string server-ip)
+          client-port server-port
+          (timestamp->string sock-syn) nb-syns 1 dt dt dt 0)))
 
 (define-public (print-flow device vlan-id eth-src ip-src eth-dst ip-dst ip-proto port-src port-dst ts-start ts-stop count pld)
   (dump flow-fifo
@@ -113,7 +115,7 @@ Or just run: junkie -c this_file
      (url str)
      (qry-host str)]
     [(http-answer
-       (on-entry (apply (clopinet) print-web device vlan client-mac client-ip server-mac server-ip server-port qry-method err-code qry-start (/ (- qry-stop qry-start) 1000000.) qry-host url)))
+       (on-entry (apply (clopinet) print-web device vlan client-mac client-ip server-mac server-ip server-port qry-method err-code qry-start (- qry-stop qry-start) qry-host url)))
      (web-qry
        (index-size 5024)
        (timeout 60000000))]
@@ -166,7 +168,7 @@ Or just run: junkie -c this_file
      (qry-stop timestamp)
      (qry-name str)]
     [(dns-answer
-       (on-entry (apply (clopinet) print-dns device vlan client-mac client-ip server-mac server-ip err-code qry-start (/ (- qry-stop qry-start) 1000000.) qry-name)))
+       (on-entry (apply (clopinet) print-dns device vlan client-mac client-ip server-mac server-ip err-code qry-start (- qry-stop qry-start) qry-name)))
      (dns-query
        (index-size 5024)
        (timeout 10000000))]
@@ -435,9 +437,9 @@ Or just run: junkie -c this_file
      (sock-ack timestamp)
      (nb-syns uint)]
     [(tcp-opened
-       (on-entry (apply (clopinet) print-tcp device vlan client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns (/ (sock-ack - sock-syn) 1000000.))))
+       (on-entry (apply (clopinet) print-tcp device vlan client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns (sock-ack - sock-syn))))
      (tcp-connecting
-       (on-timeout (apply (clopinet) print-tcp device vlan client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns (/ (sock-ack - sock-syn) 1000000.)))
+       (on-timeout (apply (clopinet) print-tcp device vlan client-mac client-ip server-mac server-ip client-port server-port sock-syn nb-syns (sock-ack - sock-syn)))
        (index-size 20000)
        ; timeout an outstanding SYN after 80s
        (timeout 80000000))]
