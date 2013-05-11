@@ -224,9 +224,9 @@ struct
             if filter x then f x prev else prev)
             make_fst merge
 
-    let iter ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?error ?qname ?rt_min ?tx_min name f =
+    let iter ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?error ?qname ?rt_min ?rt_max ?tx_min name f =
         let dummy_merge _ _ = () in
-        fold ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?error ?qname ?rt_min ?tx_min name (fun x _ -> f x) ignore dummy_merge
+        fold ?start ?stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?peer ?error ?qname ?rt_min ?rt_max ?tx_min name (fun x _ -> f x) ignore dummy_merge
 
 end
 

@@ -3,12 +3,12 @@ open Web
 
 let main =
     let start = ref None and stop = ref None
-    and rt_min = ref None and url = ref None and status = ref None
+    and rt_min = ref None and rt_max = ref None and url = ref None and status = ref None
     and ip_clt = ref None and ip_srv = ref None and host = ref None
     and peer = ref None and methd = ref None in
     Arg.(parse [
         "-load", String (fun s -> load s), "load a CSV file" ;
-        "-dump", String (function tbname -> Web.(iter ?start:!start ?stop:!stop ?rt_min:!rt_min
+        "-dump", String (function tbname -> Web.(iter ?start:!start ?stop:!stop ?rt_min:!rt_min ?rt_max:!rt_max
                                                       ?ip_clt:!ip_clt ?ip_srv:!ip_srv ?peer:!peer
                                                       ?methd:!methd ?host:!host
                                                       ?url:!url ?status:!status tbname
@@ -17,7 +17,8 @@ let main =
         "-purge", Unit (fun () -> Metric.purge "web" lods), "purge old datafiles" ;
         "-start", String (fun s -> start := Some (Timestamp.of_string s)), "limit queries to timestamps after this" ;
         "-stop",  String (fun s -> stop  := Some (Timestamp.of_string s)), "limit queries to timestamps before this" ;
-        "-rt-min", String (fun s -> rt_min := Some (Float.of_string s)), "limit queries to resptimes greater than this" ;
+        "-rt-min", String (fun s -> rt_min := Some (Float.of_string s)), "limit queries to resptimes above this" ;
+        "-rt-max", String (fun s -> rt_max := Some (Float.of_string s)), "limit queries to resptimes below this" ;
         "-url", String (fun s -> url := Some s), "limit queries to those which URL starts with this" ;
         "-host", String (fun s -> host := Some s), "limit queries to those which host ends with this" ;
         "-status", Int (fun i -> status := Some i), "select only queries with this status code" ;
