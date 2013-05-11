@@ -227,7 +227,7 @@ struct
         "stop", {
             disp_name = "stop" ;
             help = "timestamp of the end of the transaction" ;
-            from_prevfields = "Datatype.Timestamp.add_secs start (Distribution.max resptime)" ;
+            from_prevfields = "Datatype.Timestamp.add_secs start (Distribution.maxi resptime)" ;
             expr_type = TTimestamp ;
             aggrs = [] ;
             sortable = "" ;
@@ -253,8 +253,8 @@ struct
               check status    Integer16.to_imm  "status = %s" ;
               check host      Text.to_imm       "Metric.string_ends_with %s host" ;
               check url       Text.to_imm       "Metric.string_starts_with %s url" ;
-              check rt_min    Float.to_imm      "Distribution.max resptime >= %s" ;
-              check rt_max    Float.to_imm      "Distribution.min resptime <= %s" ;
+              check rt_min    Float.to_imm      "Distribution.maxi resptime >= %s" ;
+              check rt_max    Float.to_imm      "Distribution.mini resptime <= %s" ;
               check tx_min    ULeast63.to_imm   "Distribution.count resptime >= %s" ]) ;
         !filter_
 
