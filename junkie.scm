@@ -149,7 +149,8 @@ Or just run: junkie -c this_file
                                         (ip.dst == client-ip)
                                         (tcp.dst-port == client-port)
                                         (tcp.src-port == server-port)
-                                        (set? http.status))
+                                        (set? http.status)
+                                        (cap.ts >= qry-start))
                                    (do
                                      (qry-stop := cap.ts)
                                      (err-code := http.status)
@@ -194,7 +195,8 @@ Or just run: junkie -c this_file
                               (and
                                 (ip.src == server-ip)
                                 (ip.dst == client-ip)
-                                (dns.txid == txid))
+                                (dns.txid == txid)
+                                (cap.ts >= qry-start))
                               (do
                                 (qry-stop := cap.ts)
                                 (err-code := dns.err-code)
