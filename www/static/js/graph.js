@@ -181,9 +181,10 @@ function svg_explorer(svg_id, controler_id)
 function has_class(elmt, class_name)
 {
     var classes = elmt.getAttribute("class");
-    return classes.indexOf(' ' + class_name + ' ') > -1 || // found in the middle
-           classes.indexOf(class_name + ' ') == 0 ||       // in the beginning
-           classes.indexOf(class_name) == classes.length - class_name.length; // or in the end (or if the only class)
+    return class_name.length <= classes.length && (
+			classes.indexOf(' ' + class_name + ' ') > -1 || // found in the middle
+			classes.indexOf(class_name + ' ') == 0 ||       // in the beginning
+			classes.indexOf(class_name) == classes.length - class_name.length); // or in the end (or if the only class)
 }
 
 function timeline_select(evt, peer_name)
