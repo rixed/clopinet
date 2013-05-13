@@ -213,7 +213,7 @@ let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.str
         let pi = if prim then 0 else 1 in
         let color = Color.random_of_string label in
         let stroke = Color.to_html color in
-        path ~stroke:(if is_stacked then "none" else stroke)
+             ~stroke_width:(if is_stacked then 0.8 else 1.)
              ~fill:(if is_stacked then stroke else "none")
              ?fill_opacity:(if is_stacked then Some 0.5 else None)
              ~attrs:["class","fitem "^label ;
