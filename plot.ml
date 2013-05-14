@@ -468,21 +468,36 @@ let arrays_of_volume_chunks nb_steps vols rest_vols label_of_key =
         (label_of_key k, to_scaled_array ya) :: prev)
         vols ["others", to_scaled_array rest_vols]
 
-let grid_interv n start stop =
+let grid_interval n start stop =
     let dv = stop -. start in
     (* find the round value closest to dv/n (by round we mean 1, 5, 10...) *)
-    let l = dv /. float_of_int n in
-    let f = 10. ** floor (log10 l) in
-    let i = floor (l /. f) in
-    if i < 2.5 then f else
-    if i < 7.5 then 5. *. f else
+    let l = dv /. float_of_int n in (* l = length if we split dv in n equal parts *)
+    let f = 10. ** floor (log10 l) in (* f closest power of 10 below l *)
+    let i = floor (l /. f) in (* i >= 1, how much f is smaller than l *)
+    if i < 2.5 || 5. *. f >= dv then f else (* if it's less than 2.5 times smaller, use it *)
+    if i < 7.5 || 10. *. f >= dv then 5. *. f else (* if it's around 5 times smaller, use 5*f *)
     10. *. f
+
+(*$Q grid_interval
+  (Q.triple Q.small_int Q.float Q.pos_float) (fun (n, start, width) -> \
+    n = 0 || width = 0. || \
+    let interval = grid_interval n start (start +. width) in \
+    interval >= 0. && interval <= width)
+ *)
 
 (* Given a range of values [start:stop], returns an enum of approximatively [n] round intermediate values *)
 let grid n start stop =
-    let interv = grid_interv n start stop in
-    let lo = interv *. floor (start /. interv) in
-    Enum.seq lo ((+.) interv) ((>=) stop)
+    let interval = grid_interval n start stop in
+    let lo = interval *. floor (start /. interval) in
+    let lo = if lo >= start then lo else lo +. interval in
+    Enum.seq lo ((+.) interval) ((>=) stop)
+
+(*$Q grid
+  (Q.triple Q.small_int Q.float Q.pos_float) (fun (n, start, width) -> \
+    n = 0 || width = 0. || \
+    let stop = start +. width in \
+    grid n start stop |> Enum.for_all (fun x -> x >= start && x <= stop))
+ *)
 
 (* Ascii Art *)
 
