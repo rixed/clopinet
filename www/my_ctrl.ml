@@ -21,7 +21,8 @@ let i2s ?min ?max i =
 (* TODO: we can't easily reset prev_str because we don't know when plotters will use this
  * function in another axis... for instance imagine we have dates for both X and Y axis... *)
 let prev_str = ref ("","","")
-let string_of_date ts =
+let string_of_date scale ts =
+    let ts = ts /. scale in (* timestamps were scalled by a ratio before being given to xy_plot - restore seconds *)
     let full = Timestamp.of_unixfloat ts |>
                Timestamp.to_string in
     (* Compare with previous displayed value *)
@@ -31,21 +32,32 @@ let string_of_date ts =
               with Not_found -> rest, "" in
     let prev_d, prev_h, prev_m = !prev_str in
     let show_date = d <> prev_d in
-    let show_msecs = m <> prev_m in
-    let show_hour = (show_msecs && show_date) || h <> prev_h in
+    let show_msecs = m <> "" && m <> prev_m in
+    let show_hour = h <> "" && ((show_msecs && show_date) || h <> prev_h) in
     let buf = Buffer.create (String.length full) in
     if show_date then Buffer.add_string buf d ;
     if show_hour then (
         if show_date then Buffer.add_string buf "\n" ;
         Buffer.add_string buf h
     ) ;
-    if show_msecs then (
+    if show_msecs && m <> "" then (
         if show_hour then Buffer.add_string buf "." ;
         Buffer.add_string buf m
     ) ;
     prev_str := d, h, m ;
     Buffer.contents buf
 
+(* if we give seconds to xy_plot, the tick locations for time axis won't be very
+ * nice (chosen as powers of 10 of number of seconds). Better scale time
+ * coordinate in a unit adapted to the plotted x range. *)
+let time_factor time_step nb_vx =
+    let dt = time_step *. float_of_int nb_vx in
+    let n = 2. in
+    if dt > n *. 604_800. then 1./.604_800. else (* more than n weeks -> convert in weeks *)
+    if dt > n *. 86_400. then 1./.86_400. else   (* more than n days -> convert in days *)
+    if dt > n *. 3_600. then 1./.3_600. else     (* more than n hours -> convert in hours *)
+    if dt > n *. 60. then 1./.60. else           (* more than n mins -> convert in minutes *)
+    1.                                            (* anything smaller -> keep powers of 10 *)
 
 (* returns the 'user-id' *)
 let auth name passwd =
@@ -180,7 +192,7 @@ struct
                     List.fold_left (fun ma (_l, a) ->
                         max ma (Array.length a))
                         0 datasets in
-                let time_step = (Int64.to_float time_step) *. 0.001
+                let time_step = (Int64.to_float time_step) *. 0.001 (* from msecs to secs *)
                 and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
                 and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in
                 let fold f init =
@@ -188,10 +200,12 @@ struct
                         let get i = Array.get a i |> float_of_int in
                         f prev l true get)
                         init datasets in
+                let time_chg_unit = time_factor time_step nb_vx in
                 Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.Stacked
-                              ~force_show_0:true ~string_of_x:string_of_date ~show_rate:true
+                              ~force_show_0:true ~string_of_x:(string_of_date time_chg_unit) ~show_rate:true
                               "time" ~x_label_for_rate:"secs" what
-                              (Timestamp.to_unixfloat start) time_step nb_vx
+                              (Timestamp.to_unixfloat start *. time_chg_unit)
+                              (time_step *. time_chg_unit) nb_vx
                               { Chart.fold = fold }
 
     let bw_chart_descr =
@@ -413,10 +427,12 @@ struct
             let time_step = (Int64.to_float time_step) *. 0.001
             and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
             and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in
+            let time_chg_unit = time_factor time_step nb_vx in
             Chart.xy_plot ~svg_width ~svg_height
-                          ~string_of_x:string_of_date ~stacked:Chart.Stacked
+                          ~string_of_x:(string_of_date time_chg_unit) ~stacked:Chart.Stacked
                           "time" "secs"
-                          (Timestamp.to_unixfloat start) time_step nb_vx
+                          (Timestamp.to_unixfloat start *. time_chg_unit)
+                          (time_step *. time_chg_unit) nb_vx
                           { Chart.fold = fold }
         | None -> []
 
@@ -556,13 +572,15 @@ struct
                     (fun i -> Distribution.count datasets.(i) |> float_of_int) in
                 i in
             let nb_vx = Array.length datasets in
-            let time_step = (Int64.to_float time_step) *. 0.001
+            let time_step = (Int64.to_float time_step) *. 0.001 (* from msecs to secs *)
             and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
             and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in
+            let time_chg_unit = time_factor time_step nb_vx in
             Chart.xy_plot ~svg_width ~svg_height
-                          ~string_of_x:string_of_date ~stacked:Chart.Stacked
+                          ~string_of_x:(string_of_date time_chg_unit) ~stacked:Chart.Stacked
                           "time" "secs"
-                          (Timestamp.to_unixfloat start) time_step nb_vx
+                          (Timestamp.to_unixfloat start *. time_chg_unit)
+                          (time_step *. time_chg_unit) nb_vx
                           { Chart.fold = fold }
         | None -> []
 
