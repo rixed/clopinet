@@ -38,20 +38,27 @@ CPN_COMPILER_OCAMLFIND="$OCAMLFIND"
 
 # Should we run thttpd as an HTTP server?
 # (undefine to prevent running thttpd)
-CPN_RUN_THTTPD_ON_PORT="8080"
+CPN_RUN_THTTPD_ON_PORT=8080
 
 # Dimension of SVG graphs
-## CPN_GUI_SVG_WIDTH="1000"
-## CPN_GUI_SVG_HEIGHT="800"
+## CPN_GUI_SVG_WIDTH=1000
+## CPN_GUI_SVG_HEIGHT=800
 
 # For inlining generated HTML, the path to the www directory
 # CPN_GUI_INLINER_WWWDIR="www"
 
 # What should be the default number of point in a chart
-## CPN_GUI_CHART_PREFERED_RESOLUTION="200"
+## CPN_GUI_CHART_PREFERED_RESOLUTION=200
 
 # What should be the default duration of a chart
 ## CPN_GUI_CHART_PREFERED_DURATION="1 day"
+
+# How many peers should be displayed in a callflow graph, at max
+## CPN_GUI_MAX_CALLFLOW_HOSTS=500
+
+# The document base href to use when index.cgi is called from the command line
+# (notice the default value won't work)
+## CPN_GUI_BASEHREF="http://github.com/rixed/clopinet/www/index.ml"
 
 #
 # GeoIP
@@ -61,7 +68,7 @@ CPN_RUN_THTTPD_ON_PORT="8080"
 CPN_GEOIP_DATABASE="$GEOIPDB"
 
 # Max number of IP to display in traffic map bubbles
-## CPN_GEOIP_MAX_IPS="10"
+## CPN_GEOIP_MAX_IPS=10
 
 #
 # DB
@@ -72,14 +79,14 @@ CPN_GEOIP_DATABASE="$GEOIPDB"
 CPN_DB_BASE_DIR="$DBDIR"
 
 # How many DB files are kept open for writing (needs restart)
-## CPN_DB_MAX_OPENED_FILEDESCR="1000"
+## CPN_DB_MAX_OPENED_FILEDESCR=1000
 
 # Max file size before rotation (needs restart)
 ## CPN_DB_MAX_FILE_SIZE="1M"
 
 # Max hash size (better if prime) (needs restart)
 # Delete your database if you change this
-## CPN_DB_MAX_HASH_SIZE="1009"
+## CPN_DB_MAX_HASH_SIZE=1009
 
 # Number of days to keep datafiles once full
 # (will not purge if left undefined)
@@ -113,7 +120,7 @@ CPN_DB_PURGE_PERIOD="1 hour"
 
 # How many cores to scan database
 # Increase only if you have many!
-## CPN_DB_NB_CORES="1"
+## CPN_DB_NB_CORES=1
 
 #
 # Reports
@@ -146,7 +153,7 @@ CPN_REPORT_DAILY_1_VOLTABLE="10mins"
 CPN_REPORT_DAILY_1_USRFILTER="ip_src == eneide.happyleptic.org || ip_dst == eneide.happyleptic.org"
 CPN_REPORT_DAILY_1_PEERS_GROUPBY="ip"
 CPN_REPORT_DAILY_1_VOL_OR_COUNT="volume"
-CPN_REPORT_DAILY_1_SERIES="500"
+CPN_REPORT_DAILY_1_SERIES=500
 
 #### many of these filters (value, groupby, Y...) should be optional
 

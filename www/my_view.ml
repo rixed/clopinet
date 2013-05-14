@@ -364,6 +364,8 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
     and min_dt = ref Int64.max_int in
     (* Build the hash of all peers and set their X location and time range *)
     let peers = Hashtbl.create 71 (* ip -> (ref x, ts_min, ts_max) *) in
+    let more_peers = ref false in
+    (* Helpers to access peers hash content *)
     let y_of_ts ts =
         let dt = Timestamp.sub !last_ts !first_ts |> Int64.to_float
         and y = Timestamp.sub ts !first_ts |> Int64.to_float in
@@ -381,7 +383,10 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
         if dt > 0L && dt < !min_dt then min_dt := dt ;
         match Hashtbl.find_option peers ip with
         | None ->
-            Hashtbl.add peers ip (ref 0., ts1, ts2) ;
+            if Hashtbl.length peers < Datatype.Integer.of_pref "CPN_GUI_MAX_CALLFLOW_HOSTS" 500 then
+                Hashtbl.add peers ip (ref 0., ts1, ts2)
+            else
+                more_peers := true
         | Some (x, ts1',ts2') ->
             Hashtbl.replace peers ip (x, Timestamp.min ts1 ts1', Timestamp.max ts2 ts2') in
     let tot_volume = ref 0. in
@@ -556,6 +561,7 @@ let callflow_chart start (datasets : Flow.callflow_item list) =
                   h4 ~id:"selected-peer-name" "" ;
                   p ~id:"selected-peer-info" [] ;
                   p ~id:"selected-peer-links" [] ] ] ] ] ;
+      Html.Block (if !more_peers then [ p [ cdata "some peers did not fit in this graph. Consider reducing time range." ] ] else []) ;
       script ~attrs:["class","interactive"] "svg_explorer('callflow', 'scaler');" ]
 
 (* Helpers for axis and grids *)
