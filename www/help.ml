@@ -45,6 +45,7 @@ let field_help (name, desc) =
     tr [
         th [ CData name ] ;
         td [ CData desc.help ] ;
+        td (match desc.valunit with None -> [] | Some u -> [ CData u ]) ;
         td (
             if desc.aggrs <> [] then
                 List.map fst desc.aggrs |> String.concat ", " |> fun fs -> [ CData fs ]
@@ -74,6 +75,7 @@ let page name _params =
                 table (
                     tr [ th [ CData "name" ] ;
                          th [ CData "description" ] ;
+                         th [ CData "unit" ] ;
                          th [ CData "possible aggregation functions" ] ;
                          th [ CData "can be sorted by" ] ;
                          th [ CData "can be grouped by" ] ] ::

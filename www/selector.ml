@@ -47,10 +47,10 @@ struct
                        "size", "8" ]
             (List.enum Conf.fields //@
             (fun (name, descr) ->
-                if descr.aggrs <> [] then Some (name, descr.aggrs) else None) /@
-            (fun (name, aggrs) ->
+                if descr.aggrs <> [] then Some (name,descr) else None) /@
+            (fun (name, descr) ->
                 tag "optgroup"
-                    ~attrs:["label",name]
+                    ~attrs:["label",descr.disp_name]
                     (List.map (fun (aggr_name, _) ->
                         let opt_name = name ^"."^ aggr_name in
                         let selected = List.mem opt_name selection in
@@ -58,7 +58,7 @@ struct
                             ~attrs:(("value", opt_name)::
                                     (if selected then ["selected", "selected"] else []))
                             [ cdata aggr_name ])
-                        aggrs)) |>
+                        descr.aggrs)) |>
             List.of_enum) ]
 
     let from name getter = getter name

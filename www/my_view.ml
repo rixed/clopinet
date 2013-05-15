@@ -123,7 +123,7 @@ let make_report_page page_no title descr chart =
       (match descr with None -> span [] | Some txt -> h3 txt) ;
       div ~attrs:["class","report_page"] chart ]
 
-let table_of_datasets key_fields aggr_fields sort_field (tbl, sum_v, sum_tv) =
+let table_of_datasets fields key_fields aggr_fields sort_field (tbl, sum_v, sum_tv) =
     let tds_of_arr a =
         Array.enum a /@
         (fun k -> td [ raw k ]) |>
@@ -153,11 +153,20 @@ let table_of_datasets key_fields aggr_fields sort_field (tbl, sum_v, sum_tv) =
                   [ raw (Datatype.string_of_number (float_of_int sum_v)) ] ]) ]
     and headers =
         let ths_of l =
-            List.map (fun k -> th [ cdata k ]) l in
-        ths_of key_fields @
-        ths_of aggr_fields @
+            List.map (fun s -> th [ cdata s ]) l in
+        let disp_name_of_field k =
+            let descr = List.assoc k fields in
+            let n = descr.Datatype.disp_name in
+            match descr.Datatype.valunit with
+            | None -> n
+            | Some u -> n ^" ("^ u ^")" in
+        let disp_name_of_aggr f =
+            let field, aggr = String.split f "." in
+            aggr ^" of "^ disp_name_of_field field in
+        ths_of (List.map disp_name_of_field key_fields) @
+        ths_of (List.map disp_name_of_aggr aggr_fields) @
         [ th ~attrs:["class","sort_by"]
-             [ cdata sort_field ] ]
+             [ cdata (disp_name_of_field sort_field) ] ]
     in
     [ table ~attrs:["class","tops"]
             (headers @ all_rows) ]

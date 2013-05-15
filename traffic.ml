@@ -94,6 +94,7 @@ struct
         "origin", {
             disp_name = "origin" ;
             help = "origin of this record" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TOrigin ;
             aggrs = [] ;
@@ -104,6 +105,7 @@ struct
         "start", {
             disp_name = "start" ;
             help = "start time of the flow" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TTimestamp ;
             aggrs = [] ;
@@ -114,6 +116,7 @@ struct
         "stop", {
             disp_name = "stop" ;
             help = "timestamp of the last packet of this flow" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TTimestamp ;
             aggrs = [] ;
@@ -124,6 +127,7 @@ struct
         "packets", {
             disp_name = "packet count" ;
             help = "number of packets in this flow" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = aggrs_int ;
@@ -134,6 +138,7 @@ struct
         "vlan", {
             disp_name = "VLAN" ;
             help = "802.1q vlan id" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TVLan ;
             aggrs = [] ;
@@ -144,6 +149,7 @@ struct
         "eth_src", {
             disp_name = "source MAC" ;
             help = "source ethernet address" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TEthAddr ;
             aggrs = [] ;
@@ -154,6 +160,7 @@ struct
         "eth_dst", {
             disp_name = "destination MAC" ;
             help = "destination ethernet address" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TEthAddr ;
             aggrs = [] ;
@@ -164,6 +171,7 @@ struct
         "eth_proto", {
             disp_name = "MAC type" ;
             help = "ethernet protocol" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = [] ;
@@ -174,6 +182,7 @@ struct
         "eth_payload", {
             disp_name = "MAC payload" ;
             help = "total ethernet frame payload" ;
+            valunit = Some "bytes" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = aggrs_int ;
@@ -184,6 +193,7 @@ struct
         "mtu", {
             disp_name = "MTU" ;
             help = "max observed ethernet frame payload" ;
+            valunit = Some "bytes" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = ["max", aggr_max_int] ;
@@ -194,6 +204,7 @@ struct
         "ip_src", {
             disp_name = "source IP" ;
             help = "source IP address (if IP)" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TIp ;
             aggrs = [] ;
@@ -204,6 +215,7 @@ struct
         "ip_dst", {
             disp_name = "destination IP" ;
             help = "destination IP address (if IP)" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TIp ;
             aggrs = [] ;
@@ -214,6 +226,7 @@ struct
         "ip_proto", {
             disp_name = "IP protocol" ;
             help = "IP protocol (if IP)" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = [] ;
@@ -224,6 +237,7 @@ struct
         "ip_payload", {
             disp_name = "IP payload" ;
             help = "IP payload (if IP)" ;
+            valunit = Some "bytes" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = aggrs_int ;
@@ -234,6 +248,7 @@ struct
         "port_src", {
             disp_name = "source port" ;
             help = "source port (if UDP or TCP)" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = aggrs_int ;
@@ -244,6 +259,7 @@ struct
         "port_dst", {
             disp_name = "destination port" ;
             help = "destination port (if UDP or TCP)" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = aggrs_int ;
@@ -254,6 +270,7 @@ struct
         "l4_payload", {
             disp_name = "l4 payload" ;
             help = "UDP/TCP payload (if UDP or TCP)" ;
+            valunit = Some "bytes" ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = aggrs_int ;

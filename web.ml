@@ -87,6 +87,7 @@ struct
         "origin", {
             disp_name = "origin" ;
             help = "origin of this record" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TOrigin ;
             aggrs = [] ;
@@ -97,6 +98,7 @@ struct
         "vlan", {
             disp_name = "VLAN" ;
             help = "802.1q vlan id" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TVLan ;
             aggrs = [] ;
@@ -107,6 +109,7 @@ struct
         "mac_clt", {
             disp_name = "client MAC" ;
             help = "client ethernet address" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TEthAddr ;
             aggrs = [] ;
@@ -117,6 +120,7 @@ struct
         "ip_clt", {
             disp_name = "client IP" ;
             help = "client IP address" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TIp ;
             aggrs = [] ;
@@ -127,6 +131,7 @@ struct
         "mac_srv", {
             disp_name = "server MAC" ;
             help = "server ethernet address" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TEthAddr ;
             aggrs = [] ;
@@ -137,6 +142,7 @@ struct
         "ip_srv", {
             disp_name = "server IP" ;
             help = "server IP address" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TIp ;
             aggrs = [] ;
@@ -147,6 +153,7 @@ struct
         "port_srv", {
             disp_name = "server port" ;
             help = "server port" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = [] ;
@@ -157,6 +164,7 @@ struct
         "methd", { (* beware of OCaml reserved keywords! *)
             disp_name = "method" ;
             help = "request method" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = [] ;
@@ -167,6 +175,7 @@ struct
         "status", {
             disp_name = "status" ;
             help = "response status" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TInteger ;
             aggrs = [] ;
@@ -177,6 +186,7 @@ struct
         "start", {
             disp_name = "start" ;
             help = "timestamp of the query" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TTimestamp ;
             aggrs = [] ;
@@ -187,6 +197,7 @@ struct
         "resptime", {
             disp_name = "response time" ;
             help = "response time" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TFloat ;
             aggrs = aggrs_distribution ;
@@ -197,6 +208,7 @@ struct
         "queries", {
             disp_name = "query count" ;
             help = "number of queries" ;
+            valunit = None ;
             from_prevfields = "Distribution.count resptime" ;
             expr_type = TInteger ;
             aggrs = aggrs_int ;
@@ -207,6 +219,7 @@ struct
         "host", {
             disp_name = "host" ;
             help = "host field" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TText ;
             aggrs = [] ;
@@ -217,6 +230,7 @@ struct
         "url", {
             disp_name = "URL" ;
             help = "URL" ;
+            valunit = None ;
             from_prevfields = "" ;
             expr_type = TText ;
             aggrs = [] ;
@@ -227,6 +241,7 @@ struct
         "stop", {
             disp_name = "stop" ;
             help = "timestamp of the end of the transaction" ;
+            valunit = None ;
             from_prevfields = "Datatype.Timestamp.add_secs start (Distribution.maxi resptime)" ;
             expr_type = TTimestamp ;
             aggrs = [] ;

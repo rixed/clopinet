@@ -282,7 +282,7 @@ struct
             let start = match start with Some t -> My_time.Base.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
             let tblname = match tblname with Some n -> Forms.Traffic.TblNames.options.(n) | None -> tblname_of_timestep (Timestamp.sub_to_interval stop start) "traffic" Forms.Traffic.TblNames.options in
             let datasets = get_top ~start ~stop ?ip_src ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields tblname in
-            View.table_of_datasets group_by aggr_fields sort_by datasets
+            View.table_of_datasets Traffic.fields group_by aggr_fields sort_by datasets
         | None -> []
 
     let top_chart_descr =
@@ -490,7 +490,7 @@ struct
             let start = match start with Some t -> My_time.Base.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
             let tblname = match tblname with Some n -> Forms.Web.TblNames.options.(n) | None -> tblname_of_timestep (Timestamp.sub_to_interval stop start) "web" Forms.Web.TblNames.options in
             let datasets = get_top ~start ~stop ?ip_srv ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields tblname in
-            View.table_of_datasets group_by aggr_fields sort_by datasets
+            View.table_of_datasets Web.fields group_by aggr_fields sort_by datasets
         | None -> []
 
     let top_chart_descr =
@@ -639,7 +639,7 @@ struct
             let start = match start with Some t -> My_time.Base.to_timeval t | None -> Timestamp.sub_interval stop default_chart_duration in
             let tblname = match tblname with Some n -> Forms.Dns.TblNames.options.(n) | None -> tblname_of_timestep (Timestamp.sub_to_interval stop start) "dns" Forms.Dns.TblNames.options in
             let datasets = get_top ~start ~stop ?ip_srv ?usr_filter ?max_graphs ?single_pass sort_by group_by aggr_fields tblname in
-            View.table_of_datasets group_by aggr_fields sort_by datasets
+            View.table_of_datasets Dns.fields group_by aggr_fields sort_by datasets
         | None -> []
 
     let top_chart_descr =

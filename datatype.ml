@@ -1488,6 +1488,7 @@ type aggr_function = {
 type selectable_field = {
     disp_name : string ;    (* name show in select box and so on in place of symbolic name (symbols are for ocamlopt) *)
     help : string ;
+    valunit : string option ;
     from_prevfields : string ; (* the expression to build its value from previously defined fields, or "" if the field come from the DB *)
     expr_type : expr_type ;
     aggrs : (string * aggr_function) list ;
