@@ -220,7 +220,7 @@ module Traffic = struct
     end
     module LayoutType = struct
         let name = "layout"
-        let options = [| "neato";"twopi";"circo";"fdp";"sfdp";"dot" |]
+        let options = [| "sfdp";"neato";"twopi";"circo";"fdp";"dot" |]
     end
     module Layout = struct
         module Type = Enum (LayoutType)
