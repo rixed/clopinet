@@ -36,11 +36,10 @@ function refresh_chart(form) {
 
 function peer_links(peer_name)
 {
-    if (peer_name.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
-        document.getElementById('selected-peer-links').innerHTML =
-            '<a href="?action=Traffic%2FCall%20Flow&filter%2Fip-start=' + encodeURI(peer_name) + '">Callflow</a>' +
-            '<a href="?action=Traffic%2FBandwidth%20Evolution%2Fshow&filter%2Fip=' + encodeURI(peer_name) + '&filter%2Ftraffic-groupby=0&filter%2Fvol-or-count=0">Bandwidth</a>';
-    }
+	if (peer_name.indexOf(':') > -1) return;	// a MAC address
+	document.getElementById('selected-peer-links').innerHTML =
+		'<a href="?action=Traffic%2FCall%20Flow&filter%2Fip-start=' + encodeURI(peer_name) + '">Callflow</a>' +
+		'<a href="?action=Traffic%2FBandwidth%20Evolution%2Fshow&filter%2Fip=' + encodeURI(peer_name) + '&filter%2Ftraffic-groupby=0&filter%2Fvol-or-count=0">Bandwidth</a>';
 }
 
 function link_links(peer1, peer2)
