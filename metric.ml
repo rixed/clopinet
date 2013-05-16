@@ -236,3 +236,19 @@ let rec purge dbname lods =
         purge dbname lods
     | None -> ()
 
+(* Functions related to enriching labels.
+ * Many functions receive string labels but may want to know what the string refers to
+ * to be able to offer links or more. So we keep native repr as long as possible. *)
+
+type label = Mac of (VLan.t * EthAddr.t) | Ip of InetAddr.t | Other of string
+
+let string_of_label = function
+    | Mac (Some vl, mac) ->
+        "vlan:"^ string_of_int vl ^","^ EthAddr.to_string mac
+    | Mac (None, mac) -> EthAddr.to_string mac
+    | Ip t -> InetAddr.to_string t
+    | Other t -> t
+
+let label_compare l1 l2 =
+    String.compare (string_of_label l1) (string_of_label l2)
+

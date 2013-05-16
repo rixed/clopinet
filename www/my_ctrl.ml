@@ -410,17 +410,17 @@ struct
             let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max time_step tblname in
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
             let fold f i =
-                let i = f i "Min" true
+                let i = f i (Metric.Other "Min") true
                     (fun i -> Distribution.mini datasets.(i)) in
-                let i = f i "Avg-&sigma;" true
+                let i = f i (Metric.Other "Avg-&sigma;") true
                     (fun i -> max 0. Distribution.(avg datasets.(i) -. std_dev datasets.(i))) in
-                let i = f i "Avg" true
+                let i = f i (Metric.Other "Avg") true
                     (fun i -> Distribution.avg datasets.(i)) in
-                let i = f i "Avg+&sigma;" true
+                let i = f i (Metric.Other "Avg+&sigma;") true
                     (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
-                let i = f i "Max" true
+                let i = f i (Metric.Other "Max") true
                     (fun i -> Distribution.maxi datasets.(i)) in
-                let i = f i "Transactions" false
+                let i = f i (Metric.Other "Transactions") false
                     (fun i -> Distribution.count datasets.(i) |> float_of_int) in
                 i in
             let nb_vx = Array.length datasets in
@@ -463,7 +463,7 @@ struct
                         let i = i - (mi - bucket_min) in
                         if i < 0 || i >= Array.length d then 0.
                         else float_of_int d.(i) in
-                    f p label true get)
+                    f p (Metric.Other label) true get)
                     i datasets
             and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
             and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in
@@ -558,17 +558,17 @@ struct
             let datasets = plot_resp_time start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_max ?tx_min time_step tblname in
             (* TODO: plot_resp_time should return 0 in count instead of None... *)
             let fold f i =
-                let i = f i "Min" true
+                let i = f i (Metric.Other "Min") true
                     (fun i -> Distribution.mini datasets.(i)) in
-                let i = f i "Avg-&sigma;" true
+                let i = f i (Metric.Other "Avg-&sigma;") true
                     (fun i -> max 0. Distribution.(avg datasets.(i) -. std_dev datasets.(i))) in
-                let i = f i "Avg" true
+                let i = f i (Metric.Other "Avg") true
                     (fun i -> Distribution.avg datasets.(i)) in
-                let i = f i "Avg+&sigma;" true
+                let i = f i (Metric.Other "Avg+&sigma;") true
                     (fun i -> Distribution.(avg datasets.(i) +. std_dev datasets.(i))) in
-                let i = f i "Max" true
+                let i = f i (Metric.Other "Max") true
                     (fun i -> Distribution.maxi datasets.(i)) in
-                let i = f i "Transactions" false
+                let i = f i (Metric.Other "Transactions") false
                     (fun i -> Distribution.count datasets.(i) |> float_of_int) in
                 i in
             let nb_vx = Array.length datasets in
@@ -612,7 +612,7 @@ struct
                         let i = i - (mi - bucket_min) in
                         if i < 0 || i >= Array.length d then 0.
                         else float_of_int d.(i) in
-                    f p label true get)
+                    f p (Metric.Other label) true get)
                     i datasets
             and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
             and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in

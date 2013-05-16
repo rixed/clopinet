@@ -118,7 +118,7 @@ type fold_t = {
     (* The bool in there is true for all plots in the "primary" chart, and
      * false once at most for the "secondary" plot. Note: the secondary plot
      * is displayed with a distinct Y axis. *)
-    fold : 'a. ( 'a -> string -> bool -> (int -> float) -> 'a) -> 'a -> 'a }
+    fold : 'a. ( 'a -> Metric.label -> bool -> (int -> float) -> 'a) -> 'a -> 'a }
             (* I wonder what's the world record in argument list length? *)
 type stacked = NotStacked | Stacked | StackedCentered
 let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.string_of_number) ?string_of_x
@@ -211,14 +211,15 @@ let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.str
     let path_of_dataset label prim get =
         let is_stacked = stacked <> NotStacked && prim in
         let pi = if prim then 0 else 1 in
-        let color = Color.random_of_string label in
+        let label_str = Metric.string_of_label label in
+        let color = Color.random_of_string label_str in
         let stroke = Color.to_html color in
             path ~stroke:(if is_stacked then "none" else stroke)
              ~stroke_width:(if is_stacked then 0.7 else 1.)
              ~fill:(if is_stacked then stroke else "none")
              ?fill_opacity:(if is_stacked then Some 0.5 else None)
-             ~attrs:["class","fitem "^label ;
-                     "onmouseover","plot_select(evt, '"^label^"', '"^info prim label^"')" ;
+             ~attrs:["class","fitem "^ label_str ;
+                     "onmouseover","plot_select(evt, '"^ label_str ^"', '"^info prim label^"')" ;
                      "onmouseout", "plot_unselect(evt)" ]
             (
                 let buf = Buffer.create 100 in (* to write path commands in *)
@@ -243,19 +244,20 @@ let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.str
             )
 
     and legend_of_dataset label prim _get =
-        let color = Color.random_of_string label in
-        p ~attrs:["class","hitem "^label ;
-                  "onmouseover","plot_select2('"^label^"', '"^info prim label^"')" ;
+        let label_str = Metric.string_of_label label in
+        let color = Color.random_of_string label_str in
+        p ~attrs:["class","hitem "^ label_str ;
+                  "onmouseover","plot_select2('"^ label_str ^"', '"^info prim label^"')" ;
                   "onmouseout", "plot_unselect2()" ] [
             span ~attrs:[ "class","color-box" ;
                           "style","background-color: " ^ Color.to_html color ]
                           [] ;
-            raw label
+            raw label_str
         ] in
 
     let y2 =
         Option.bind !label2 (fun label ->
-            Some (label, string_of_y2, vy_min.(1), vy_max.(1))) in
+            Some (Metric.string_of_label label, string_of_y2, vy_min.(1), vy_max.(1))) in
     let grid = xy_grid ~stroke:"#000" ~stroke_width:2. ~font_size ~arrow_size:axis_arrow_h ~x_tick_spacing ~y_tick_spacing ~tick_length ~x_label ~y_label:y_label_grid ?string_of_x ~string_of_y ?y2 (x_axis_xmin, x_axis_xmax) (y_axis_ymin, y_axis_ymax) (vx_min, vx_max) (vy_min.(0), vy_max.(0))
     and distrs = g (map_datasets path_of_dataset) in
     let cursor = rect ~attrs:["id","cursor"] ~stroke:"none" ~fill:"#d8a" ~fill_opacity:0.3 x_axis_xmin y_axis_ymax 0. (y_axis_ymin -. y_axis_ymax) in

@@ -149,7 +149,7 @@ let get_callflow start stop ?vlan ?ip_dst ?ip_proto ?port_src ?port_dst ip_start
             (string_of_port proto port_s) (string_of_port proto port_d)
             pkts (if pkts > 1 then "s" else "")
             (string_of_volume (float_of_int pld))),
-        Traffic.label_of_app_key (ip_proto, min port_s port_d),
+        Traffic.label_of_app_key (ip_proto, min port_s port_d) |> string_of_label,
         Dt (float_of_int pld)
     and flow_of_dns (_orig, _vlan, _clte, clt, _srve, srv, err, ts, rt, name) =
         ts, ts2_of_rt ts rt,

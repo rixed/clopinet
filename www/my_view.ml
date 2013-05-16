@@ -207,27 +207,27 @@ let peers_chart ?(is_bytes=false) datasets =
     let x_of_ang ang = inner_rad *. cos ang +. inner_x
     and y_of_ang ang = inner_rad *. sin ang +. inner_y in
     (* Build a list of all peers *)
-    let other_volume = Hashtbl.find datasets ("other", "") in
+    let other_volume = Hashtbl.find datasets (Other "other", Other "") in
     let tot_volume = ref 0. and max_volume = ref 0. in
     let peers = (Hashtbl.fold (fun (a, b) v l ->
-                                 if a = "other" then l else (
+                                 if a = Other "other" then l else (
                                      tot_volume := !tot_volume +. v ;
                                      max_volume := max !max_volume v ;
                                      a::b::l
                                  )) datasets [] |>
-                 List.sort String.compare) |>
-                List.unique_cmp ~cmp:String.compare in
+                 List.sort label_compare) |>
+                List.unique_cmp ~cmp:Pervasives.compare in
     let opacity w = 0.05 +. 0.95 *. w in
     let color w = Color.get color_scale w in
     let nb_peers = List.length peers in
-    let peers =
+    let peers = (* make peers a list of label*classname*angle *)
         let a = 2.*.pi /. (float_of_int nb_peers) in
         List.mapi (fun i p ->
             let a = float_of_int i *. a -. pi/.2. in
             let a = mod_float a (2.*.pi) in
             p, "peer"^string_of_int i, a) peers in
     let get_by_name p =
-        List.find_map (fun ((p', _, _) as r) -> if p = p' then Some r else None) peers in
+        List.find (fun (p', _, _) -> p = p') peers in
     [ table ~attrs:["class","svg"] [ tr [ td
         [ svg ~attrs:["class","clopinet"]
             [ (* Traffic *)
@@ -266,10 +266,10 @@ let peers_chart ?(is_bytes=false) datasets =
                 let anchor = if a < 0.5*.pi || a > 1.5*.pi then "start" else "end" in
                    g ~attrs:["transform","translate("^string_of_float x^","^string_of_float y^") "^
                                          "rotate("^string_of_float (to_deg a') ^")" ;
-                             "onmouseover","peer_select(evt, '"^p^"', '"^Datatype.string_of_volume tot_up^"', '"^Datatype.string_of_volume tot_down^"')" ;
+                             "onmouseover","peer_select(evt, '"^ string_of_label p ^"', '"^Datatype.string_of_volume tot_up^"', '"^Datatype.string_of_volume tot_down^"')" ;
                              "onmouseout", "peer_unselect(evt)" ]
                      [ text ~attrs:["class",class_list ; "id",pclass] ~style:("text-anchor:"^anchor^"; dominant-baseline:central")
-                            ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_width:0. p ]
+                            ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_width:0. (string_of_label p) ]
                  ) peers) ] ] ;
         td
             [ div ~attrs:["class","svg-info"]
@@ -289,7 +289,7 @@ let peers_graph datasets layout =
             max y m) n m) datasets 0. in
     let weight w = 1. +. 2. *. w in
     let color w = Color.get color_scale w in
-    let out, inp = Unix.open_process "dot -Tplain" in (* dot outputs HTML header :-< *)
+    let out, inp = Unix.open_process "tee /tmp/dot.log | dot -Tplain" in (* dot outputs HTML header :-< *)
     let font_size_pt = 11 in
     Printf.fprintf inp "graph network {\n\
 node [shape=box,height=0.2];\n\
@@ -297,11 +297,13 @@ graph [fontsize=%d];\n\
 overlap=scale;\n\
 layout=\"%s\";\n"
     font_size_pt layout ;
+    let iname_of_label n = Marshal.(to_string n [No_sharing]) |> Base64.str_encode
+    and label_of_iname n = let s = Base64.str_decode n in Marshal.from_string s 0 in
     Hashtbl.iter (fun k1 n ->
         Hashtbl.iter (fun k2 y ->
             let w = y /. max_volume in
-            Printf.fprintf inp "\t\"%s\" -- \"%s\" [weight=%f];\n"
-                k1 k2 (weight w))
+            Printf.fprintf inp "\t\"%s-\" -- \"%s-\" [weight=%f];\n" (* the added - is to force dot to quote *)
+                (iname_of_label k1) (iname_of_label k2) (weight w))
             n)
         datasets ;
     Printf.fprintf inp "}\n" ;
@@ -318,10 +320,10 @@ layout=\"%s\";\n"
         let font_size, _ = dot_2_svg (float_of_int font_size_pt /. 72.) 0.0 in
         let node_pos = Hashtbl.create 71 in
         (try while true do
-            Scanf.fscanf ic "node \"%s@\" %f %f %f %f %_s %_s %_s %_s %_s\n" (fun name x y w h ->
+            Scanf.fscanf ic "node \"%s@-\" %f %f %f %f %_s %_s %_s %_s %_s\n" (fun iname x y w h ->
                 let x, y = dot_2_svg x y
                 and w, h = dot_2_svg w h in
-                Hashtbl.add node_pos name (x, svg_height -. y, w, h))
+                Hashtbl.add node_pos (label_of_iname iname) (x, svg_height -. y, w, h))
             done
         with Scanf.Scan_failure _ -> ()) ;
         let pos_of n =
@@ -329,18 +331,18 @@ layout=\"%s\";\n"
             x,y in
         IO.close_out inp ; (* cleans everything *)
         let svg_nodes = Hashtbl.fold (fun n (x,y,w,h) p ->
-            let is_mac = try Scanf.sscanf n "%[0-9a-f]:" ignore ; true
-                         with Scanf.Scan_failure _ -> false in
+            let is_mac = match n with Mac _ -> true | _ -> false in
             let col = if is_mac then "#888" else "#5c8" in
-            (g ~attrs:[ "onmouseover","node_select(evt, '"^n^"')" ]
+            let lab = string_of_label n in
+            (g ~attrs:[ "onmouseover","node_select(evt, '"^ lab ^"')" ]
                [ rect ~fill:col (x-.w/.2.) (y-.h/.2.) w h ;
-                 text ~x ~y n ]) ::p)
+                 text ~x ~y lab ]) ::p)
             node_pos [] in
         let svg_edges = Hashtbl.fold (fun k1 n p ->
             Hashtbl.fold (fun k2 y p ->
                 let w = y /. max_volume in
                 let col = color w and sw = 0.5 *. font_size in
-                (g ~attrs:[ "onmouseover", "edge_select(evt, '"^k1^"', '"^k2^"')" ]
+                (g ~attrs:[ "onmouseover", "edge_select(evt, '"^string_of_label k1^"', '"^string_of_label k2^"')" ]
                     [ line ~stroke:col ~stroke_width:sw (pos_of k1) (pos_of k2) ])::p)
                 n p) datasets [] in
         (* FF seams confused by svg when implementing getBoundingClientRect.

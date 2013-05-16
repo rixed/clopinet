@@ -466,7 +466,7 @@ let arrays_of_volume_chunks nb_steps vols rest_vols label_of_key =
         array_of_y_array nb_steps ya in
     Hashtbl.fold (fun k (_, ya) prev ->
         (label_of_key k, to_scaled_array ya) :: prev)
-        vols ["others", to_scaled_array rest_vols]
+        vols [Metric.Other "others", to_scaled_array rest_vols]
 
 let grid_interval n start stop =
     let dv = stop -. start in
