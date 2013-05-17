@@ -1,6 +1,29 @@
 FAQ
 ===
 
+* Why not Netflow? Why not SNMP?
+
+Netflow would have many advantages: no need to direct all traffic to a single
+host, no need to install the sniffer, ability to share collected data with
+other tools...
+
+But netflow brings so few informations that only the most basic views would
+have been possible.  Gathering data via SNMP would have been even more limited.
+
+With the total traffic, on the other hand, every query and representation
+will ever be possible. That's much more fun.
+
+BTW, a netflow collector that would pour into the traffic table is planned.
+
+In the meantime, if the traffic you'd like to see is far away from the probe
+then you can:
+
+- use a crypted/compressed GRE or ERSPAN tunnel (the sniffer can detunnel that)?
+- install another probe on that remote site, waiting for clopinet remote query
+  feature?
+- ok you're screwed.
+
+
 * How come the database is already XXGb big after only a few hours?
 
 DB size grows fast at the begenning and much slower afterward.

@@ -692,8 +692,10 @@ module Cidr_base = struct
         InetAddr.write oc n ; UInteger8.write oc m
     let write_txt oc (n,m) =
         InetAddr.write_txt oc n ;
-        Output.char oc '/' ;
-        UInteger8.write_txt oc m
+        if m <> 32 then (
+            Output.char oc '/' ;
+            UInteger8.write_txt oc m
+        )
     let read ic =
         let n = InetAddr.read ic in
         n, UInteger8.read ic
