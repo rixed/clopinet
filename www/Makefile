@@ -44,4 +44,4 @@ uninstall:
 	rm -rf "$(wwwdir)/static"
 
 clean-spec:
-	rm index.cgi
+	rm -f index.cgi
