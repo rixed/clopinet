@@ -230,12 +230,12 @@ let check_samples () =
 let ok = ref true
 let check name f =
     try f () ;
-        Printf.printf "%s: Ok\n" name
+        Printf.printf "%s: Ok\n%!" name
     with _ ->
         ok := false ;
-        Printf.printf "%s: Fail:\n" name ;
+        Printf.printf "%s: Fail:\n%!" name ;
         Printexc.print_backtrace stdout ;
-        Printf.printf "----------\n"
+        Printf.printf "----------\n%!"
 
 let () =
     check "datatools" check_datatools ;

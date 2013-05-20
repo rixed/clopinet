@@ -591,9 +591,23 @@ let cached_gethostbyaddr addr =
     | Some x -> x
     | None ->
         let open Unix in
-        let name = (gethostbyaddr addr).h_name in
+        let name =
+            try Some (gethostbyaddr addr).h_name
+            with Not_found -> None in
         Hashtbl.add gethostbyaddr_cache addr name ;
         name
+
+let gethostbyname_cache = Hashtbl.create 997
+let cached_gethostbyname name =
+    match Hashtbl.find_option gethostbyname_cache name with
+    | Some x -> x
+    | None ->
+        let open Unix in
+        let addr =
+            try Some (gethostbyname name).h_addr_list.(0)
+            with _ -> None in
+        Hashtbl.add gethostbyname_cache name addr ;
+        addr
 
 module InetAddr_base = struct
     (*$< InetAddr_base *)
@@ -609,8 +623,7 @@ module InetAddr_base = struct
     let write_txt oc t =
         (let open Unix in
         if Bool.of_pref "CPN_RESOLVER_IP" false then
-            try cached_gethostbyaddr t
-            with Not_found -> string_of_inet_addr t
+            BatOption.default_delayed (fun () -> string_of_inet_addr t) (cached_gethostbyaddr t)
         else
             string_of_inet_addr t) |>
         Output.string oc
@@ -658,8 +671,9 @@ module InetAddr_base = struct
         let p =
             either [ dotted_ip_addr ;
                      hostname >>= fun s ->
-                                    try return Unix.((gethostbyname s).h_addr_list.(0))
-                                    with _ -> fail ("Cannot resolve '"^s^"'") ] in
+                                    match cached_gethostbyname s with
+                                    | Some addr -> return addr
+                                    | None -> fail @@ "Cannot resolve '"^s^"'" ] in
         if picky then p ++ check (either [ eof ; ign (cond not_ip) ]) >>: fst
         else p
 
