@@ -367,6 +367,9 @@ struct
             let rt_max = i2s ?min:rt_min rt_max in
             let sort_order = match sort_order with 0 -> Plot.Asc | _ -> Plot.Desc in
             let tops = top_requests start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?methd ?status ?host ?url ?rt_min ?rt_max n sort_order in
+            (* FIXME: we should take both field names and value display
+             * functions from Web.fields, but we lack the display_name
+             * and display_value methods taking a tuple and returning html. *)
             let field_display_names =
                 [ "Origin"     ; "VLAN" ;
                   "Client MAC" ; "Client IP" ;
@@ -463,7 +466,7 @@ struct
                         let i = i - (mi - bucket_min) in
                         if i < 0 || i >= Array.length d then 0.
                         else float_of_int d.(i) in
-                    f p (Metric.Other label) true get)
+                    f p label true get)
                     i datasets
             and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
             and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in
@@ -612,7 +615,7 @@ struct
                         let i = i - (mi - bucket_min) in
                         if i < 0 || i >= Array.length d then 0.
                         else float_of_int d.(i) in
-                    f p (Metric.Other label) true get)
+                    f p label true get)
                     i datasets
             and svg_width  = Float.of_pref "CPN_GUI_SVG_WIDTH" 1000.
             and svg_height = Float.of_pref "CPN_GUI_SVG_HEIGHT" 600. in

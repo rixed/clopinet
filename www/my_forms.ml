@@ -389,7 +389,7 @@ module Web = struct
     module KeySelector = struct
         module Type = Selector.MakeKey (Web.Web)
         let display_name = "key"
-        let uniq_name = "dns-tops-key"
+        let uniq_name = "web-tops-key"
         let persistant = true
     end
     module AggrSelector = struct

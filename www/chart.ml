@@ -1,3 +1,4 @@
+open Metric
 open Batteries
 open Html
 
@@ -118,7 +119,7 @@ type fold_t = {
     (* The bool in there is true for all plots in the "primary" chart, and
      * false once at most for the "secondary" plot. Note: the secondary plot
      * is displayed with a distinct Y axis. *)
-    fold : 'a. ( 'a -> Metric.label -> bool -> (int -> float) -> 'a) -> 'a -> 'a }
+    fold : 'a. ( 'a -> label -> bool -> (int -> float) -> 'a) -> 'a -> 'a }
             (* I wonder what's the world record in argument list length? *)
 type stacked = NotStacked | Stacked | StackedCentered
 let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.string_of_number) ?string_of_x
@@ -211,7 +212,8 @@ let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.str
     let path_of_dataset label prim get =
         let is_stacked = stacked <> NotStacked && prim in
         let pi = if prim then 0 else 1 in
-        let label_str = Metric.string_of_label label in
+        let label_str = string_of_label label in
+        let label_js = js_of_label label in
         let color = Color.random_of_string label_str in
         let stroke = Color.to_html color in
             path ~stroke:(if is_stacked then "none" else stroke)
@@ -219,8 +221,8 @@ let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.str
              ~fill:(if is_stacked then stroke else "none")
              ?fill_opacity:(if is_stacked then Some 0.5 else None)
              ~attrs:["class","fitem "^ label_str ;
-                     "onmouseover","plot_select(evt, '"^ label_str ^"', '"^info prim label^"')" ;
-                     "onmouseout", "plot_unselect(evt)" ]
+                     "onmouseover","label_select("^ label_js ^", '"^info prim label^"')" ;
+                     "onmouseout", "label_unselect("^label_js ^")" ]
             (
                 let buf = Buffer.create 100 in (* to write path commands in *)
                 (* Top line *)
@@ -244,11 +246,12 @@ let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.str
             )
 
     and legend_of_dataset label prim _get =
-        let label_str = Metric.string_of_label label in
+        let label_str = string_of_label label in
+        let label_js = js_of_label label in
         let color = Color.random_of_string label_str in
         p ~attrs:["class","hitem "^ label_str ;
-                  "onmouseover","plot_select2('"^ label_str ^"', '"^info prim label^"')" ;
-                  "onmouseout", "plot_unselect2()" ] [
+                  "onmouseover","label_select("^ label_js ^", '"^info prim label^"')" ;
+                  "onmouseout", "label_unselect("^ label_js ^")" ] [
             span ~attrs:[ "class","color-box" ;
                           "style","background-color: " ^ Color.to_html color ]
                           [] ;
@@ -257,19 +260,20 @@ let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.str
 
     let y2 =
         Option.bind !label2 (fun label ->
-            Some (Metric.string_of_label label, string_of_y2, vy_min.(1), vy_max.(1))) in
+            Some (string_of_label label, string_of_y2, vy_min.(1), vy_max.(1))) in
     let grid = xy_grid ~stroke:"#000" ~stroke_width:2. ~font_size ~arrow_size:axis_arrow_h ~x_tick_spacing ~y_tick_spacing ~tick_length ~x_label ~y_label:y_label_grid ?string_of_x ~string_of_y ?y2 (x_axis_xmin, x_axis_xmax) (y_axis_ymin, y_axis_ymax) (vx_min, vx_max) (vy_min.(0), vy_max.(0))
     and distrs = g (map_datasets path_of_dataset) in
     let cursor = rect ~attrs:["id","cursor"] ~stroke:"none" ~fill:"#d8a" ~fill_opacity:0.3 x_axis_xmin y_axis_ymax 0. (y_axis_ymin -. y_axis_ymax) in
     [ table ~attrs:["class","svg"] [ tr
         [ td ~id:"plot"
-            [ svg [ cursor ; grid ; distrs ] ] ;
+            [ svg ~cls:"clopinet" [ cursor ; grid ; distrs ] ] ;
           td [ div ~attrs:["class","svg-info"]
                 ([ h3 "Global" ;
                    p [ raw ("Tot: "^ (string_of_y !tot_vys) ^ y_label) ] ;
                    p [ raw ("Avg: "^ avg_vy) ] ;
                    h3 ~id:"selected-peer-name" "" ;
                    p ~id:"selected-peer-info" [] ;
+                   p ~id:"selected-peer-links" [] ;
                    h3 "Legend" ] @
                  (map_datasets legend_of_dataset)) ] ] ] ;
         (* for this we really do want stdlib's string_of_float not our stripped down version *)

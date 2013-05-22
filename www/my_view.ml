@@ -123,6 +123,13 @@ let make_report_page page_no title descr chart =
       (match descr with None -> span [] | Some txt -> h3 txt) ;
       div ~attrs:["class","report_page"] chart ]
 
+let disp_name_of_field fields k =
+    let descr = List.assoc k fields in
+    let n = descr.Datatype.disp_name in
+    match descr.Datatype.valunit with
+    | None -> n
+    | Some u -> n ^" ("^ u ^")"
+
 let table_of_datasets fields key_fields aggr_fields sort_field (tbl, sum_v, sum_tv) =
     let tds_of_arr a =
         Array.enum a /@
@@ -154,19 +161,13 @@ let table_of_datasets fields key_fields aggr_fields sort_field (tbl, sum_v, sum_
     and headers =
         let ths_of l =
             List.map (fun s -> th [ cdata s ]) l in
-        let disp_name_of_field k =
-            let descr = List.assoc k fields in
-            let n = descr.Datatype.disp_name in
-            match descr.Datatype.valunit with
-            | None -> n
-            | Some u -> n ^" ("^ u ^")" in
         let disp_name_of_aggr f =
             let field, aggr = String.split f "." in
-            aggr ^" of "^ disp_name_of_field field in
-        ths_of (List.map disp_name_of_field key_fields) @
+            aggr ^" of "^ disp_name_of_field fields field in
+        ths_of (List.map (disp_name_of_field fields) key_fields) @
         ths_of (List.map disp_name_of_aggr aggr_fields) @
         [ th ~attrs:["class","sort_by"]
-             [ cdata (disp_name_of_field sort_field) ] ]
+             [ cdata (disp_name_of_field fields sort_field) ] ]
     in
     [ table ~attrs:["class","tops"]
             (headers @ all_rows) ]
@@ -209,32 +210,36 @@ let peers_chart ?(is_bytes=false) datasets =
     (* Build a list of all peers *)
     let other_volume = Hashtbl.find datasets (Other "other", Other "") in
     let tot_volume = ref 0. and max_volume = ref 0. in
-    let peers = (Hashtbl.fold (fun (a, b) v l ->
-                                 if a = Other "other" then l else (
-                                     tot_volume := !tot_volume +. v ;
-                                     max_volume := max !max_volume v ;
-                                     a::b::l
-                                 )) datasets [] |>
-                 List.sort label_compare) |>
-                List.unique_cmp ~cmp:Pervasives.compare in
+    (* peers : a hash of label to (vol_up, vol_down, angle) *)
+    let peers = Hashtbl.create (Hashtbl.length datasets) in
+    (* First insert all the keys *)
+    Hashtbl.iter (fun (peer1,peer2) v ->
+        tot_volume := !tot_volume +. v ;
+        max_volume := max !max_volume v ;
+        Hashtbl.modify_opt peer1 (function
+           | None -> Some (0., v, 0.)
+           | Some (up, down, ang) -> Some (up, down+.v, ang)) peers ;
+        Hashtbl.modify_opt peer2 (function
+           | None -> Some (v, 0., 0.)
+           | Some (up, down, ang) -> Some (up+.v, down, ang)) peers
+    ) datasets ;
+    (* Then assign angles *)
+    let nb_peers = Hashtbl.length peers in
+    let a = 2.*.pi /. (float_of_int nb_peers) in
+    let ang = ref (-. pi/.2.) in
+    Hashtbl.map_inplace (fun _peer (up,down,_) ->
+        let ang_ = mod_float !ang (2.*.pi) in
+        ang := !ang +. a ;
+        up, down, ang_) peers ;
     let opacity w = 0.05 +. 0.95 *. w in
     let color w = Color.get color_scale w in
-    let nb_peers = List.length peers in
-    let peers = (* make peers a list of label*classname*angle *)
-        let a = 2.*.pi /. (float_of_int nb_peers) in
-        List.mapi (fun i p ->
-            let a = float_of_int i *. a -. pi/.2. in
-            let a = mod_float a (2.*.pi) in
-            p, "peer"^string_of_int i, a) peers in
-    let get_by_name p =
-        List.find (fun (p', _, _) -> p = p') peers in
     [ table ~attrs:["class","svg"] [ tr [ td
-        [ svg ~attrs:["class","clopinet"]
+        [ svg ~cls:"clopinet"
             [ (* Traffic *)
               g (Hashtbl.fold (fun (p1, p2) v l ->
                  try (
-                     let _, c1, a1 = get_by_name p1
-                     and _, c2, a2 = get_by_name p2 in
+                     let _, _, a1 = Hashtbl.find peers p1
+                     and _, _, a2 = Hashtbl.find peers p2 in
                      let x1, y1 = x_of_ang a1, y_of_ang a1
                      and x2, y2 = x_of_ang a2, y_of_ang a2 in
                      let close r a = (* return x,y of a point at radius r and at ang a2+da *)
@@ -250,27 +255,24 @@ let peers_chart ?(is_bytes=false) datasets =
                              curveto (c2x, c2y) (c1x, c1y) (close 0.97 (a1-.0.08*.w')) ^
                              closepath in
                      let col = color w and opac = opacity w in
-                     (g [ path ~attrs:["class",c1^" "^c2] ~fill:col ~stroke:col ~stroke_opacity:opac ~stroke_width:0. ~fill_opacity:opac d ]) :: l
+                     let label1 = string_of_label p1
+                     and label2 = string_of_label p2 in
+                     (g [ path ~attrs:["class",label1^" "^label2] ~fill:col ~stroke:col ~stroke_opacity:opac ~stroke_width:0. ~fill_opacity:opac d ]) :: l
                  ) with Not_found -> l)
                  datasets []) ;
               (* The peers *)
-              g (List.map (fun (p, pclass, a) ->
+              g (Hashtbl.fold (fun p (up, down, a) l ->
                 let x, y = x_of_ang a, y_of_ang a in
-                let class_list, tot_up, tot_down = Hashtbl.fold (fun (p1, p2) v ((tot_class, up, down) as l) ->
-                    if p = p1 then
-                        let _, c, _ = get_by_name p2 in tot_class^" "^c, up +. v, down
-                    else if p = p2 then
-                        let _, c, _ = get_by_name p1 in tot_class^" "^c, up, down +. v
-                    else l) datasets (pclass, 0., 0.) in
+                let label_js = js_of_label p and label_str = string_of_label p in
                 let a' = (mod_float (a +. pi/.2.) pi) -. pi/.2. in
                 let anchor = if a < 0.5*.pi || a > 1.5*.pi then "start" else "end" in
-                   g ~attrs:["transform","translate("^string_of_float x^","^string_of_float y^") "^
+                (g ~attrs:["transform","translate("^string_of_float x^","^string_of_float y^") "^
                                          "rotate("^string_of_float (to_deg a') ^")" ;
-                             "onmouseover","peer_select(evt, '"^ string_of_label p ^"', '"^Datatype.string_of_volume tot_up^"', '"^Datatype.string_of_volume tot_down^"')" ;
-                             "onmouseout", "peer_unselect(evt)" ]
-                     [ text ~attrs:["class",class_list ; "id",pclass] ~style:("text-anchor:"^anchor^"; dominant-baseline:central")
-                            ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_width:0. (string_of_label p) ]
-                 ) peers) ] ] ;
+                             "onmouseover","label_select("^ label_js ^", 'up:&nbsp;"^Datatype.string_of_volume up^"</br>down:&nbsp"^Datatype.string_of_volume down^"')" ;
+                             "onmouseout", "label_unselect("^ label_js ^")" ]
+                     [ text ~attrs:["class",label_str] ~style:("text-anchor:"^anchor^"; dominant-baseline:central")
+                            ~font_size:15. ~fill:"#444" ~stroke:"#444" ~stroke_width:0. label_str ])::l
+              ) peers []) ] ] ;
         td
             [ div ~attrs:["class","svg-info"]
                 [ h2 (string_of_val !tot_volume) ;
@@ -331,18 +333,19 @@ layout=\"%s\";\n"
             x,y in
         IO.close_out inp ; (* cleans everything *)
         let svg_nodes = Hashtbl.fold (fun n (x,y,w,h) p ->
+            let label_js = js_of_label n in
             let is_mac = match n with Mac _ -> true | _ -> false in
             let col = if is_mac then "#888" else "#5c8" in
-            let lab = string_of_label n in
-            (g ~attrs:[ "onmouseover","node_select(evt, '"^ lab ^"')" ]
+            (g ~attrs:[ "onmouseover","label_select("^ label_js ^", '')" ;
+                        "onmouseout","label_unselect("^ label_js ^")" ]
                [ rect ~fill:col (x-.w/.2.) (y-.h/.2.) w h ;
-                 text ~x ~y lab ]) ::p)
+                 text ~x ~y (string_of_label n) ]) ::p)
             node_pos [] in
         let svg_edges = Hashtbl.fold (fun k1 n p ->
             Hashtbl.fold (fun k2 y p ->
                 let w = y /. max_volume in
                 let col = color w and sw = 0.5 *. font_size in
-                (g ~attrs:[ "onmouseover", "edge_select(evt, '"^string_of_label k1^"', '"^string_of_label k2^"')" ]
+                (g ~attrs:[ "onmouseover", "link_select(evt, "^js_of_label k1^", "^js_of_label k2^")" ]
                     [ line ~stroke:col ~stroke_width:sw (pos_of k1) (pos_of k2) ])::p)
                 n p) datasets [] in
         (* FF seams confused by svg when implementing getBoundingClientRect.

@@ -32,9 +32,9 @@ SOURCES  = \
 	aggregator.ml \
 	dbfile.mli dbfile.ml \
 	table.mli table.ml \
+	metric.ml \
 	plot.ml \
 	subnet.ml \
-	metric.ml \
 	traffic.ml \
 	tcp.ml \
 	web.ml \

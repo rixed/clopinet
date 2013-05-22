@@ -128,7 +128,6 @@ let buffer_duration_of_lod lod metric =
     BatOption.map (fun ms -> Int64.to_float ms *. 0.001 *. 2.) msecs |>
     BatOption.default 1. (* won't be used if this lod is not defined *)
 
-
 (* functions related to repairing db files *)
 
 exception File_truncated
@@ -242,12 +241,24 @@ let rec purge dbname lods =
 
 type label = Mac of (VLan.t * EthAddr.t) | Ip of InetAddr.t | Other of string
 
+let label_of_ip ip = Ip ip
+
 let string_of_label = function
     | Mac (Some vl, mac) ->
         "vlan:"^ string_of_int vl ^","^ EthAddr.to_string mac
     | Mac (None, mac) -> EthAddr.to_string mac
     | Ip t -> InetAddr.to_string t
     | Other t -> t
+
+let js_of_label l =
+    let js_of_vlan = function
+        | Some vl -> ", vlan:'"^ string_of_int vl
+        | None -> "" in
+    let spec_of_label = function
+        | Mac (vl, mac) -> "type:'mac', mac:'"^ EthAddr.to_string mac ^"'"^ js_of_vlan vl
+        | Ip t -> "type:'ip', ip:'"^ InetAddr.to_string t ^"'"
+        | Other t -> "type:'other', label:'"^t^"'" in
+    "{ label:'"^ string_of_label l ^"', "^ spec_of_label l ^" }"
 
 let label_compare l1 l2 =
     String.compare (string_of_label l1) (string_of_label l2)

@@ -280,7 +280,7 @@ let plot_distrib start stop ?vlan ?mac_clt ?ip_clt ?mac_srv ?ip_srv ?rt_min ?rt_
             i m
     and aggr_rts prev_rts rts = List.rev_append rts prev_rts in
     let result, _rest_count, rest_rts, _sum_v, _sum_tv = Plot.FindSignificant.pass2 interm fold2 aggr_rts [] top_nth in
-    Plot.distributions_of_response_times ?prec result rest_rts InetAddr.to_string
+    Plot.distributions_of_response_times ?prec result rest_rts label_of_ip
 
 (* Contrary to top request which return a list of queries from the query table, here we can query freely anything *)
 type top_fun = unit -> ((string array option * string array * int * int) list) * int * string array

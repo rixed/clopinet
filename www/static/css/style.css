@@ -273,6 +273,13 @@ svg.clopinet {
     background-color: #f5f5f5;
 }
 
+svg.clopinet path {
+	fill-opacity: 0.5;
+}
+svg.clopinet path.selected {
+	fill-opacity: 0.9;
+}
+
 span.color-box {
     display: inline-block;
     width: 2em;

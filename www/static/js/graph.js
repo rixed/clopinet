@@ -34,13 +34,31 @@ function refresh_chart(form) {
 
 /* Functions to display links about peer / link */
 
-function peer_links(peer_name)
+// Display links for a single peer
+function peer_links(peer)
 {
-	// FIXME: we really should be told the type
-	if (peer_name.indexOf(':') > -1 || peer_name.indexOf(' ') > -1) return;	// a MAC address
-	document.getElementById('selected-peer-links').innerHTML =
-		'<a href="?action=Traffic%2FCall%20Flow&filter%2Fip-start=' + encodeURI(peer_name) + '">Callflow</a>' +
-		'<a href="?action=Traffic%2FBandwidth%20Evolution%2Fshow&filter%2Fip=' + encodeURI(peer_name) + '&filter%2Ftraffic-groupby=0&filter%2Fvol-or-count=0">Bandwidth</a>';
+    switch (peer.type) {
+        case 'ip':
+            // Instead of using peer.label, use a dedicated peer.value for forms?
+            return (
+                '<a href="?action=Traffic%2FCall%20Flow&filter%2Fip-start=' + encodeURI(peer.label) + '">Callflow</a>' +
+                '<a href="?action=Traffic%2FBandwidth%20Evolution%2Fshow&filter%2Fip=' + encodeURI(peer.label) + '&filter%2Ftraffic-groupby=0&filter%2Fvol-or-count=0">Bandwidth</a>'
+                // TODO: add DNS/HTTP queries to/from
+            );
+        case 'mac':
+            return (
+                '<a href="?action=Traffic%2FBandwidth%20Evolution%2Fshow&filter%2Ftraffic-groupby=0&filter%2Fvol-or-count=0&filter%2Feth-src=' + encodeURI(peer.label) + '">Bandwidth from</a>' +
+                '<a href="?action=Traffic%2FBandwidth%20Evolution%2Fshow&filter%2Ftraffic-groupby=0&filter%2Fvol-or-count=0&filter%2Feth-dest=' + encodeURI(peer.label) + '">Bandwidth to</a>'
+            );
+        default:
+            return '';
+    }
+}
+
+function set_peer_links(peer)
+{
+    var html = peer_links(peer);
+    document.getElementById('selected-peer-links').innerHTML = html;
 }
 
 function link_links(peer1, peer2)
@@ -52,49 +70,30 @@ function link_links(peer1, peer2)
         '<a href="?action=Traffic%2FBandwidth%20Evolution%2Fshow&filter%2Fip-src=' + encodeURI(peer2) + '&filter%2Fip-dst=' + encodeURI(peer1) + '&filter%2Ftraffic-groupby=0&filter%2Fvol-or-count=0">Bandwidth '+ peer2 +'&rarr;'+ peer1 +'</a>';
 }
 
-/* function for SVG circle-graph */
-
-function peer_select(evt, peer_name, up, down)
+function label_select(peer, infos)
 {
-    var classname = evt.target.getAttribute("id");
-    var all = document.getElementsByClassName(classname);
+    var all = document.getElementsByClassName(peer.label);
     for (var i = 0; i < all.length; i++) {
-        all[i].setAttribute("fill", "rgb(255,150,5)");
-        all[i].setAttribute("fill-opacity", 1);
+        all[i].classList.add('selected');
     }
     // fill in infos for this peer
-    document.getElementById('selected-peer-name').innerHTML = peer_name;
-    document.getElementById('selected-peer-info').innerHTML =
-        'up:&nbsp;'+up+'</br>'+
-        'down:&nbsp;'+down;
-    peer_links(peer_name);
+    document.getElementById('selected-peer-name').innerHTML = peer.label;
+    document.getElementById('selected-peer-info').innerHTML = infos;
+    set_peer_links(peer);
 }
 
-function peer_unselect(evt)
+function label_unselect(peer)
 {
-    var classname = evt.target.getAttribute("id");
-    var all = document.getElementsByClassName(classname);
+    var all = document.getElementsByClassName(peer.label);
     for (var i = 0; i < all.length; i++) {
-        var col = all[i].getAttribute("stroke");
-        all[i].setAttribute("fill", col);
-        var opac = all[i].getAttribute("stroke-opacity");
-        all[i].setAttribute("fill-opacity", opac);
+        all[i].classList.remove('selected');
     }
 }
 
-/* Functions to explore the netgraph */
-
-function node_select(evt, peer_name)
+function link_select(classname, peer1, peer2)
 {
-    document.getElementById('selected-peer-name').innerHTML = peer_name;
-    document.getElementById('selected-peer-info').innerHTML = '??';
-    peer_links(peer_name);
-}
-
-function edge_select(evt, peer1, peer2)
-{
-    document.getElementById('selected-peer-name').innerHTML = peer1 +'&harr;'+ peer2;
-    document.getElementById('selected-peer-info').innerHTML = '??';
+    document.getElementById('selected-peer-name').innerHTML = peer1.label +'&harr;'+ peer2.label;
+    document.getElementById('selected-peer-info').innerHTML = '';
     link_links(peer1, peer2);
 }
 
@@ -187,6 +186,7 @@ function has_class(elmt, class_name)
 			classes.indexOf(class_name) == classes.length - class_name.length); // or in the end (or if the only class)
 }
 
+// FIXME: should take a label (ie. callflow should return labels as well)
 function timeline_select(evt, peer_name)
 {
     var all = document.getElementsByClassName("fitem");
@@ -197,7 +197,7 @@ function timeline_select(evt, peer_name)
     // fill in infos for this peer
     document.getElementById('selected-peer-name').innerHTML = peer_name;
     document.getElementById('selected-peer-info').innerHTML = '??';
-    peer_links(peer_name);
+    set_peer_links(peer_name);  // FIXME
 }
 
 function timeline_unselect(evt, peer_name)
@@ -300,29 +300,27 @@ function svg_explore_plot(svg_id, vx_min, vx_max, x_axis_xmin, x_axis_xmax, prec
 
 
 // Functions for time plot
-
-function plot_select2(peer_name, info)
+/*
+function plot_select2(peer, info)
 {
     // Make svg elements more visible
     var all = document.getElementsByClassName("fitem");
     for (var i = 0; i < all.length; i++) {
         all[i].setAttribute("opacity",
-            has_class(all[i], peer_name) ? 1 : 0.1);
+            has_class(all[i], peer.label) ? 1 : 0.1);
     }
     // Make html elements more visible
     all = document.getElementsByClassName("hitem");
     for (var i = 0; i < all.length; i++) {
-        if (has_class(all[i], peer_name)) {
+        if (has_class(all[i], peer.label)) {
             all[i].className += " selected";
         }
     }
 
-    // fill in infos for this peer
-    document.getElementById('selected-peer-name').innerHTML = peer_name;
-    document.getElementById('selected-peer-info').innerHTML = info;
+    plot_select(peer, info);
 }
 
-function plot_unselect2(peer_name)
+function plot_unselect2(peer)
 {
     var all = document.getElementsByClassName("fitem");
     for (var i = 0; i < all.length; i++) {
@@ -335,13 +333,13 @@ function plot_unselect2(peer_name)
 }
 
 // These are called from the SVG, with the event
-function plot_select(evt, peer_name, info)
+function plot_select(evt, peer, info)
 {
-    plot_select2(peer_name, info);
+    plot_select2(peer, info);
 }
 
-function plot_unselect(evt, peer_name)
+function plot_unselect(evt, peer)
 {
-    plot_unselect2(peer_name);
+    plot_unselect2(peer);
 }
-
+*/

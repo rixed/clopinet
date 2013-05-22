@@ -456,7 +456,7 @@ let distributions_of_response_times ?prec m rest_rts label_of_key =
             max prev_ma ma,
             (label, mi, d) :: prev_d)
             m
-            (other_mi, other_ma, [ "others", other_mi, other_d ])
+            (other_mi, other_ma, [ Metric.Other "others", other_mi, other_d ])
     in
     prec, mi, ma, d
 
