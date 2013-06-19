@@ -36,17 +36,15 @@ let menu menu_entries =
 
 (* add the menu *)
 let make_app_page menu_entries content =
-    let base_path =
-        let s = try Cgi.this_url ()
-                with Failure _ -> "http://github.com/rixed/clopinet/www/index.ml" in
-        try String.rindex s '/' |> String.left s |> (fun s -> s ^ "/")
-        with Not_found -> s in
     let body = [ header () ;
                  menu menu_entries ;
                  msgs () ;
                  div ~cls:"page" content ]
     and head = [ title "ClopiNet" ;
-                 tag "base" ~attrs:[ "href", Prefs.get_string "CPN_GUI_BASEHREF" base_path ] [] ;
+                 Block (match Prefs.get_option "CPN_GUI_BASEHREF" with
+                        | Some base_path ->
+                            [ tag "base" ~attrs:[ "href", base_path ] [] ]
+                        | None -> []) ;
                  tag "link" ~attrs:[ "rel", "shortcut icon" ;
                                      "href", "static/img/favicon.svg" ;
                                      "type", "image/svg+xml" ] [] ;
