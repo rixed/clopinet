@@ -680,8 +680,8 @@ module InetAddr_base = struct
     (*$T parzer
       parzer (String.to_list "123.123.123.123") = \
         Peg.Res (Unix.inet_addr_of_string "123.123.123.123", [])
-      parzer (String.to_list "eneide.happyleptic.org") = \
-        Peg.Res (Unix.inet_addr_of_string "213.251.171.101", [])
+      parzer (String.to_list "pim.happyleptic.org") = \
+        Peg.Res (Unix.inet_addr_of_string "5.135.156.187", [])
      *)
 
     (*$>*)
