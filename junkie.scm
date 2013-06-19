@@ -10,13 +10,15 @@ Or just run: junkie -c this_file
              (junkie runtime)
              (ice-9 threads))
 
-(set-log-file (string-append (getenv "CPN_LOG_DIR") "/junkie.log"))
+(define (getenv-default def s) (or (getenv s) def))
+
+(set-log-file (string-append (getenv-default "." "CPN_LOG_DIR") "/junkie.log"))
 ;(set-log-level log-debug)
 ;(set-log-level log-err "mutex")
 ;(set-log-level log-err "proto")
 
 ; find all the FIFOs in which we are supposed to write
-(define fifodir (getenv "CPN_DB_BASE_DIR"))
+(define fifodir (getenv-default "." "CPN_DB_BASE_DIR"))
 (define (get-fifo name)
   (let ((fname (string-append fifodir "/" name ".fifo")))
     (open-file fname "alb"))) ; append, line buffered, binary
@@ -635,11 +637,9 @@ Or just run: junkie -c this_file
 
 (start-repl-server)
 
-(let ((ifaces (getenv "SNIFF_IFACES"))
-      (capfilter (getenv "SNIFF_CAPTURE_FILTER")))
-  (if ifaces
-      (set-ifaces ifaces #:capfilter (or capfilter ""))
-      (slog log-crit "SNIFF_IFACES not defined, don't know what to listen"))
+(let ((ifaces (getenv-default "eth0" "SNIFF_IFACES"))
+      (capfilter (getenv-default "" "SNIFF_CAPTURE_FILTER")))
+  (set-ifaces ifaces #:capfilter capfilter)
   (if (null? (iface-names))
       (slog log-crit "It seams SNIFF_IFACES (~a) matches no ifaces" ifaces)))
 

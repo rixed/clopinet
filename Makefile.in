@@ -175,6 +175,7 @@ distribution.cmx: tuple5.cmx least63.cmx
 flow.cmx: tuple13.cmx least63.cmx uLeast63.cmx
 metric.cmx: tuple2.cmx
 traffic.cmx: tuple2.cmx tuple17.cmx tuple3.cmx least63.cmx uLeast63.cmx
+web.cmx: tuple2.cmx tuple13.cmx least63.cmx uLeast63.cmx
 
 clean-spec:
 	$(MAKE) -C www clean
