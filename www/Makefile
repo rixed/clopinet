@@ -29,7 +29,7 @@ index.cgi: index.opt
 	@echo '#!/bin/sh' > $@
 	@echo 'export LD_LIBRARY_PATH="$(libdir)"' >> $@
 	@echo '. "$(sysconfdir)/clopinet.conf"' >> $@
-	@echo 'exec "$(bindir)/index.opt"' >> $@
+	@echo 'exec "$(bindir)/index.opt" 2>/dev/null' >> $@
 	@chmod a+x $@
 
 install: index.opt index.cgi
