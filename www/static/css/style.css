@@ -8,6 +8,19 @@ html {
     background-color: #e8e8e8;
 }
 
+:-moz-placeholder {
+	color: #ccc;
+}
+::-moz-placeholder {
+	color: #ccc;
+}
+::-webkit-input-placeholder {
+	color: #ccc;
+}
+:-ms-input-placeholder {
+	color: #ccc;
+}
+
 
 /*
    Layout
