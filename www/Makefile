@@ -36,7 +36,7 @@ install: index.opt index.cgi
 	install -d "$(wwwdir)"
 	install index.opt "$(bindir)"
 	install index.cgi "$(wwwdir)"
-	cp -r static "$(wwwdir)/static"
+	cp -r static "$(wwwdir)/"
 
 uninstall:
 	rm -f "$(bindir)/index.opt"
