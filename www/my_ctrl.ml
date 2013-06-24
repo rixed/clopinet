@@ -204,8 +204,8 @@ struct
                 Chart.xy_plot ~svg_width ~svg_height ~stacked:Chart.Stacked
                               ~force_show_0:true ~string_of_x:(string_of_date time_chg_unit) ~show_rate:true
                               "time" ~x_label_for_rate:"secs" what
-                              (Timestamp.to_unixfloat start *. time_chg_unit)
-                              (time_step *. time_chg_unit) nb_vx
+                              (Timestamp.to_unixfloat start)
+                              time_step ~scale_vx:time_chg_unit nb_vx
                               { Chart.fold = fold }
 
     let bw_chart_descr =
@@ -434,8 +434,8 @@ struct
             Chart.xy_plot ~svg_width ~svg_height
                           ~string_of_x:(string_of_date time_chg_unit) ~stacked:Chart.Stacked
                           "time" "secs"
-                          (Timestamp.to_unixfloat start *. time_chg_unit)
-                          (time_step *. time_chg_unit) nb_vx
+                          (Timestamp.to_unixfloat start)
+                          time_step ~scale_vx:time_chg_unit nb_vx
                           { Chart.fold = fold }
         | None -> []
 
@@ -582,8 +582,8 @@ struct
             Chart.xy_plot ~svg_width ~svg_height
                           ~string_of_x:(string_of_date time_chg_unit) ~stacked:Chart.Stacked
                           "time" "secs"
-                          (Timestamp.to_unixfloat start *. time_chg_unit)
-                          (time_step *. time_chg_unit) nb_vx
+                          (Timestamp.to_unixfloat start)
+                          time_step ~scale_vx:time_chg_unit nb_vx
                           { Chart.fold = fold }
         | None -> []
 

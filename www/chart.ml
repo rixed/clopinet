@@ -129,9 +129,13 @@ let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.str
             ?(axis_arrow_h=11.)
             ?(vxmin_filter="filter/start") ?(vxmax_filter="filter/stop") ?(vxstep_filter="filter/tstep")
             ?(stacked=NotStacked) ?(force_show_0=false) ?(show_rate=false) ?x_label_for_rate
+            ?(scale_vx=1.)
             x_label y_label
-            vx_min vx_step nb_vx
+            vx_min_unscaled vx_step_unscaled nb_vx
             fold =
+    let vx_min = vx_min_unscaled *. scale_vx
+    and vx_step = vx_step_unscaled *. scale_vx
+    and vx_max_unscaled = vx_min_unscaled +. (float_of_int nb_vx -. 0.5) *. vx_step_unscaled in
     let force_show_0 = if stacked = StackedCentered then true else force_show_0 in
     let y_label_grid = if show_rate then y_label ^"/"^ (x_label_for_rate |? x_label) else y_label in
     (* build iter and map from fold *)
@@ -277,5 +281,13 @@ let xy_plot ?(string_of_y=Datatype.string_of_number) ?(string_of_y2=Datatype.str
                    h3 "Legend" ] @
                  (map_datasets legend_of_dataset)) ] ] ] ;
         (* for this we really do want stdlib's string_of_float not our stripped down version *)
-        script ~attrs:["class","interactive"] ("svg_explore_plot('plot', "^string_of_float vx_min^", "^string_of_float vx_max^", "^string_of_float x_axis_xmin^", "^string_of_float x_axis_xmax^", "^string_of_float vx_step^", '"^vxmin_filter^"', '"^vxmax_filter^"', '"^vxstep_filter^"');") ]
+        script ~attrs:["class","interactive"]
+            ("svg_explore_plot('plot', "^ string_of_float vx_min_unscaled ^", "^
+                string_of_float vx_max_unscaled ^", "^
+                string_of_float x_axis_xmin ^", "^
+                string_of_float x_axis_xmax ^", "^
+                string_of_float vx_step_unscaled ^", "^
+                "'"^ vxmin_filter ^"', "^
+                "'"^ vxmax_filter ^"', "^
+                "'"^ vxstep_filter ^"');") ]
 
